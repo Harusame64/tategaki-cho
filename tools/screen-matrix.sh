@@ -40,7 +40,10 @@ for pr in $PROFILES; do
       for _ in $(seq 1 120); do $ADB logcat -d -s SHOT:I | grep -q " ${t}_$n\$" && { seen=1; break; }; sleep 0.5; done
       # A screen that never said it was ready is not captured: a picture of whatever is showing would pass for it.
       if [ -z "$seen" ]; then echo "$name: ${t}_$n never became ready, not captured"; FAILED=1; continue; fi
-      sleep 1.5; $ADB exec-out screencap -p > "$D/${t}_$n.png"
+      sleep 1.5
+      if ! $ADB exec-out screencap -p > "$D/${t}_$n.png" || [ ! -s "$D/${t}_$n.png" ]; then
+        echo "$name: ${t}_$n could not be captured"; rm -f "$D/${t}_$n.png"; FAILED=1
+      fi
     done
   done
   for _ in $(seq 1 200); do grep -q "OK\|FAIL" "$D/inst.txt" 2>/dev/null && break; sleep 1; done
