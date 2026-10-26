@@ -73,12 +73,27 @@ abstract class ThemedActivity extends Activity {
         return d;
     }
 
+    /** Android's smallest comfortable touch target (A11yTest checks it). */
+    static final int TOUCH_DP = 48;
+
     TextView iconButton(String label) {
         TextView b = text(label, 22, fg);
         b.setGravity(Gravity.CENTER);
-        b.setMinWidth(dp(44));
-        b.setMinHeight(dp(44));
+        b.setMinWidth(dp(TOUCH_DP));
+        b.setMinHeight(dp(TOUCH_DP));
         return b;
+    }
+
+    /**
+     * A pill button as Material draws chips: the view is a full touch target high, the pill drawn 32dp high
+     * in its middle.
+     */
+    void pill(TextView c, int color) {
+        c.setMinHeight(dp(TOUCH_DP));
+        c.setMinWidth(dp(TOUCH_DP));                                       // a one-word pill (人気, 保留) too
+        c.setGravity(Gravity.CENTER);
+        c.setPadding(dp(12), 0, dp(12), 0);
+        c.setBackground(new android.graphics.drawable.InsetDrawable(round(color, dp(16)), 0, dp((TOUCH_DP - 32) / 2), 0, dp((TOUCH_DP - 32) / 2)));
     }
 
     int dialogTheme() {

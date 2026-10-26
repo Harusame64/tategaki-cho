@@ -373,12 +373,9 @@ public class AozoraActivity extends ThemedActivity {
 
     TextView chip(String label) {
         TextView c = text(label, 14, fg);
-        c.setPadding(dp(12), dp(8), dp(12), dp(8));
-        c.setBackground(round(card, dp(18)));
+        pill(c, card);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = dp(8);
-        lp.topMargin = dp(4);
-        lp.bottomMargin = dp(4);
         c.setLayoutParams(lp);
         return c;
     }

@@ -73,6 +73,8 @@ public class SearchActivity extends ThemedActivity {
         q.setGravity(Gravity.CENTER_VERTICAL);
         q.setPadding(0, dp(10), 0, dp(4));
         word = new EditText(this);
+        word.setMinHeight(dp(TOUCH_DP));
+        word.setMinimumHeight(dp(TOUCH_DP));
         word.setHint("作品名・作者名・キーワード");
         word.setSingleLine(true);
         word.setTextColor(fg);
@@ -165,8 +167,7 @@ public class SearchActivity extends ThemedActivity {
 
     TextView chip(String label) {
         TextView c = text(label, 14, fg);
-        c.setPadding(dp(12), dp(8), dp(12), dp(8));
-        c.setBackground(round(card, dp(18)));
+        pill(c, card);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = dp(8);
         c.setLayoutParams(lp);

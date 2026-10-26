@@ -153,7 +153,8 @@ public class ShelfActivity extends ThemedActivity {
         resume.setOrientation(LinearLayout.VERTICAL);
         root.addView(resume);
         sortLabel = text("", 14, sub);
-        sortLabel.setPadding(0, dp(18), 0, dp(6));
+        sortLabel.setPadding(0, dp(14), 0, dp(4));
+        sortLabel.setMinHeight(dp(TOUCH_DP));
         sortLabel.setOnClickListener(this::sortMenu);
         root.addView(sortLabel);
         list = new LinearLayout(this);
@@ -386,8 +387,7 @@ public class ShelfActivity extends ThemedActivity {
 
     TextView tagChip(String label, boolean on, Runnable pick) {
         TextView c = text(label, 13, on ? 0xFFFFFFFF : fg);
-        c.setPadding(dp(12), dp(6), dp(12), dp(6));
-        c.setBackground(round(on ? accent : card, dp(16)));
+        pill(c, on ? accent : card);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = dp(6);
         c.setLayoutParams(lp);
