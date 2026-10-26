@@ -65,3 +65,5 @@ Android 端末で Google のバックアップが有効な場合、本棚、読�
 このポリシーについてのお問い合わせは、次のメールアドレスへお送りください。
 
 coming-choir3c@icloud.com
+
+アプリの不具合やご要望は、[報告ページ（Issues）](https://github.com/Harusame64/tategaki-cho/issues)へお寄せください。報告ページは誰でも読むことができます。名前やメールアドレスなどの個人情報は書かないでください。
