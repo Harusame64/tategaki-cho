@@ -36,6 +36,9 @@ public final class KakuyomuWork {
 	public final boolean finished;
 	public final List<Episode> episodes;
 
+	/** An episode id as カクヨム writes it: digits only. */
+	public static final java.util.regex.Pattern EPISODE_ID = java.util.regex.Pattern.compile("\\d{1,30}");
+
 	private KakuyomuWork(String id, String title, String author, String authorUrl, boolean finished, List<Episode> episodes) {
 		this.id = id;
 		this.title = title;
@@ -79,7 +82,12 @@ public final class KakuyomuWork {
 				for (int j = 0; j < us.length(); j++) {
 					JSONObject e = deref(state, us.optJSONObject(j));
 					if (e == null || !"Episode".equals(e.optString("__typename"))) continue;
-					eps.add(new Episode(e.optString("id"), e.optString("title"), j == 0 ? heading : null));
+					// The id becomes part of a file name (k<id>.html): only the digits カクヨム uses are taken, so
+					// a page cannot name a path ("../"). The chapter heading goes to the first episode kept.
+					String id = e.optString("id");
+					if (!EPISODE_ID.matcher(id).matches()) continue;
+					eps.add(new Episode(id, e.optString("title"), heading));
+					heading = null;
 				}
 			}
 		}

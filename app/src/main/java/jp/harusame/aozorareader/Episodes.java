@@ -73,6 +73,7 @@ final class Episodes {
         if (ep != null && Shelf.isKakuyomu((String) ep[0])) {
             // Kept by the episode's id, so an episode added or removed before it does not shift what n holds.
             String id = KakuyomuSite.idOf(c, (String) ep[0], (Integer) ep[1]);
+            if (id != null && !jp.harusame.aozorareader.core.KakuyomuWork.EPISODE_ID.matcher(id).matches()) id = null;   // a list kept before ids were checked
             return new File(c.getFilesDir(), "episodes/" + ep[0] + "/" + (id == null ? "pending-" + ep[1] : "k" + id) + ".html");
         }
         if (ep != null) return new File(c.getFilesDir(), "episodes/" + ep[0] + "/" + ep[1] + ".html");

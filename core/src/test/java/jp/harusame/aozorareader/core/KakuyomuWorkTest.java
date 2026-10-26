@@ -66,4 +66,17 @@ class KakuyomuWorkTest {
         assertEquals(2, w.episodes.size());
         assertEquals("12", w.episodes.get(1).id);
     }
+
+    @Test
+    void anEpisodeIdThatIsNotDigitsIsDropped() {
+        // The id becomes a file name (k<id>.html): a page naming a path must not get one.
+        String page = PAGE.replace("\"Episode:11\":{\"__typename\":\"Episode\",\"id\":\"11\"",
+                "\"Episode:11\":{\"__typename\":\"Episode\",\"id\":\"../../shelf\"")
+                .replace("\"Episode:13\":{\"__typename\":\"Episode\",\"id\":\"13\"",
+                        "\"Episode:13\":{\"__typename\":\"Episode\",\"id\":\"13x\"");
+        KakuyomuWork w = KakuyomuWork.fromPage(page);
+        assertEquals(1, w.episodes.size());
+        assertEquals("12", w.episodes.get(0).id);
+        assertEquals("第一章", w.episodes.get(0).chapter, "the chapter heading moves to the first episode kept");
+    }
 }

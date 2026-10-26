@@ -89,6 +89,7 @@ public class ReaderActivity extends Activity {
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setAllowFileAccess(false);
+        s.setAllowContentAccess(false);                                     // the page is given its text; it opens nothing
         s.setBlockNetworkLoads(true);
         web.setVerticalScrollBarEnabled(false);
         web.setHorizontalScrollBarEnabled(false);
