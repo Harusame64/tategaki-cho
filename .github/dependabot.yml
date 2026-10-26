@@ -1,0 +1,19 @@
+# Monthly, one grouped PR per ecosystem. Bumps are judged by a local E2E run on the emulator
+# (docs/e2e.md), not by CI alone, so single-dependency PRs would only be noise.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      gradle:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]

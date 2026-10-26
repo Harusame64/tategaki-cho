@@ -28,5 +28,5 @@ with the app: `app/src/main/assets/guide.txt`.
 
 ## Licence
 
-GPLv3 (`LICENSE.txt`, `gpl.txt`), as the formatter it builds on. Bundled fonts and libraries:
+GPLv3, as the formatter it builds on: the licence text is `LICENSE`, the copyright notice `NOTICE`. Bundled fonts and libraries:
 `THIRD-PARTY-NOTICES.txt`.

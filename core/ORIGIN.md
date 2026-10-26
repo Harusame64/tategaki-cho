@@ -2,7 +2,7 @@
 
 `core/src/main/java/com/github/hmdev/**` and `core/src/main/resources/aozora/**` are copied from
 [AozoraEpub3-JDK21](https://github.com/Harusame64/AozoraEpub3-JDK21) at commit **f208cff2**
-(v1.7.5-jdk21), itself based on hmdev/AozoraEpub3. GPLv3 — see `LICENSE.txt` and `gpl.txt`.
+(v1.7.5-jdk21), itself based on hmdev/AozoraEpub3. GPLv3 — see `NOTICE` and `LICENSE`.
 
 The copy is the set javac needed to compile the formatter (`converter`) and the web extraction
 (`web`) on 2026-10-24: 52 source files in `config`, `converter`, `image`, `info`, `io`, `pipeline`,
