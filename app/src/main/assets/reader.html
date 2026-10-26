@@ -695,7 +695,7 @@ span.sesame{text-emphasis-position:over right}
 </style></head><body>
 <div id="book" class="pagebox">%%BOOK%%</div><div id="credit"></div><div id="pg"></div>
 <div id="info"></div>
-<div id="guide"><div class="z n"><b>次のページ</b><span>ここを触る<br>または右へスワイプ</span></div><div class="z m"><b>メニュー</b><span>目次<br>設定<br>作品</span></div><div class="z p"><b>前のページ</b><span>ここを触る<br>または左へスワイプ</span></div><div class="foot">どこかを触ると閉じます<br>Aa の「触る場所」でいつでも見直せます</div></div>
+<div id="guide"><div class="z n"><b>次のページ</b><span>ここをタップ<br>または右へスワイプ</span></div><div class="z m"><b>メニュー</b><span>目次<br>設定<br>作品</span></div><div class="z p"><b>前のページ</b><span>ここをタップ<br>または左へスワイプ</span></div><div class="foot">どこかをタップすると閉じます<br>Aa の「触る場所」でいつでも見直せます</div></div>
 <div id="end"><div class="card"><div class="t"></div><div class="a"></div><div class="btns"></div></div></div>
 <div id="toc"><div class="hd"><span class="tt">目次</span><button id="tocx">閉じる</button></div><div class="st"></div><div class="ls"></div></div>
 <script>var INFO=%%INFO%%, START=%%START%%, SHARE=%%SHARE%%, PREFS=%%PREFS%%;</script><script>
@@ -771,14 +771,16 @@ span.sesame{text-emphasis-position:over right}
     if(i){
       t='<div class="t">'+esc(i.workTitle||'')+'</div><div class="a">作者：'+esc(i.author||'不明')
         +(i.number?'　（'+esc(i.number)+'）':'')+'</div>';
-      t+='<a href="'+esc(i.page||i.url)+'">この話を原作サイトで開く</a>';
-      if(i.workUrl)t+='<a href="'+esc(i.workUrl)+'">作品ページ（目次）</a>';
-      if(i.authorUrl)t+='<a href="'+esc(i.authorUrl)+'">作者のページ</a>';
-      t+='<div class="note">感想・評価・ブックマークは原作サイトでどうぞ。</div>';
+      // Links only to a site: the bundled guide book has none.
+      var site=/^https:/.test(i.page||i.url||'');
+      if(site)t+='<a href="'+esc(i.page||i.url)+'">この話を原作サイトで開く</a>';
+      if(/^https:/.test(i.workUrl||''))t+='<a href="'+esc(i.workUrl)+'">作品ページ（目次）</a>';
+      if(/^https:/.test(i.authorUrl||''))t+='<a href="'+esc(i.authorUrl)+'">作者のページ</a>';
+      if(site)t+='<div class="note">感想・評価・ブックマークは原作サイトでどうぞ。</div>';
     }
     info.querySelector('.head').innerHTML=t;
     info.querySelector('.wt').textContent=i?(i.workTitle||''):'';
-    info.querySelector('#tocb').style.display=i&&i.workUrl?'':'none';
+    info.querySelector('#tocb').style.display=i&&(i.workUrl||ao)?'':'none';
     // カクヨム's episodes are named by id (kakuyomu://<work>/e/<id>): marked in the 目次 by it, not by a number.
     curId=i&&i.id?String(i.id):'';
     var m=!curId&&i&&i.url&&i.url.match(/\/(\d+)\/?$/); curNo=i&&i.no?Number(i.no):m?Number(m[1]):0;

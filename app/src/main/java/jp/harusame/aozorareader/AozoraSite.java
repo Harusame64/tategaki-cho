@@ -205,6 +205,8 @@ final class AozoraSite {
 
     static JSONObject meta(Context c, String key) throws Exception {
         File f = new File(worksDir(c), key + ".json");
+        if (Guide.is(key) && !f.isFile())
+            return new JSONObject().put("title", Guide.TITLE).put("author", "たてがき帖").put("card", "").put("zip", "");
         File old = new File(c.getFilesDir(), "episodes/" + key + "/meta.json");
         if (!f.isFile() && old.isFile()) old.renameTo(f);           // where it was kept before
         return new JSONObject(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
@@ -216,6 +218,7 @@ final class AozoraSite {
 
     /** The ruby text of the work: its zip fetched once, the .txt in it read as Shift_JIS (MS932). */
     static String text(Context c, String key) throws Exception {
+        if (Guide.is(key)) return Guide.text(c);                       // bundled: nothing to fetch
         String zipUrl = meta(c, key).getString("zip");
         URL u = new URL(zipUrl);
         if (!"https".equals(u.getProtocol()) || !"www.aozora.gr.jp".equals(u.getHost()))

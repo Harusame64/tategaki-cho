@@ -25,7 +25,7 @@ core/   plain Java (no Android): aozora's formatter, copied from AozoraEpub3-JDK
           XhtmlSections, EpisodeInfo, KakuyomuWork, Toc
 app/    the Android app (Java, minSdk 26, targetSdk 36), one WebView page for reading
 art/    the icon source (SVG) and the 512px Play icon
-docs/   this file, e2e.md, guide-draft.txt (the bundled guide book, in Aozora notation)
+docs/   this file, e2e.md
 ```
 
 ### core
@@ -144,6 +144,13 @@ and the backup limit is 25 MB).
   (`KakuyomuSite.remap`).
 
 ## Shelf
+
+- **The guide book** 「たてがき帖の使い方」 (`assets/guide.txt`, Aozora notation) is put on a new shelf
+  once (`Guide`). It is read as a 青空文庫 work under id 000000, which 青空文庫 does not use, with its text
+  from the app itself: no request, a 目次, no links to a site. Taken off, it stays off; ＋ has
+  使い方の本を本棚に戻す.
+- **はじめかた**: on a shelf with nothing but the guide book, a card with 作品を探す, ランキング,
+  青空文庫から探す and URL を貼って足す.
 
 - Adding: share (`ACTION_SEND` text) or paste a URL (なろう, カクヨム), search/ranking (なろう),
   the 青空文庫 tab.

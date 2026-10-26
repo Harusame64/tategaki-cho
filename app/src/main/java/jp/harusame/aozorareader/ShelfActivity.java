@@ -60,6 +60,7 @@ public class ShelfActivity extends ThemedActivity {
         int pad = dp(18);
         root.setPadding(pad, dp(20), pad, pad);
         sort = getSharedPreferences("reader", MODE_PRIVATE).getInt("shelfSort", 0);
+        Guide.ensure(this);                                                 // the bundled book, on a new shelf
         // 本棚 ……… ⟳ ＋
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
@@ -233,12 +234,22 @@ public class ShelfActivity extends ThemedActivity {
         for (int i = 0; i < ranks.length; i++) rank.add(1, 10 + i, i, ranks[i][0]);
         m.getMenu().add(0, 3, 2, "URL を貼って足す");
         m.getMenu().add(0, 4, 3, "青空文庫から探す");
+        if (shelf.find(Guide.KEY) == null) m.getMenu().add(0, 5, 4, "使い方の本を本棚に戻す");
         m.setOnMenuItemClickListener(i -> {
             int id = i.getItemId();
             if (id == 1) startActivity(new Intent(this, SearchActivity.class));
             else if (id >= 10) startActivity(new Intent(this, SearchActivity.class).putExtra("order", ranks[id - 10][1]));
             else if (id == 3) askUrl();
             else if (id == 4) startActivity(new Intent(this, AozoraActivity.class));
+            else if (id == 5) BG.execute(() -> {
+                try {
+                    Guide.add(this);
+                    Shelf s = Shelf.load(this);
+                    runOnUiThread(() -> { shelf = s; render(); });
+                } catch (Exception e) {
+                    Log.e(Shelf.TAG, "guide", e);
+                }
+            });
             return true;
         });
         m.show();
@@ -604,6 +615,41 @@ public class ShelfActivity extends ThemedActivity {
         for (java.util.Map.Entry<String, TextView> e : savingMeta.entrySet()) showSaving(e.getKey(), e.getValue());
     }
 
+    /** はじめかた: on a shelf with no work yet (the bundled book aside), the ways to put one there. */
+    View startCard() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(16), dp(14), dp(16), dp(14));
+        box.setBackground(round(card, dp(12)));
+        TextView t = text("はじめかた", 16, fg);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        box.addView(t);
+        TextView note = text("作品を本棚に入れると、縦書きで読めます。ブラウザで小説家になろう・カクヨムの作品を開き、「共有」からたてがき帖を選んでも入ります。", 13, sub);
+        note.setPadding(0, dp(6), 0, dp(8));
+        box.addView(note);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        String[] labels = {"作品を探す", "ランキング", "青空文庫から探す", "URL を貼って足す"};
+        for (int i = 0; i < labels.length; i++) {
+            TextView b = text(labels[i], 15, accent);
+            b.setPadding(0, dp(10), 0, dp(10));
+            int n = i;
+            b.setOnClickListener(v -> {
+                if (n == 0) startActivity(new Intent(this, SearchActivity.class));
+                else if (n == 1) startActivity(new Intent(this, SearchActivity.class).putExtra("order", "dailypoint"));
+                else if (n == 2) startActivity(new Intent(this, AozoraActivity.class));
+                else askUrl();
+            });
+            row.addView(b);
+        }
+        box.addView(row);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(12);
+        lp.bottomMargin = dp(12);
+        box.setLayoutParams(lp);
+        return box;
+    }
+
     void render() {
         renderTags();
         list.removeAllViews();
@@ -613,11 +659,9 @@ public class ShelfActivity extends ThemedActivity {
         if (picked != null) selectCount.setText(picked.size() + " 作品を選択中");
         sortLabel.setText(SORTS[sort] + " ▾");
         sortLabel.setVisibility(shelf.works.isEmpty() ? View.GONE : View.VISIBLE);
-        if (shelf.works.isEmpty()) {
-            TextView t = text("まだ作品がありません。\n\nブラウザでなろう・カクヨムの作品を開き「共有」からこのアプリを選ぶか、右上の ＋ から URL を貼ると本棚に入ります。", 15, sub);
-            t.setPadding(0, dp(28), 0, dp(20));
-            list.addView(t);
-        }
+        boolean onlyGuide = true;
+        for (Shelf.Work w : shelf.works) if (!Guide.is(w.ncode)) { onlyGuide = false; break; }
+        if (onlyGuide && picked == null) list.addView(startCard());
         // 続きを読む: the work read last.
         Shelf.Work last = null;
         for (Shelf.Work w : shelf.works) if (w.lastRead > 0 && (last == null || w.lastRead > last.lastRead)) last = w;
@@ -696,7 +740,7 @@ public class ShelfActivity extends ThemedActivity {
         }
         r.addView(top);
         String meta = (w.author == null || w.author.isEmpty() ? "" : w.author + "　")
-                + (Shelf.isAozora(w.ncode) ? "青空文庫" : w.shortStory ? "短編" : w.finished ? "完結" : "連載中");
+                + (Guide.is(w.ncode) ? "使い方" : Shelf.isAozora(w.ncode) ? "青空文庫" : w.shortStory ? "短編" : w.finished ? "完結" : "連載中");
         TextView m = text(meta, 13, sub);
         m.setTag(meta);
         savingMeta.put(w.ncode, m);
@@ -768,14 +812,15 @@ public class ShelfActivity extends ThemedActivity {
     /** Long press: share the work (LINE, X, …), open its page, or take it off the shelf. */
     void workMenu(View anchor, Shelf.Work w) {
         PopupMenu m = new PopupMenu(this, anchor, Gravity.END);
-        m.getMenu().add(0, 1, 0, "共有");
-        m.getMenu().add(0, 2, 1, "作品ページを開く");
+        boolean guide = Guide.is(w.ncode);                                  // bundled: no site to share or open
+        if (!guide) m.getMenu().add(0, 1, 0, "共有");
+        if (!guide) m.getMenu().add(0, 2, 1, "作品ページを開く");
         m.getMenu().add(0, 4, 2, "タグ…");
         if (FullSave.offered(w))
             m.getMenu().add(0, 5, 3, !FullSave.PROGRESS.containsKey(w.ncode) ? "全話を保存"
                     : FullSave.STOP.contains(w.ncode) ? "全話の保存を止めています…" : "全話の保存を止める")
                     .setEnabled(!FullSave.STOP.contains(w.ncode) || !FullSave.PROGRESS.containsKey(w.ncode));
-        m.getMenu().add(0, 6, 4, "保存した話を消す");
+        if (!guide) m.getMenu().add(0, 6, 4, "保存した話を消す");
         m.getMenu().add(0, 3, 5, "本棚から外す");
         m.setOnMenuItemClickListener(i -> {
             if (i.getItemId() == 1) {

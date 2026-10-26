@@ -23,7 +23,8 @@ JDK 21 and the Android SDK (compileSdk 36).
 ./gradlew :core:test :app:testPublicE2eUnitTest
 ```
 
-How the app is built: `docs/design.md`. The E2E scenarios: `docs/e2e.md`.
+How the app is built: `docs/design.md`. The E2E scenarios: `docs/e2e.md`. The guide book bundled
+with the app: `app/src/main/assets/guide.txt`.
 
 ## Licence
 

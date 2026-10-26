@@ -68,6 +68,9 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | D3 | 全話を保存 is in the long-press menu of the personal build only | theMenuOffersFullSaveOnlyInThePersonalBuild (GoneTest) |
 | D4 | A なろう work out of the API but still on its page (out of search) keeps its text, is not marked or reported in the store build; its page is asked at most once a day | aWorkOutOfSearchButStillOnItsPageKeepsItsText (GoneTest) |
 | D5 | Store build: one 404 from the page only marks (and reports) the work; the text goes when the page still says so a day later, and the page is not asked after that | onePageAnswerOnlyMarksTheWork (GoneTest) |
+| B1 | A new shelf holds the guide book, and はじめかた offers the ways to add a work | aNewShelfHoldsTheGuideAndHowToStart (GuideBookTest) |
+| B2 | The guide book opens without a request, with a 目次 and no links to a site | theGuideOpensOfflineWithoutSiteLinks (GuideBookTest) |
+| B3 | Taken off, the guide stays off at the next start, and ＋ puts it back | takenOffItStaysOffAndComesBackFromPlus (GuideBookTest) |
 | T1 | From the read log, the 本棚 tab leads back to the shelf | theShelfTabLeavesTheReadLog |
 | K1 | カクヨム: an episode inserted before the one read; "next" opens the one after it, and the place follows | nextAfterAnInsertBefore (KakuyomuTest) |
 | K2 | カクヨム: the list changes while the 目次 is open; the episode tapped is the one opened | aTocJumpAfterTheListChanged |

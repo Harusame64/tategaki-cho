@@ -64,8 +64,11 @@ final class E2E {
         finishAll();
         Context c = ctx();
         for (File f : c.getFilesDir().listFiles()) Shelf.deleteTree(f);
-        // The first-time tap guide is taken as seen, so taps reach the page; GuideTest starts without this.
-        c.getSharedPreferences("reader", Context.MODE_PRIVATE).edit().clear().putString("display", "{\"guided\":true}").commit();
+        // The first-time tap guide is taken as seen, so taps reach the page (GuideTest starts without this), and
+        // the bundled guide book as put on the shelf already, so the shelf holds only what a test puts there
+        // (GuideBookTest starts without it).
+        c.getSharedPreferences("reader", Context.MODE_PRIVATE).edit().clear().putString("display", "{\"guided\":true}")
+                .putBoolean(Guide.SEEDED, true).commit();
         net.clear();
         Net.asked.clear();
         Net.fake = net::get;
