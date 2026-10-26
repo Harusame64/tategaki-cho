@@ -14,13 +14,15 @@ import org.json.JSONObject;
 /** The shelf and the search screen: the reader's theme, and the small view helpers they share. */
 abstract class ThemedActivity extends Activity {
     int bg, fg, sub, line, card, accent;
+    /** text on an accent fill: white on the light themes' deep accents, near black on the dark themes' pale one */
+    int onAccent;
     /**
      * Shelf writes (add, remove, open) run here: one worker for the app's life, so leaving a screen does not cut
      * an add short, and none waits behind a screen's own long task (a check for new episodes).
      */
     static final java.util.concurrent.ExecutorService BG = java.util.concurrent.Executors.newSingleThreadExecutor();
 
-    static final int TAB_NONE = -1, TAB_SHELF = 0, TAB_SEARCH = 1, TAB_AOZORA = 2;
+    static final int TAB_SHELF = 0, TAB_SEARCH = 1, TAB_AOZORA = 2;
 
     /**
      * The screen's content above the tabs shared by the shelf, the search and 青空文庫, so the shelf is one tap
@@ -58,6 +60,14 @@ abstract class ThemedActivity extends Activity {
         applyBars();
     }
 
+    /** A screen reached from a menu (読書の記録): no tabs, as it belongs to none of them; it has its own back button. */
+    void setContentAlone(android.view.View content) {
+        content.setBackgroundColor(bg);
+        setContentView(content);
+        content.setFitsSystemWindows(true);
+        applyBars();
+    }
+
     /** Dark bar icons on a light background, light ones on a dark one; the window takes the theme's colour. */
     void applyBars() {
         getWindow().getDecorView().setBackgroundColor(bg);
@@ -76,14 +86,6 @@ abstract class ThemedActivity extends Activity {
     /** Android's smallest comfortable touch target (A11yTest checks it). */
     static final int TOUCH_DP = 48;
 
-    TextView iconButton(String label) {
-        TextView b = text(label, 22, fg);
-        b.setGravity(Gravity.CENTER);
-        b.setMinWidth(dp(TOUCH_DP));
-        b.setMinHeight(dp(TOUCH_DP));
-        return b;
-    }
-
     /**
      * A pill button as Material draws chips: the view is a full touch target high, the pill drawn 32dp high
      * in its middle.
@@ -94,6 +96,21 @@ abstract class ThemedActivity extends Activity {
         c.setGravity(Gravity.CENTER);
         c.setPadding(dp(12), 0, dp(12), 0);
         c.setBackground(new android.graphics.drawable.InsetDrawable(round(color, dp(16)), 0, dp((TOUCH_DP - 32) / 2), 0, dp((TOUCH_DP - 32) / 2)));
+    }
+
+    /** A toolbar icon (res/drawable/ic_*), in the text colour, a full touch target in size. */
+    android.widget.ImageView icon(int res, String description) {
+        android.widget.ImageView b = new android.widget.ImageView(this);
+        b.setImageResource(res);
+        b.setColorFilter(fg);
+        b.setScaleType(android.widget.ImageView.ScaleType.CENTER);
+        b.setContentDescription(description);
+        b.setMinimumWidth(dp(TOUCH_DP));
+        b.setMinimumHeight(dp(TOUCH_DP));
+        TypedValue ripple = new TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, ripple, true);
+        b.setBackgroundResource(ripple.resourceId);
+        return b;
     }
 
     int dialogTheme() {
@@ -116,6 +133,7 @@ abstract class ThemedActivity extends Activity {
         boolean light = Color.luminance(bg) > 0.5f;
         card = light ? blend(bg, 0xFF000000, 0.05f) : blend(bg, 0xFFFFFFFF, 0.07f);
         accent = light ? ("sepia".equals(t) ? 0xFF7A4B12 : 0xFF1A5FB4) : 0xFF8AB4F8;
+        onAccent = light ? 0xFFFFFFFF : 0xFF1F1F1F;
     }
 
     static int blend(int a, int b, float f) {

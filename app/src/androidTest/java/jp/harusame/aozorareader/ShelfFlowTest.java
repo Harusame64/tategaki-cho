@@ -186,16 +186,21 @@ public class ShelfFlowTest {
         E2E.waitUntil(a::isFinishing, "Back closed the reader");
     }
 
-    /** T1: from the read log, the 本棚 tab leads back to the shelf. */
+    /** T1: the read log, opened from the shelf's ⋮, has no tabs and its back arrow returns to the shelf. */
     @Test
-    public void theShelfTabLeavesTheReadLog() throws Exception {
+    public void theBackArrowLeavesTheReadLog() throws Exception {
         E2E.seedNarou(1, 5);
-        scenario = ActivityScenario.launch(new Intent(E2E.ctx(), LogActivity.class));
+        scenario = ActivityScenario.launch(new Intent(E2E.ctx(), ShelfActivity.class));
+        resumed(ShelfActivity.class);
+        E2E.device().wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.desc("その他")), 5000).click();
+        E2E.device().wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text("読書の記録")), 5000).click();
         Activity log = resumed(LogActivity.class);
-        androidx.test.uiautomator.UiObject2 tab = E2E.device().wait(
-                androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text("本棚")), 5000);
-        assertNotNull("the tab bar shows 本棚", tab);
-        tab.click();
+        assertNull("no tab bar on the read log", E2E.device().findObject(androidx.test.uiautomator.By.text("探す")));
+        androidx.test.uiautomator.UiObject2 back = E2E.device().wait(
+                androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.desc("戻る")), 5000);
+        assertNotNull("the read log has a back arrow", back);
+        back.click();
+        E2E.waitUntil(log::isFinishing, "the back arrow closed the read log");
         resumed(ShelfActivity.class);
     }
 }

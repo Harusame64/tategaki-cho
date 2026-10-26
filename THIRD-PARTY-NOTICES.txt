@@ -87,6 +87,15 @@ distribution.
    URL: https://www.formdev.com/flatlaf/
    License File: LICENSE/flatlaf.txt
 
+--------------------------------------------------------------------------------
+
+8. Material Icons (the app's toolbar icons, app/src/main/res/drawable/ic_*.xml)
+   - search, refresh, add, more_vert, arrow_back, chevron_left, chevron_right
+
+   Copyright: Google LLC
+   License: Apache License 2.0
+   URL: https://github.com/google/material-design-icons
+
 ================================================================================
 
 For complete license texts, please refer to the LICENSE/ directory or visit

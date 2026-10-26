@@ -39,18 +39,28 @@ public class LogActivity extends ThemedActivity {
         ScrollView sv = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(16), dp(16), dp(16), dp(16));
+        root.setPadding(dp(16), dp(8), dp(16), dp(16));
+        // ← 読書の記録: reached from the shelf's ⋮, so it goes back there rather than showing the tabs.
+        LinearLayout head = new LinearLayout(this);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        android.widget.ImageView back = icon(R.drawable.ic_back, "戻る");
+        back.setOnClickListener(v -> finish());
+        head.addView(back);
         TextView h = text("読書の記録", 22, fg);
         h.setTypeface(Typeface.DEFAULT_BOLD);
-        root.addView(h);
+        h.setPadding(dp(8), 0, 0, 0);
+        head.addView(h);
+        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        hlp.leftMargin = -dp(12);                                    // the arrow, not its touch target, lines up with the text
+        root.addView(head, hlp);
         LinearLayout nav = new LinearLayout(this);
         nav.setGravity(Gravity.CENTER_VERTICAL);
         nav.setPadding(0, dp(12), 0, dp(8));
-        TextView prev = iconButton("‹");
+        android.widget.ImageView prev = icon(R.drawable.ic_prev, "前の月");
         prev.setOnClickListener(v -> { month = month.minusMonths(1); show(); });
         title = text("", 17, fg);
         title.setGravity(Gravity.CENTER);
-        TextView next = iconButton("›");
+        android.widget.ImageView next = icon(R.drawable.ic_next, "次の月");
         next.setOnClickListener(v -> { month = month.plusMonths(1); show(); });
         nav.addView(prev);
         nav.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
@@ -67,7 +77,7 @@ public class LogActivity extends ThemedActivity {
         note.setPadding(0, dp(20), 0, 0);
         root.addView(note);
         sv.addView(root);
-        setContentWithTabs(sv, TAB_NONE);                             // reached from the shelf's ⋮; every tab leads away
+        setContentAlone(sv);
         show();
     }
 
@@ -112,7 +122,7 @@ public class LogActivity extends ThemedActivity {
             int p = pages.getOrDefault(d, 0);
             int depth = p == 0 ? 0 : 1 + 3 * p / most;
             // The number stays readable on a deep mark; the day picked is bold.
-            TextView c = cell(String.valueOf(d), depth >= 3 ? 0xFFFFFFFF : date.equals(picked) ? accent : fg, depth, cell, date.equals(LocalDate.now()));
+            TextView c = cell(String.valueOf(d), depth >= 3 ? onAccent : date.equals(picked) ? accent : fg, depth, cell, date.equals(LocalDate.now()));
             if (date.equals(picked)) c.setTypeface(Typeface.DEFAULT_BOLD);
             c.setOnClickListener(v -> { picked = date; show(); });
             grid.addView(c);
@@ -135,7 +145,9 @@ public class LogActivity extends ThemedActivity {
             r.addView(t);
             // 青空文庫 sections and short stories (episode 0) have no 第n話.
             String eps = Shelf.isAozora(e.key) || e.last <= 0 ? "" : e.first == e.last ? "第" + e.first + "話" : "第" + e.first + "〜" + e.last + "話";
-            r.addView(text(eps + (eps.isEmpty() ? "" : "　") + e.pages + " ページ", 12, sub));
+            // An episode opened but not paged through counts no pages: then only the episodes are shown.
+            String line = e.pages > 0 ? eps + (eps.isEmpty() ? "" : "　") + e.pages + " ページ" : eps;
+            if (!line.isEmpty()) r.addView(text(line, 12, sub));
             dayList.addView(r);
         }
     }

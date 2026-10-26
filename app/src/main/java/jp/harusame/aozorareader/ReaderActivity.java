@@ -324,14 +324,17 @@ public class ReaderActivity extends Activity {
         });
     }
 
-    /** {background, text, secondary text, rule} of a theme, the same values as reader.html's THEMES. */
+    /**
+     * {background, text, secondary text, rule} of a theme, the same values as reader.html's THEMES. The
+     * secondary text is at least 4.5:1 on the background and on the shelf's cards (WCAG AA).
+     */
     static int[] themeColors(String theme) {
         switch (theme) {
-            case "white": return new int[]{0xFFFFFFFF, 0xFF111111, 0xFF888888, 0xFFE2E2E2};
-            case "sepia": return new int[]{0xFFF1E7D0, 0xFF4A3B2A, 0xFF8A7A63, 0xFFD9CBAA};
-            case "dark": return new int[]{0xFF1F1F1F, 0xFFD6D2C8, 0xFF8A877F, 0xFF3A3A3A};
-            case "black": return new int[]{0xFF000000, 0xFFA8A49A, 0xFF6B6862, 0xFF2A2A2A};
-            default: return new int[]{0xFFFBF8F1, 0xFF222222, 0xFF888888, 0xFFE4E0D6};
+            case "white": return new int[]{0xFFFFFFFF, 0xFF111111, 0xFF6B6B6B, 0xFFE2E2E2};
+            case "sepia": return new int[]{0xFFF1E7D0, 0xFF4A3B2A, 0xFF6E5F48, 0xFFD9CBAA};
+            case "dark": return new int[]{0xFF1F1F1F, 0xFFD6D2C8, 0xFF9A978F, 0xFF3A3A3A};
+            case "black": return new int[]{0xFF000000, 0xFFA8A49A, 0xFF8A867C, 0xFF2A2A2A};
+            default: return new int[]{0xFFFBF8F1, 0xFF222222, 0xFF6B6B6B, 0xFFE4E0D6};
         }
     }
 

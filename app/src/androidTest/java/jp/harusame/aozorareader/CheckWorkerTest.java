@@ -29,6 +29,10 @@ public class CheckWorkerTest {
         E2E.reset();
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .executeShellCommand("pm grant " + E2E.ctx().getPackageName() + " android.permission.POST_NOTIFICATIONS").close();
+        // The command returns before the grant lands: on a fresh install the check would find notifications off
+        // and do nothing.
+        NotificationManager nm = E2E.ctx().getSystemService(NotificationManager.class);
+        E2E.waitUntil(nm::areNotificationsEnabled, "notifications allowed");
         E2E.ctx().getSystemService(NotificationManager.class).cancelAll();
         CheckWorker.clearNews(E2E.ctx());
     }

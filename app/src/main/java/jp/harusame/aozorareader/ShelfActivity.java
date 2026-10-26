@@ -67,25 +67,20 @@ public class ShelfActivity extends ThemedActivity {
         TextView h = text("本棚", 24, fg);
         h.setTypeface(Typeface.DEFAULT_BOLD);
         head.addView(h, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        TextView find = iconButton("🔍");
-        find.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        find.setContentDescription("本棚を検索");
+        android.widget.ImageView find = icon(R.drawable.ic_search, "本棚を検索");
         find.setOnClickListener(v -> {
             boolean on = filter.getVisibility() != View.VISIBLE;
             filter.setVisibility(on ? View.VISIBLE : View.GONE);
             if (on) filter.requestFocus(); else filter.setText("");
         });
         head.addView(find);
-        TextView check = iconButton("⟳");
-        check.setContentDescription("新着を確認");
+        android.widget.ImageView check = icon(R.drawable.ic_refresh, "新着を確認");
         check.setOnClickListener(v -> { status.setText("新着を確認しています…"); refresh(true); });
         head.addView(check);
-        TextView add = iconButton("＋");
-        add.setContentDescription("作品を足す");
+        android.widget.ImageView add = icon(R.drawable.ic_add, "作品を足す");
         add.setOnClickListener(this::addMenu);
         head.addView(add);
-        TextView more = iconButton("⋮");
-        more.setContentDescription("その他");
+        android.widget.ImageView more = icon(R.drawable.ic_more, "その他");
         more.setOnClickListener(v -> {
             PopupMenu m = new PopupMenu(this, v);
             m.getMenu().add(0, 1, 0, "まとめて外す");
@@ -386,7 +381,7 @@ public class ShelfActivity extends ThemedActivity {
     }
 
     TextView tagChip(String label, boolean on, Runnable pick) {
-        TextView c = text(label, 13, on ? 0xFFFFFFFF : fg);
+        TextView c = text(label, 13, on ? onAccent : fg);
         pill(c, on ? accent : card);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = dp(6);
@@ -748,7 +743,7 @@ public class ShelfActivity extends ThemedActivity {
         m.setPadding(0, dp(3), 0, dp(8));
         r.addView(m);
         if (!w.tags.isEmpty()) {
-            TextView tg = text("#" + String.join("　#", w.tags), 12, accent);
+            TextView tg = text("#" + String.join("　#", w.tags), 12, sub);      // a label, not a link
             tg.setPadding(0, 0, 0, dp(6));
             r.addView(tg);
         }

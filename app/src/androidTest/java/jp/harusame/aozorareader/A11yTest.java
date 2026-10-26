@@ -25,7 +25,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** docs/e2e.md A1: Google's accessibility checks find no error on the native screens, in a light and a dark theme. */
+/**
+ * docs/e2e.md Y1: Google's accessibility checks find no error on the native screens, in a light and a dark theme.
+ * Y2: the reader is a web page those checks do not see into, so its touch targets are measured there.
+ */
 @RunWith(AndroidJUnit4.class)
 public class A11yTest {
     ActivityScenario<?> scenario;
@@ -85,5 +88,46 @@ public class A11yTest {
             all.addAll(screen(SearchActivity.class, theme));
         }
         assertTrue(all.size() + " accessibility errors:\n" + String.join("\n", all), all.isEmpty());
+    }
+
+    /** Every button and link shown in the reader's bars, sheets, 目次 and end card that is under 48 x 48 px (= dp in the WebView). */
+    static final String SMALL = "(function(){var out=[];document.querySelectorAll('#info button,#info a,#toc button,#toc .ep,#end button,#end a').forEach(function(e){"
+            + "var r=e.getBoundingClientRect();if(!r.width||!r.height)return;"
+            + "if(r.width<47.5||r.height<47.5)out.push((e.textContent||e.className).trim().slice(0,10)+' '+Math.round(r.width)+'x'+Math.round(r.height));});"
+            + "return out.join(' | ');})()";
+
+    @Test
+    public void readerTouchTargetsAreFullSize() throws Exception {
+        E2E.seedNarou(3, 5);
+        StringBuilder toc = new StringBuilder("<div class=\"p-eplist\"><div class=\"p-eplist__chapter-title\">第一章</div>");
+        for (int n = 1; n <= 3; n++) toc.append("<div class=\"p-eplist__sublist\"><a href=\"/").append(E2E.NCODE).append("/").append(n)
+                .append("/\" class=\"p-eplist__subtitle\">第").append(n).append("話</a></div>");
+        E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", toc.append("</div>").toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        ActivityScenario<ReaderActivity> s = ActivityScenario.launch(new Intent(E2E.ctx(), ReaderActivity.class)
+                .putExtra("url", Shelf.episodeUrl(E2E.NCODE, 2)).putExtra("page", 0));
+        scenario = s;
+        AtomicReference<Activity> a = new AtomicReference<>();
+        s.onActivity(a::set);
+        E2E.waitReady(a.get());
+        List<String> small = new ArrayList<>();
+        E2E.tapMiddle();
+        E2E.waitFor(a.get(), "document.getElementById('info').classList.contains('on')", "true");
+        SystemClock.sleep(600);                                      // the bars take no click while the tap that opened them is over
+        small.add("bars: " + E2E.js(a.get(), SMALL));
+        E2E.js(a.get(), "document.getElementById('workb').click()");
+        E2E.waitFor(a.get(), "document.getElementById('info').classList.contains('work')", "true");
+        small.add("作品: " + E2E.js(a.get(), SMALL));
+        E2E.js(a.get(), "document.getElementById('dispb').click()");
+        E2E.waitFor(a.get(), "document.getElementById('info').classList.contains('disp')", "true");
+        small.add("Aa: " + E2E.js(a.get(), SMALL));
+        E2E.js(a.get(), "document.getElementById('dispb').click();document.getElementById('tocb').click()");
+        E2E.waitFor(a.get(), "document.getElementById('toc').classList.contains('on')", "true");
+        E2E.waitFor(a.get(), "document.querySelectorAll('#toc .ep').length", "3");
+        small.add("目次: " + E2E.js(a.get(), SMALL));
+        E2E.js(a.get(), "document.getElementById('tocx').click();__reader.end(false,'https://ncode.syosetu.com/" + E2E.NCODE + "/',false)");
+        E2E.waitFor(a.get(), "document.getElementById('end').classList.contains('on')", "true");
+        small.add("end: " + E2E.js(a.get(), SMALL));
+        String all = String.join("\n", small);
+        assertTrue("touch targets under 48px:\n" + all, all.replace("\"\"", "").replaceAll("(?m)^[^:]+: $", "").trim().isEmpty());
     }
 }

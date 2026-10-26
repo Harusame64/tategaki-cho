@@ -72,8 +72,9 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | B2 | The guide book opens without a request, with a 目次 and no links to a site | theGuideOpensOfflineWithoutSiteLinks (GuideBookTest) |
 | B3 | Taken off, the guide stays off at the next start, and ＋ puts it back | takenOffItStaysOffAndComesBackFromPlus (GuideBookTest) |
 | B4 | The end of the guide book offers no link to a site | theGuidesEndCardHasNoSiteLink (GuideBookTest) |
-| A1 | Google's accessibility checks (touch targets, contrast, labels) find no error on the shelf, read log, 青空文庫 and search screens, in a light and a dark theme | nativeScreensPassTheChecks (A11yTest) |
-| T1 | From the read log, the 本棚 tab leads back to the shelf | theShelfTabLeavesTheReadLog |
+| Y1 | Google's accessibility checks (touch targets, contrast, labels) find no error on the shelf, read log, 青空文庫 and search screens, in a light and a dark theme | nativeScreensPassTheChecks (A11yTest) |
+| Y2 | In the reader's bars, 作品 and Aa sheets, 目次 and end card, every button and link is at least 48 × 48 px (the WebView, which Y1's checks do not see into) | readerTouchTargetsAreFullSize (A11yTest) |
+| T1 | The read log, opened from the shelf's ⋮, has no tabs; its back arrow returns to the shelf | theBackArrowLeavesTheReadLog |
 | K1 | カクヨム: an episode inserted before the one read; "next" opens the one after it, and the place follows | nextAfterAnInsertBefore (KakuyomuTest) |
 | K2 | カクヨム: the list changes while the 目次 is open; the episode tapped is the one opened | aTocJumpAfterTheListChanged |
 | K3 | カクヨム: the episode read is deleted; "next" opens the one that followed it | nextAfterTheEpisodeReadIsDeleted |

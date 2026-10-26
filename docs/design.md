@@ -47,7 +47,7 @@ docs/   this file, e2e.md
 | `SearchActivity` | なろう search and ranking (official API) |
 | `AozoraActivity` | 青空文庫: popular, by author, by category, search |
 | `ReaderActivity` | the reader: a WebView with `assets/reader.html`, the bridge `Android.*` |
-| `LogActivity` | the read log (pages per day) |
+| `LogActivity` | the read log (pages per day), with a back arrow and no tabs |
 | `ThemedActivity` | shared look and tabs |
 | `App` | counts the screens shown (for 全話を保存) |
 

@@ -611,7 +611,7 @@ div.jzm40 { max-height: 40em; }
 /* 行内全角スペース調整用 */
 span.fullsp { padding-top:.5em; }
 
-:root{--ff:"Noto Serif CJK JP","Noto Serif JP",serif;--bg:#fbf8f1;--fg:#222;--sub:#888;--card:#faf8f3;--line:#e4e0d6;--link:#1a5fb4;--fs:19px}
+:root{--ff:"Noto Serif CJK JP","Noto Serif JP",serif;--bg:#fbf8f1;--fg:#222;--sub:#6b6b6b;--card:#faf8f3;--line:#e4e0d6;--edge:#8f8b81;--link:#1a5fb4;--fs:19px}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);-webkit-user-select:none;user-select:none}
 .pagebox{writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;position:absolute;overflow:hidden;will-change:transform;
  font-size:var(--fs);line-height:var(--lh,2);font-family:var(--ff);column-fill:auto}
@@ -629,8 +629,8 @@ span.sesame{text-emphasis-position:over right}
 .pagebox .introduction{color:var(--sub);border-top-color:var(--line)}
 .pagebox .postscript{color:var(--fg);border-top-color:var(--sub)}
 #peer{visibility:hidden}
-#pg{writing-mode:horizontal-tb;-webkit-writing-mode:horizontal-tb;position:fixed;bottom:8px;left:0;right:0;text-align:center;font:12px sans-serif;color:var(--sub)}
-#credit{position:fixed;left:22px;bottom:8px;font:12px sans-serif;color:var(--sub);writing-mode:horizontal-tb;
+#pg{writing-mode:horizontal-tb;-webkit-writing-mode:horizontal-tb;position:fixed;bottom:22px;left:0;right:0;text-align:center;font:12px sans-serif;color:var(--sub)}
+#credit{position:fixed;left:22px;bottom:22px;font:12px sans-serif;color:var(--sub);writing-mode:horizontal-tb;
   max-width:45%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #info{display:none;position:fixed;inset:0;writing-mode:horizontal-tb;z-index:9;font:15px/1.6 sans-serif;color:var(--fg)}
 #info.on{display:block}
@@ -644,18 +644,26 @@ span.sesame{text-emphasis-position:over right}
 #info.work .botbar,#info.disp .botbar{display:none}
 #info .t{font-size:17px;font-weight:bold;margin-bottom:4px}
 #info .a{color:var(--sub);margin-bottom:14px}
-#info a{display:block;padding:10px 0;color:var(--link);text-decoration:none;border-top:1px solid var(--line)}
+#info a{display:block;padding:13px 0;color:var(--link);text-decoration:none;border-top:1px solid var(--line)}
 #info .note{margin-top:10px;font-size:12px;color:var(--sub)}
 #info .disp{margin:0}
 #info .row{display:flex;align-items:center;gap:10px;margin:6px 0}
 #info .row .k{width:4em;color:var(--sub);font-size:13px}
-#info button{font:15px sans-serif;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--fg);
-  min-width:44px;height:40px;padding:0 10px}
-#info .sw{width:40px;height:40px;border-radius:50%;padding:0;min-width:0}
+/* Buttons are 48px high, Android's smallest comfortable touch target; their edge is 3:1 on the card. */
+#info button{font:15px sans-serif;border:1px solid var(--edge);border-radius:6px;background:transparent;color:var(--fg);
+  min-width:48px;height:48px;padding:0 10px}
+#info .topbar button{border-color:transparent}
+#info .sw{flex:0 1 48px;width:48px;height:48px;border-radius:50%;padding:0;min-width:0}
 #info .sw.on{outline:3px solid var(--link);outline-offset:2px}
 #info .fsv{min-width:3em;text-align:center}
+#info .lk{border-color:transparent;color:var(--link);padding:0}
+#info .opts{flex:1;display:flex;flex-wrap:wrap;gap:8px}
 #info .bar{margin:0}
-#info .bar input{flex:1;accent-color:var(--link)}
+/* The position slider in the theme's colours: the read part in the link colour, the rest a rule. */
+#info .bar input{flex:1;height:48px;margin:0;background:transparent;-webkit-appearance:none;appearance:none}
+#info .bar input::-webkit-slider-runnable-track{height:4px;border-radius:2px;
+  background:linear-gradient(to right,var(--link) var(--at,0%),var(--edge) var(--at,0%))}
+#info .bar input::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-8px;border-radius:50%;background:var(--link);border:0}
 #info .bar span{font-size:13px;color:var(--sub);min-width:4.5em;text-align:right}
 /* The first-time guide: where a tap turns or opens the menu (the zones of the touchend handler). */
 #guide{display:none;position:fixed;inset:0;z-index:12;writing-mode:horizontal-tb;font:15px/1.5 sans-serif;color:#fff}
@@ -672,7 +680,7 @@ span.sesame{text-emphasis-position:over right}
 #end .card{background:var(--card);color:var(--fg);border-radius:14px;padding:22px 20px;width:84%;box-sizing:border-box}
 #end .t{font-weight:bold;font-size:18px;margin-bottom:4px}
 #end .a{color:var(--sub);font-size:13px;margin-bottom:14px}
-#end button,#end a{display:block;width:100%;box-sizing:border-box;margin:8px 0 0;padding:11px;border:1px solid var(--line);border-radius:8px;
+#end button,#end a{display:block;width:100%;box-sizing:border-box;margin:8px 0 0;padding:11px;min-height:48px;border:1px solid var(--edge);border-radius:8px;
   background:transparent;color:var(--fg);font:15px sans-serif;text-align:center;text-decoration:none}
 #end .main{background:var(--link);border-color:var(--link);color:var(--card)}
 #info .topbar .home{font-weight:bold}
@@ -680,17 +688,17 @@ span.sesame{text-emphasis-position:over right}
 #toc.on{display:flex}
 #toc .hd{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
 #toc .tt{flex:1;font-weight:bold;font-size:17px}
-#toc button{font:15px sans-serif;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--fg);height:40px;padding:0 14px}
+#toc button{font:15px sans-serif;border:1px solid var(--edge);border-radius:6px;background:transparent;color:var(--fg);height:48px;padding:0 14px}
 #toc .st{padding:6px 18px;font-size:12px;color:var(--sub)}
 #toc .st:empty{display:none}
 #toc .ls{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 24px}
 #toc .ch{padding:14px 18px 6px;font-size:13px;color:var(--sub);font-weight:bold}
-#toc .ep{display:block;padding:11px 18px;border-top:1px solid var(--line);color:var(--fg);text-decoration:none}
+#toc .ep{display:block;padding:13px 18px;border-top:1px solid var(--line);color:var(--fg);text-decoration:none}
 #toc .ep.cur{color:var(--link);font-weight:bold}
+/* before the place open now */
+#toc .ep.read{color:var(--sub)}
 /* kept in the app: readable without a signal */
 #toc .ep.kept::after{content:"保存済み";float:right;margin-left:10px;font-size:11px;font-weight:normal;color:var(--sub)}
-#info .fonts{flex-wrap:wrap}
-#info .fonts .k{width:100%}
 #info .vk.on,#info .ah.on,#info .bk.on,#info .ft.on,#info .pk.on,#info .ik.on,#info .lh.on,#info .mx.on,#info .my.on{border-color:var(--link);color:var(--link);font-weight:bold}
 </style></head><body>
 <div id="book" class="pagebox">%%BOOK%%</div><div id="credit"></div><div id="pg"></div>
@@ -705,21 +713,24 @@ span.sesame{text-emphasis-position:over right}
   var peer=book.cloneNode(true); peer.id='peer'; peer.setAttribute('aria-hidden','true'); book.after(peer);
   // 上下余白 and 左右余白 in Aa: the margins left and right (PADX) and above and below (PADY) the text, in px.
   var MX={s:12,m:22,l:36}, MY={s:28,m:36,l:52};
-  var PADX=22, PADY=36, H=0, STEP=0;
+  // FOOT: room added below the text, so the page number (22px up, clear of the gesture area) does not touch it.
+  var PADX=22, PADY=36, FOOT=10, GAP=0, H=0, STEP=0;
   // One page = one column of a vertical-rl multicol box. Columns stack downwards, so the browser
   // breaks pages between lines and never cuts a line in half; a page turn scrolls one column down.
   function layout(){
     PADX=MX[prefs.mx]; PADY=MY[prefs.my];
-    var w=window.innerWidth-2*PADX; H=window.innerHeight-2*PADY;
+    GAP=2*PADY+FOOT;
+    var w=window.innerWidth-2*PADX; H=window.innerHeight-GAP;
     [book,peer].forEach(function(b){
       b.style.left=PADX+'px'; b.style.top=PADY+'px';
       b.style.width=w+'px'; b.style.height=H+'px';
-      b.style.columnWidth=H+'px'; b.style.columnGap=(2*PADY)+'px';
+      b.style.columnWidth=H+'px'; b.style.columnGap=GAP+'px';
     });
-    STEP=H+2*PADY;
+    credit.style.left=PADX+'px';
+    STEP=H+GAP;
     show();
   }
-  function pages(){return Math.max(1,Math.round((book.scrollHeight+2*PADY)/STEP));}
+  function pages(){return Math.max(1,Math.round((book.scrollHeight+GAP)/STEP));}
   function cur(){return Math.round(book.scrollTop/STEP);}
   function go(n){n=Math.max(0,Math.min(pages()-1,n));book.scrollTop=n*STEP;show();}
   // While the page starts (laid out at 0, then moved to the saved page), the place is not reported: page 0 was never read.
@@ -758,6 +769,8 @@ span.sesame{text-emphasis-position:over right}
     slide(d*W,d,180,function(){book.scrollTop=n*STEP;show();settle();});
   }
   var credit=document.getElementById('credit'), info=document.getElementById('info');
+  // "2/5" from the site or the app, written as on the shelf: 2 / 5 話.
+  function count(n,ao){var m=String(n).match(/^\s*(\d+)\s*\/\s*(\d+)\s*$/);return m?m[1]+' / '+m[2]+(ao?'':' 話'):String(n);}
   function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   // The work is always credited: its author stays on screen, and a tap in the middle shows the work
   // and the links back to the original site.
@@ -770,7 +783,7 @@ span.sesame{text-emphasis-position:over right}
     info.querySelectorAll('.row.web').forEach(function(r){r.style.display=ao?'none':'';});
     if(i){
       t='<div class="t">'+esc(i.workTitle||'')+'</div><div class="a">作者：'+esc(i.author||'不明')
-        +(i.number?'　（'+esc(i.number)+'）':'')+'</div>';
+        +(i.number?'　'+esc(count(i.number,ao)):'')+'</div>';
       // Links only to a site: the bundled guide book has none.
       var site=/^https:/.test(i.page||i.url||'');
       if(site)t+='<a href="'+esc(i.page||i.url)+'">この話を原作サイトで開く</a>';
@@ -786,12 +799,13 @@ span.sesame{text-emphasis-position:over right}
     var m=!curId&&i&&i.url&&i.url.match(/\/(\d+)\/?$/); curNo=i&&i.no?Number(i.no):m?Number(m[1]):0;
   }
   // Display settings: the theme and the text size, kept by the app across episodes.
+  // sub (secondary text) is 4.5:1 on bg and card; edge (a button's border) 3:1 on card; line is a quiet rule.
   var THEMES={
-    kinari:{bg:'#fbf8f1',fg:'#222',sub:'#888',card:'#faf8f3',line:'#e4e0d6',link:'#1a5fb4'},
-    white:{bg:'#ffffff',fg:'#111',sub:'#888',card:'#ffffff',line:'#e2e2e2',link:'#1a5fb4'},
-    sepia:{bg:'#f1e7d0',fg:'#4a3b2a',sub:'#8a7a63',card:'#efe4cb',line:'#d9cbaa',link:'#7a4b12'},
-    dark:{bg:'#1f1f1f',fg:'#d6d2c8',sub:'#8a877f',card:'#2a2a2a',line:'#3a3a3a',link:'#8ab4f8'},
-    black:{bg:'#000000',fg:'#a8a49a',sub:'#6b6862',card:'#121212',line:'#2a2a2a',link:'#8ab4f8'}};
+    kinari:{bg:'#fbf8f1',fg:'#222',sub:'#6b6b6b',card:'#faf8f3',line:'#e4e0d6',edge:'#8f8b81',link:'#1a5fb4'},
+    white:{bg:'#ffffff',fg:'#111',sub:'#6b6b6b',card:'#ffffff',line:'#e2e2e2',edge:'#8f8f8f',link:'#1a5fb4'},
+    sepia:{bg:'#f1e7d0',fg:'#4a3b2a',sub:'#6e5f48',card:'#efe4cb',line:'#d9cbaa',edge:'#8a7a5e',link:'#7a4b12'},
+    dark:{bg:'#1f1f1f',fg:'#d6d2c8',sub:'#9a978f',card:'#2a2a2a',line:'#3a3a3a',edge:'#7a776f',link:'#8ab4f8'},
+    black:{bg:'#000000',fg:'#a8a49a',sub:'#8a867c',card:'#121212',line:'#2a2a2a',edge:'#66635c',link:'#8ab4f8'}};
   var THEME_ORDER=['kinari','white','sepia','dark','black'];
   var SIZES=[15,17,19,21,23,26,30];
   var AHEAD=[1,3,5];
@@ -814,15 +828,15 @@ span.sesame{text-emphasis-position:over right}
   function save(){if(window.Android)Android.savePrefs(JSON.stringify(prefs));}
   h+='<div class="sheet d"><div class="disp"><div class="row"><span class="k">背景</span>'
     +THEME_ORDER.map(function(k){return '<button class="sw" data-theme="'+k+'" style="background:'+THEMES[k].bg+'"></button>';}).join('')
-    +'</div><div class="row fonts"><span class="k">書体</span>'
+    +'</div><div class="row fonts"><span class="k">書体</span><div class="opts">'
     +FONT_ORDER.map(function(k){return '<button class="ft" data-font="'+k+'" style="font-family:'+FONTS[k].f.replace(/"/g,"&quot;")+'">'+FONTS[k].n+'</button>';}).join('')
-    +'</div><div class="row web"><span class="k">空行</span><button class="pk" data-pack="1">詰める</button><button class="pk" data-pack="0">原文のまま</button>'
+    +'</div></div><div class="row web"><span class="k">空行</span><button class="pk" data-pack="1">詰める</button><button class="pk" data-pack="0">原文のまま</button>'
     +'</div><div class="row web"><span class="k">字下げ</span><button class="ik" data-indent="1">付ける</button><button class="ik" data-indent="0">原文のまま</button>'
     +'</div><div class="row"><span class="k">文字</span><button data-fs="-1">A−</button><span class="fsv"></span><button data-fs="1">A＋</button></div>'
     +'<div class="row"><span class="k">行間</span>'+LHS.map(function(v){return '<button class="lh" data-lh="'+v+'">'+v.toFixed(1)+'</button>';}).join('')+'</div>'
     +'<div class="row"><span class="k">上下余白</span>'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="my" data-my="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div>'
     +'<div class="row"><span class="k">左右余白</span>'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="mx" data-mx="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div>'
-    +'<div class="row"><span class="k">触る場所</span><button data-guide="1">見る</button></div>'
+    +'<div class="row"><span class="k">触る場所</span><button class="lk" data-guide="1">説明を見る</button></div>'
     +'<div class="row"><span class="k">先読み</span>'
     +AHEAD.map(function(n){return '<button class="ah" data-ahead="'+n+'">'+n+'話</button>';}).join('')+'</div>'
     +'<div class="row"><span class="k">時計</span><button class="bk" data-bar="1">時刻・通知を出す</button><button class="bk" data-bar="0">隠す</button></div>'
@@ -836,7 +850,7 @@ span.sesame{text-emphasis-position:over right}
   setInfo(INFO);
   function markDisp(){
     info.querySelectorAll('.sw').forEach(function(b){b.classList.toggle('on',b.dataset.theme===prefs.theme);});
-    info.querySelector('.fsv').textContent=prefs.fs+'px';
+    info.querySelector('.fsv').textContent=String(prefs.fs);
     info.querySelectorAll('.ah').forEach(function(b){b.classList.toggle('on',Number(b.dataset.ahead)===prefs.ahead);});
     info.querySelectorAll('.vk').forEach(function(b){b.classList.toggle('on',(b.dataset.vol==='1')===prefs.vol);});
     info.querySelectorAll('.ft').forEach(function(b){b.classList.toggle('on',b.dataset.font===prefs.font);});
@@ -889,10 +903,11 @@ span.sesame{text-emphasis-position:over right}
   applyTheme(); markDisp();
   var openedAt=0;
   var seek=document.getElementById('seek'), seekv=document.getElementById('seekv');
-  function markSeek(){seek.max=pages();seek.value=cur()+1;seekv.textContent=(cur()+1)+' / '+pages();}
-  seek.addEventListener('input',function(){go(Number(seek.value)-1);seekv.textContent=seek.value+' / '+pages();});
-  var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0;
-  function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocLs.innerHTML='';tocSt.textContent='目次を読み込み中…';
+  function fill(){seek.style.setProperty('--at',(pages()>1?100*(seek.value-1)/(pages()-1):100)+'%');}
+  function markSeek(){seek.max=pages();seek.value=cur()+1;seekv.textContent=(cur()+1)+' / '+pages();fill();}
+  seek.addEventListener('input',function(){go(Number(seek.value)-1);seekv.textContent=seek.value+' / '+pages();fill();});
+  var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0, tocPast=true;
+  function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocPast=true;tocLs.innerHTML='';tocSt.textContent='目次を読み込み中…';
     if(window.Android)Android.toc();}
   function renderToc(d){
     if(!toc.classList.contains('on'))return;
@@ -902,9 +917,12 @@ span.sesame{text-emphasis-position:over right}
     for(var i=tocShown;i<d.entries.length;i++){var e=d.entries[i];
       if(e.c)html+='<div class="ch">'+esc(e.c)+'</div>';
       var cur=e.id?String(e.id)===curId:e.n===curNo;
-      html+='<a class="ep'+(cur?' cur':'')+(e.k?' kept':'')+'" data-n="'+e.n+'"'+(e.id?' data-id="'+esc(e.id)+'"':'')+'>'+esc(e.t)+'</a>';}
+      if(cur)tocPast=false;
+      html+='<a class="ep'+(cur?' cur':tocPast?' read':'')+(e.k?' kept':'')+'" data-n="'+e.n+'"'+(e.id?' data-id="'+esc(e.id)+'"':'')+'>'+esc(e.t)+'</a>';}
     var first=tocShown===0; tocShown=d.entries.length;
     tocLs.insertAdjacentHTML('beforeend',html);
+    // The place open now not in the list (an episode gone): nothing is marked as before it.
+    if(d.done&&tocPast)tocLs.querySelectorAll('.ep.read').forEach(function(a){a.classList.remove('read');});
     var k=0; d.entries.forEach(function(e){if(e.k)k++;});
     tocSt.textContent=d.done?(k?'保存済み '+k+' / '+d.entries.length+' 話':''):'目次を読み込み中…（'+d.read+' / '+d.pages+'）';
     var c=tocLs.querySelector('.ep.cur'); if(c&&!toc.dataset.scrolled){c.scrollIntoView({block:'center'});toc.dataset.scrolled='1';}
