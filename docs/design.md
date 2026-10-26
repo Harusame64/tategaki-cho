@@ -1,7 +1,7 @@
 # たてがき帖 — system design
 
 How the app is built, as of 2026-10-26. For the scenarios the
-E2E tests cover, see `e2e.md`; for licences, `LICENSE.txt` and `THIRD-PARTY-NOTICES.txt`.
+E2E tests cover, see `e2e.md`; for licences, `NOTICE`, `LICENSE` and `THIRD-PARTY-NOTICES.txt`.
 
 ## What it is
 
@@ -201,6 +201,7 @@ A work found gone is marked (`Work.missingSince`) and unmarked when found again.
 
 - applicationId `jp.harusame.tategakicho` (personal: `.personal`); the Java package stays
   `jp.harusame.aozorareader`.
-- Repository `Harusame64/tategaki-cho` (private), GPLv3.
+- Repository `Harusame64/tategaki-cho` (public), GPLv3. Issues may be filed here; private notes
+  live in `Harusame64/tategaki-cho-internal`.
 - Icon: 帖 in Noto Serif JP (OFL) on indigo, adaptive with a monochrome layer; the notification
   icon uses the same outline.

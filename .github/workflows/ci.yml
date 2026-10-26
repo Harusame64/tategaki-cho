@@ -1,0 +1,37 @@
+# Unit tests and both debug builds on every change. The E2E tests need an emulator and are run
+# locally (docs/e2e.md); dependency bumps are judged by that run, not by this one.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # The runner image ships the Android SDK (ANDROID_HOME); the Android Gradle plugin installs
+      # platform 36 if it is missing.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Test and build
+        run: ./gradlew :core:test :app:testPublicE2eUnitTest :app:assemblePublicDebug :app:assemblePersonalDebug
