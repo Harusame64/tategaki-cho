@@ -131,4 +131,26 @@ public class A11yTest {
         String all = String.join("\n", small);
         assertTrue("touch targets under 48px:\n" + all, all.replace("\"\"", "").replaceAll("(?m)^[^:]+: $", "").trim().isEmpty());
     }
+
+    /**
+     * Y3: a pill button (the shelf's tags; search and 青空文庫 use the same pill) keeps 16dp of room at each side and a
+     * full touch target's height. setBackground once dropped the side padding, and the text ran to the pill's edge.
+     */
+    @Test
+    public void aPillKeepsRoomAtItsSides() throws Exception {
+        E2E.seedNarou(1, 5);
+        ActivityScenario<ShelfActivity> s = ActivityScenario.launch(new Intent(E2E.ctx(), ShelfActivity.class));
+        scenario = s;
+        AtomicReference<Activity> a = new AtomicReference<>();
+        s.onActivity(a::set);
+        SystemClock.sleep(1000);
+        float density = E2E.ctx().getResources().getDisplayMetrics().density;
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            android.widget.TextView all = (android.widget.TextView) ((ShelfActivity) a.get()).tags.getChildAt(0);
+            org.junit.Assert.assertEquals("すべて", all.getText().toString());
+            assertTrue("left padding " + all.getPaddingLeft() / density + "dp", all.getPaddingLeft() >= Math.round(16 * density));
+            assertTrue("right padding " + all.getPaddingRight() / density + "dp", all.getPaddingRight() >= Math.round(16 * density));
+            assertTrue("height " + all.getHeight() / density + "dp", all.getHeight() >= Math.round(48 * density));
+        });
+    }
 }

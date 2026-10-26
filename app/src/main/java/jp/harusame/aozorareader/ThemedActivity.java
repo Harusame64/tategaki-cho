@@ -94,8 +94,11 @@ abstract class ThemedActivity extends Activity {
         c.setMinHeight(dp(TOUCH_DP));
         c.setMinWidth(dp(TOUCH_DP));                                       // a one-word pill (人気, 保留) too
         c.setGravity(Gravity.CENTER);
-        c.setPadding(dp(12), 0, dp(12), 0);
         c.setBackground(new android.graphics.drawable.InsetDrawable(round(color, dp(16)), 0, dp((TOUCH_DP - 32) / 2), 0, dp((TOUCH_DP - 32) / 2)));
+        // After the background: setBackground takes the drawable's own padding (the inset: none at the sides), so padding
+        // set before it was lost and the text ran to the pill's edge (seen on a Galaxy, whose font is wider). The ends
+        // are half circles 16dp across, so the text keeps that much room at each side.
+        c.setPadding(dp(16), 0, dp(16), 0);
     }
 
     /** A toolbar icon (res/drawable/ic_*), in the text colour, a full touch target in size. */
