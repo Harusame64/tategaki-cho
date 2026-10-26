@@ -2,6 +2,15 @@ plugins {
     id "com.android.application"
 }
 
+// The release key stays out of git: its path, alias and passwords come from environment variables or from
+// local.properties (also untracked). A release build without them stops with the list of what is missing.
+def localProps = new Properties()
+def localFile = rootProject.file("local.properties")
+if (localFile.exists()) localFile.withInputStream { localProps.load(it) }
+def signingValue = { String key -> System.getenv(key) ?: localProps.getProperty(key) }
+def signingKeys = ["TGC_KEYSTORE", "TGC_KEYSTORE_PASSWORD", "TGC_KEY_ALIAS", "TGC_KEY_PASSWORD"]
+def signingMissing = signingKeys.findAll { !signingValue(it) }
+
 android {
     namespace "jp.harusame.aozorareader"
     compileSdk 36
@@ -10,15 +19,30 @@ android {
         applicationId "jp.harusame.tategakicho"
         minSdk 33
         targetSdk 36
+        // versionCode only goes up, by one per published build (Play requires it too); tags are v<versionName>.
         versionCode 1
-        versionName "0.0.1-spike"
+        versionName "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // The E2E tests run against their own build (…tategakicho.e2e, …tategakicho.personal.e2e), so they can sit
     // beside the real app on a phone without touching its shelf. `./gradlew :app:connectedPublicE2eAndroidTest
     // :app:connectedPersonalE2eAndroidTest` on an emulator or a phone.
+    signingConfigs {
+        release {
+            if (signingMissing.isEmpty()) {
+                storeFile file(signingValue("TGC_KEYSTORE"))
+                storePassword signingValue("TGC_KEYSTORE_PASSWORD")
+                keyAlias signingValue("TGC_KEY_ALIAS")
+                keyPassword signingValue("TGC_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
         e2e {
             initWith debug
             applicationIdSuffix ".e2e"
@@ -58,6 +82,14 @@ android {
     testOptions {
         unitTests.returnDefaultValues = true
         unitTests.all { useJUnitPlatform() }
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def release = graph.allTasks.find { it.project == project && it.name ==~ /(assemble|bundle|package)\w*Release/ }
+    if (release && !signingMissing.isEmpty()) {
+        throw new GradleException("${release.path} needs the release key. Set ${signingMissing.join(', ')} " +
+                "as environment variables or in local.properties (see docs/release.md).")
     }
 }
 
