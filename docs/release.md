@@ -66,3 +66,8 @@ gh release create v0.1.0 tategaki-cho-0.1.0.apk --prerelease --title "たてが�
 
 The notes give the SHA-256 of the APK (`shasum -a 256`) and link to
 `docs/install.md`.
+
+Then point the download page at the new APK: in `site/index.html`, the button's `href`, its label's version, and
+`downloadUrl` in the JSON-LD all name `releases/download/v<versionName>/tategaki-cho-<versionName>.apk`. (GitHub's
+`/releases/latest` skips pre-releases, so a fixed "latest" link does not work while releases are pre-releases.) A
+push to main that touches `site/` deploys the page.
