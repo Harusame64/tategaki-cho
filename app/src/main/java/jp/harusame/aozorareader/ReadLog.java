@@ -63,6 +63,7 @@ final class ReadLog {
 
     /** A page read: episode `episode` of the work, `pages` more pages turned (0 when only opened). */
     static void record(File dir, LocalDate day, String key, String title, int episode, int pages) {
+        if (Guide.is(key)) return;                                       // the bundled guide book is not reading
         synchronized (ReadLog.class) {
             try {
                 JSONObject all = loadForWrite(dir);
@@ -102,8 +103,14 @@ final class ReadLog {
             if (!YearMonth.from(d).equals(m)) continue;
             JSONObject day = all.optJSONObject(k);
             int pages = 0;
-            for (Iterator<String> w = day.keys(); w.hasNext(); ) pages += Math.max(1, day.optJSONObject(w.next()).optInt("pages"));
-            out.put(d.getDayOfMonth(), pages);
+            boolean read = false;
+            for (Iterator<String> w = day.keys(); w.hasNext(); ) {
+                String key = w.next();
+                if (Guide.is(key)) continue;                                // logged before the guide was left out
+                read = true;
+                pages += Math.max(1, day.optJSONObject(key).optInt("pages"));
+            }
+            if (read) out.put(d.getDayOfMonth(), pages);
         }
         return out;
     }
@@ -179,6 +186,7 @@ final class ReadLog {
         if (d == null) return out;
         for (Iterator<String> it = d.keys(); it.hasNext(); ) {
             String k = it.next();
+            if (Guide.is(k)) continue;
             JSONObject w = d.optJSONObject(k);
             Entry e = new Entry();
             e.key = k;

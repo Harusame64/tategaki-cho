@@ -91,4 +91,20 @@ class ReadLogTest {
         assertEquals(0, sept.days);
         assertTrue(sept.works.isEmpty());
     }
+
+    @Test
+    void theGuideBookIsNotLogged(@TempDir File dir) throws Exception {
+        LocalDate d = LocalDate.of(2026, 10, 9);
+        ReadLog.record(dir, d, Guide.KEY, "たてがき帖の使い方", 1, 3);
+        assertTrue(ReadLog.day(dir, d).isEmpty());
+        assertTrue(ReadLog.month(dir, YearMonth.of(2026, 10)).isEmpty(), "no mark for a day with only the guide");
+        // A log written before the guide was left out: the guide is still not shown, the work is.
+        java.nio.file.Files.write(ReadLog.file(dir).toPath(), (
+                "{\"2026-10-10\":{\"" + Guide.KEY + "\":{\"first\":1,\"last\":1,\"pages\":2},\"n9999zx\":{\"t\":\"試験作品\",\"first\":3,\"last\":3,\"pages\":4}},"
+                + "\"2026-10-11\":{\"" + Guide.KEY + "\":{\"first\":1,\"last\":1,\"pages\":2}}}").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertEquals(1, ReadLog.day(dir, LocalDate.of(2026, 10, 10)).size());
+        Map<Integer, Integer> oct = ReadLog.month(dir, YearMonth.of(2026, 10));
+        assertEquals(4, oct.get(10), "the guide's pages not counted");
+        assertTrue(!oct.containsKey(11));
+    }
 }
