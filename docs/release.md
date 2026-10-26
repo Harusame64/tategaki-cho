@@ -64,6 +64,9 @@ ANDROID_SERIAL=emulator-5554 tools/screen-matrix.sh <out dir>      # kinari; add
 
 Install right before running it: a Gradle E2E run uninstalls both apps when it ends, and then every screen is
 reported as never ready (the script captures nothing it cannot vouch for, and exits nonzero).
+Known limit: the test shows each screen for 3.5 s and the script captures after seeing its marker, with no handshake
+back; on a very slow device the capture could fall behind and show the next screen under this one's name. The
+pictures are looked at by a person, who will see it; if it happens, rerun on that profile (PROFILES=…).
 
 Profiles: 360dp, 384dp and 411dp wide phones, the two narrow ones again at a 1.3x system font, and a tablet portrait
 (800dp) and landscape (1280dp). Look for text cut off or spilling out of its button, labels breaking mid-word, and
