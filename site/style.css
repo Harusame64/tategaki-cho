@@ -78,6 +78,8 @@ h2 { font-size: 1.25rem; margin: 2.5rem 0 .75rem; padding-bottom: .25rem; border
 .shots figure { margin: 0; flex: 0 0 auto; width: 13rem; scroll-snap-align: start; }
 .shots img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 12px; display: block; }
 .shots figcaption { font-size: .9rem; color: var(--muted); margin-top: .4rem; line-height: 1.5; }
+/* A screen the install steps refer to: as wide as the text allows, at most a phone's width. */
+.note-shot { display: block; width: 100%; max-width: 22rem; height: auto; border-radius: 12px; margin: .5rem 0 0; }
 ul, ol { padding-left: 1.4rem; }
 li { margin: .35rem 0; }
 ol > li { margin: .75rem 0; }
