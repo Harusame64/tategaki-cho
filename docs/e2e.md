@@ -75,6 +75,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | Y1 | Google's accessibility checks (touch targets, contrast, labels) find no error on the shelf, read log, 青空文庫 and search screens, in a light and a dark theme | nativeScreensPassTheChecks (A11yTest) |
 | Y2 | In the reader's bars, 作品 and Aa sheets, 目次 and end card, every button and link is at least 48 × 48 px (the WebView, which Y1's checks do not see into) | readerTouchTargetsAreFullSize (A11yTest) |
 | T1 | The read log, opened from the shelf's ⋮, has no tabs; its back arrow returns to the shelf | theBackArrowLeavesTheReadLog |
+| T2 | The read log sums up the month (days, works, episodes; the guide book left out), leads on to the year with its months and works, and Back returns to the month | theMonthSummaryLeadsToTheYearAndBack |
 | K1 | カクヨム: an episode inserted before the one read; "next" opens the one after it, and the place follows | nextAfterAnInsertBefore (KakuyomuTest) |
 | K2 | カクヨム: the list changes while the 目次 is open; the episode tapped is the one opened | aTocJumpAfterTheListChanged |
 | K3 | カクヨム: the episode read is deleted; "next" opens the one that followed it | nextAfterTheEpisodeReadIsDeleted |

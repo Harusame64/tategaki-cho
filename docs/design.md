@@ -23,7 +23,7 @@ inside the app (see "Policy built into the code").
 core/   plain Java (no Android): aozora's formatter, copied from AozoraEpub3-JDK21 (core/ORIGIN.md)
         + jp.harusame.aozorareader.core: EpisodeFormatter, AozoraFormatter, SafeXhtml,
           XhtmlSections, EpisodeInfo, KakuyomuWork, Toc
-app/    the Android app (Java, minSdk 26, targetSdk 36), one WebView page for reading
+app/    the Android app (Java, minSdk 33, targetSdk 36), one WebView page for reading
 art/    the icon source (SVG) and the 512px Play icon
 docs/   this file, e2e.md
 ```
@@ -47,7 +47,7 @@ docs/   this file, e2e.md
 | `SearchActivity` | なろう search and ranking (official API) |
 | `AozoraActivity` | 青空文庫: popular, by author, by category, search |
 | `ReaderActivity` | the reader: a WebView with `assets/reader.html`, the bridge `Android.*` |
-| `LogActivity` | the read log (pages per day), with a back arrow and no tabs |
+| `LogActivity` | the read log: a month (pages per day, the month summed up) or a year (its months and works); a back arrow and no tabs |
 | `ThemedActivity` | shared look and tabs |
 | `App` | counts the screens shown (for 全話を保存) |
 

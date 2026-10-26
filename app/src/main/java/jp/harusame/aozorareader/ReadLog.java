@@ -108,6 +108,61 @@ final class ReadLog {
         return out;
     }
 
+    /** One work over a span of days: on how many days it was read, its episodes, its pages. */
+    static final class WorkSum {
+        String key, title;
+        int days, episodes, pages;
+    }
+
+    /** A span of days summed up: the days something was read, and each work read, most days first. */
+    static final class Summary {
+        int days, episodes;
+        final List<WorkSum> works = new ArrayList<>();
+    }
+
+    /**
+     * The days from first to last (inclusive) summed up. Episodes are counted once each per work however many
+     * days they were open, a day's span from its first to its last episode taken as read through; 青空文庫
+     * sections and short stories are not episodes, and the bundled guide book is left out altogether.
+     * Works are ordered by the days they were read on, then by pages.
+     */
+    static Summary summary(File dir, LocalDate first, LocalDate last) {
+        Summary out = new Summary();
+        JSONObject all;
+        synchronized (ReadLog.class) { all = load(dir); }
+        Map<String, WorkSum> works = new LinkedHashMap<>();
+        Map<String, java.util.Set<Integer>> eps = new LinkedHashMap<>();
+        for (Iterator<String> it = all.keys(); it.hasNext(); ) {
+            String k = it.next();
+            LocalDate d;
+            try { d = LocalDate.parse(k); } catch (Exception e) { continue; }
+            if (d.isBefore(first) || d.isAfter(last)) continue;
+            JSONObject day = all.optJSONObject(k);
+            boolean read = false;
+            for (Iterator<String> w = day.keys(); w.hasNext(); ) {
+                String key = w.next();
+                if (Guide.is(key)) continue;
+                read = true;
+                JSONObject e = day.optJSONObject(key);
+                WorkSum ws = works.computeIfAbsent(key, x -> { WorkSum n = new WorkSum(); n.key = x; return n; });
+                if (!e.optString("t").isEmpty() || ws.title == null) ws.title = e.optString("t", key);
+                ws.days++;
+                ws.pages += e.optInt("pages");
+                java.util.Set<Integer> s = eps.computeIfAbsent(key, x -> new java.util.HashSet<>());
+                int a = e.optInt("first"), b = e.optInt("last");
+                if (!Shelf.isAozora(key) && a > 0 && b >= a) for (int n = a; n <= b; n++) s.add(n);
+            }
+            if (read) out.days++;
+        }
+        for (WorkSum ws : works.values()) {
+            ws.episodes = eps.get(ws.key).size();
+            out.episodes += ws.episodes;
+            out.works.add(ws);
+        }
+        out.works.sort((a, b) -> a.days != b.days ? Integer.compare(b.days, a.days) : Integer.compare(b.pages, a.pages));
+        return out;
+    }
+
     /**
      * How deep a read day's mark is in the calendar (1 … 4), by the pages turned that day: fixed steps, so a day
      * reads the same in any month (a month's only day read is not its deepest).

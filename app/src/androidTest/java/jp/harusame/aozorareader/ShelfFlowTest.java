@@ -203,4 +203,37 @@ public class ShelfFlowTest {
         E2E.waitUntil(log::isFinishing, "the back arrow closed the read log");
         resumed(ShelfActivity.class);
     }
+
+    /** T2: the read log sums up the month, leads on to the year with its works, and back returns to the month. */
+    @Test
+    public void theMonthSummaryLeadsToTheYearAndBack() throws Exception {
+        E2E.seedNarou(1, 5);
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.io.File dir = E2E.ctx().getFilesDir();
+        ReadLog.record(dir, today, E2E.NCODE, "試験の作品", 2, 3);
+        ReadLog.record(dir, today, E2E.NCODE, "試験の作品", 4, 3);
+        ReadLog.record(dir, today, Guide.KEY, "たてがき帖の使い方", 1, 2);   // left out of the summary
+        scenario = ActivityScenario.launch(new Intent(E2E.ctx(), LogActivity.class));
+        Activity log = resumed(LogActivity.class);
+        androidx.test.uiautomator.UiDevice d = E2E.device();
+        assertNotNull("the month's summary", d.wait(androidx.test.uiautomator.Until.findObject(
+                androidx.test.uiautomator.By.text(today.getMonthValue() + "月のまとめ")), 5000));
+        assertNotNull("1 day, 1 work, episodes 2 to 4", d.findObject(androidx.test.uiautomator.By.text("1日・1作品・3話")));
+        d.findObject(androidx.test.uiautomator.By.text(today.getYear() + "年のまとめを見る")).click();
+        assertNotNull("the year's summary", d.wait(androidx.test.uiautomator.Until.findObject(
+                androidx.test.uiautomator.By.text(today.getYear() + "年のまとめ")), 5000));
+        assertNotNull("the year's works", d.findObject(androidx.test.uiautomator.By.text("この年に読んだ作品")));
+        assertNotNull("this month marked with its days", d.findObject(androidx.test.uiautomator.By.text(today.getMonthValue() + "月\n1日")));
+        // All twelve months on screen, four to a row (the month's calendar has seven columns).
+        int width = d.getDisplayWidth();
+        for (int m = 1; m <= 12; m++) {
+            androidx.test.uiautomator.UiObject2 c = d.findObject(androidx.test.uiautomator.By.textStartsWith(m + "月\n"));
+            assertNotNull(m + "月 shown", c);
+            assertTrue(m + "月 inside the screen", c.getVisibleBounds().right <= width && c.getVisibleBounds().width() > 0);
+        }
+        d.pressBack();
+        assertNotNull("Back returns to the month", d.wait(androidx.test.uiautomator.Until.findObject(
+                androidx.test.uiautomator.By.text(today.getMonthValue() + "月のまとめ")), 5000));
+        assertFalse("and stays on the read log", log.isFinishing());
+    }
 }

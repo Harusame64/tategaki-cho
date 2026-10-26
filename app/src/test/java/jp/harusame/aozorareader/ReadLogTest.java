@@ -69,4 +69,26 @@ class ReadLogTest {
         assertEquals(3, ReadLog.depth(20));
         assertEquals(4, ReadLog.depth(50));
     }
+
+    @Test
+    void aMonthIsSummedUp(@TempDir File dir) {
+        ReadLog.record(dir, LocalDate.of(2026, 10, 1), "n9999zx", "試験作品", 3, 4);
+        ReadLog.record(dir, LocalDate.of(2026, 10, 1), "n9999zx", "試験作品", 5, 4);   // 3〜5 that day
+        ReadLog.record(dir, LocalDate.of(2026, 10, 2), "n9999zx", "試験作品", 5, 2);   // 5 again: counted once
+        ReadLog.record(dir, LocalDate.of(2026, 10, 2), "n9999zx", "試験作品", 6, 2);
+        ReadLog.record(dir, LocalDate.of(2026, 10, 2), "aozora-000773", "こころ", 4, 30); // sections, not episodes
+        ReadLog.record(dir, LocalDate.of(2026, 10, 3), Guide.KEY, "使い方", 1, 2);       // the guide: left out
+        ReadLog.record(dir, LocalDate.of(2026, 11, 1), "n9999zx", "試験作品", 7, 1);   // another month
+        ReadLog.Summary s = ReadLog.summary(dir, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+        assertEquals(2, s.days);
+        assertEquals(2, s.works.size());
+        assertEquals(4, s.episodes, "3, 4, 5, 6");
+        assertEquals("試験作品", s.works.get(0).title, "on the most days, though こころ had more pages");
+        assertEquals(2, s.works.get(0).days);
+        assertEquals(4, s.works.get(0).episodes);
+        assertEquals(0, s.works.get(1).episodes, "青空文庫's sections are not episodes");
+        ReadLog.Summary sept = ReadLog.summary(dir, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30));
+        assertEquals(0, sept.days);
+        assertTrue(sept.works.isEmpty());
+    }
 }

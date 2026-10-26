@@ -17,8 +17,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 読書の記録: a month's calendar with a mark on each day something was read (deeper for more pages), and,
- * under it, what was read on the day tapped — the work and its episodes.
+ * 読書の記録: a month's calendar with a mark on each day something was read (deeper for more pages), the month
+ * summed up, and what was read on the day tapped — the work and its episodes. From the month's summary, the
+ * year: its twelve months and every work read in it.
  */
 public class LogActivity extends ThemedActivity {
     final ExecutorService work = Executors.newSingleThreadExecutor();
@@ -26,7 +27,11 @@ public class LogActivity extends ThemedActivity {
     LocalDate picked = LocalDate.now();
     TextView title;
     GridLayout grid;
-    LinearLayout dayList;
+    LinearLayout dayList, summary, legend;
+    /** the year shown instead of the month (the month's year) */
+    boolean yearView;
+    /** Back from the year goes to the month, not off the screen. */
+    final android.window.OnBackInvokedCallback toMonth = () -> showMonth(month);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,6 +40,7 @@ public class LogActivity extends ThemedActivity {
         if (savedInstanceState != null) {
             month = YearMonth.parse(savedInstanceState.getString("month", month.toString()));
             picked = LocalDate.parse(savedInstanceState.getString("picked", picked.toString()));
+            yearView = savedInstanceState.getBoolean("year");
         }
         ScrollView sv = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
@@ -44,7 +50,7 @@ public class LogActivity extends ThemedActivity {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
         android.widget.ImageView back = icon(R.drawable.ic_back, "戻る");
-        back.setOnClickListener(v -> finish());
+        back.setOnClickListener(v -> { if (yearView) showMonth(month); else finish(); });
         head.addView(back);
         TextView h = text("読書の記録", 22, fg);
         h.setTypeface(Typeface.DEFAULT_BOLD);
@@ -56,12 +62,12 @@ public class LogActivity extends ThemedActivity {
         LinearLayout nav = new LinearLayout(this);
         nav.setGravity(Gravity.CENTER_VERTICAL);
         nav.setPadding(0, dp(12), 0, dp(8));
-        android.widget.ImageView prev = icon(R.drawable.ic_prev, "前の月");
-        prev.setOnClickListener(v -> { month = month.minusMonths(1); show(); });
+        android.widget.ImageView prev = icon(R.drawable.ic_prev, "前へ");
+        prev.setOnClickListener(v -> { month = yearView ? month.minusYears(1) : month.minusMonths(1); show(); });
         title = text("", 17, fg);
         title.setGravity(Gravity.CENTER);
-        android.widget.ImageView next = icon(R.drawable.ic_next, "次の月");
-        next.setOnClickListener(v -> { month = month.plusMonths(1); show(); });
+        android.widget.ImageView next = icon(R.drawable.ic_next, "次へ");
+        next.setOnClickListener(v -> { month = yearView ? month.plusYears(1) : month.plusMonths(1); show(); });
         nav.addView(prev);
         nav.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
         nav.addView(next);
@@ -69,7 +75,15 @@ public class LogActivity extends ThemedActivity {
         grid = new GridLayout(this);
         grid.setColumnCount(7);
         root.addView(grid, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        root.addView(legend(), new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        legend = legend();
+        root.addView(legend, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        summary = new LinearLayout(this);
+        summary.setOrientation(LinearLayout.VERTICAL);
+        summary.setPadding(dp(14), dp(12), dp(14), dp(12));
+        summary.setBackground(round(card, dp(12)));
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        slp.topMargin = dp(12);
+        root.addView(summary, slp);
         dayList = new LinearLayout(this);
         dayList.setOrientation(LinearLayout.VERTICAL);
         dayList.setPadding(0, dp(16), 0, 0);
@@ -79,6 +93,20 @@ public class LogActivity extends ThemedActivity {
         root.addView(note);
         sv.addView(root);
         setContentAlone(sv);
+        if (yearView) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, toMonth);
+        show();
+    }
+
+    void showYear() {
+        if (!yearView) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, toMonth);
+        yearView = true;
+        show();
+    }
+
+    void showMonth(YearMonth m) {
+        if (yearView) getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(toMonth);
+        yearView = false;
+        month = m;
         show();
     }
 
@@ -87,6 +115,7 @@ public class LogActivity extends ThemedActivity {
         super.onSaveInstanceState(out);
         out.putString("month", month.toString());
         out.putString("picked", picked.toString());
+        out.putBoolean("year", yearView);
     }
 
     @Override
@@ -96,13 +125,16 @@ public class LogActivity extends ThemedActivity {
     }
 
     void show() {
+        if (yearView) { year(month.getYear()); return; }
+        legend.setVisibility(android.view.View.VISIBLE);
         YearMonth m = month;
         title.setText(m.getYear() + "年" + m.getMonthValue() + "月");
         try {
             work.execute(() -> {
                 Map<Integer, Integer> pages = ReadLog.month(getFilesDir(), m);
+                ReadLog.Summary sum = ReadLog.summary(getFilesDir(), m.atDay(1), m.atEndOfMonth());
                 List<ReadLog.Entry> day = ReadLog.day(getFilesDir(), picked);
-                runOnUiThread(() -> { if (!isDestroyed() && m.equals(month)) render(m, pages, day); });
+                runOnUiThread(() -> { if (!isDestroyed() && !yearView && m.equals(month)) { render(m, pages, day); renderSummary(m, sum); } });
             });
         } catch (java.util.concurrent.RejectedExecutionException gone) {
             // the screen has gone
@@ -111,6 +143,7 @@ public class LogActivity extends ThemedActivity {
 
     void render(YearMonth m, Map<Integer, Integer> pages, List<ReadLog.Entry> day) {
         grid.removeAllViews();
+        grid.setColumnCount(7);                                      // the year view leaves it at 4
         int cell = (getResources().getDisplayMetrics().widthPixels - dp(32)) / 7;
         String[] names = {"日", "月", "火", "水", "木", "金", "土"};
         for (String n : names) grid.addView(cell(n, sub, 0, cell, false));
@@ -153,6 +186,95 @@ public class LogActivity extends ThemedActivity {
 
     int markColor(int depth) {
         return (Math.min(255, 50 + 50 * depth) << 24) | (accent & 0xFFFFFF);
+    }
+
+    /** The year: a mark for each month as deep as the days read in it, the year summed up, and its works. */
+    void year(int y) {
+        legend.setVisibility(android.view.View.GONE);                // its marks are of pages; a month's are of days
+        title.setText(y + "年");
+        try {
+            work.execute(() -> {
+                ReadLog.Summary[] months = new ReadLog.Summary[12];
+                for (int i = 0; i < 12; i++) months[i] = ReadLog.summary(getFilesDir(), YearMonth.of(y, i + 1).atDay(1), YearMonth.of(y, i + 1).atEndOfMonth());
+                ReadLog.Summary all = ReadLog.summary(getFilesDir(), LocalDate.of(y, 1, 1), LocalDate.of(y, 12, 31));
+                runOnUiThread(() -> { if (!isDestroyed() && yearView && month.getYear() == y) renderYear(y, months, all); });
+            });
+        } catch (java.util.concurrent.RejectedExecutionException gone) {
+            // the screen has gone
+        }
+    }
+
+    void renderYear(int y, ReadLog.Summary[] months, ReadLog.Summary all) {
+        grid.removeAllViews();
+        grid.setColumnCount(4);
+        int w = (getResources().getDisplayMetrics().widthPixels - dp(32)) / 4;
+        YearMonth now = YearMonth.now();
+        for (int i = 0; i < 12; i++) {
+            YearMonth m = YearMonth.of(y, i + 1);
+            int days = months[i].days;
+            int depth = days == 0 ? 0 : days < 5 ? 1 : days < 15 ? 2 : days < 25 ? 3 : 4;
+            TextView c = text((i + 1) + "月\n" + (days == 0 ? "—" : days + "日"), 13, depth >= 3 ? onAccent : days == 0 ? sub : fg);
+            c.setGravity(Gravity.CENTER);
+            if (m.equals(now)) c.setTypeface(Typeface.DEFAULT_BOLD);
+            GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+            lp.width = w;
+            lp.height = dp(64);
+            c.setLayoutParams(lp);
+            android.graphics.drawable.GradientDrawable d = round(depth > 0 ? markColor(depth) : 0, dp(10));
+            c.setBackground(new android.graphics.drawable.InsetDrawable(d, dp(3)));
+            c.setOnClickListener(v -> showMonth(m));
+            grid.addView(c);
+        }
+        renderSummary(null, all);
+        dayList.removeAllViews();
+        if (all.works.isEmpty()) return;
+        TextView h = text("この年に読んだ作品", 15, fg);
+        h.setTypeface(Typeface.DEFAULT_BOLD);
+        dayList.addView(h);
+        for (ReadLog.WorkSum ws : all.works) {
+            LinearLayout r = new LinearLayout(this);
+            r.setOrientation(LinearLayout.VERTICAL);
+            r.setPadding(0, dp(10), 0, dp(10));
+            TextView t = text(ws.title, 15, fg);
+            t.setMaxLines(2);
+            r.addView(t);
+            r.addView(text(ws.days + "日" + (ws.episodes > 0 ? "・" + ws.episodes + "話" : ""), 12, sub));
+            dayList.addView(r);
+        }
+    }
+
+    /**
+     * 10月のまとめ (m) or 2026年のまとめ (m null, the year shown): the days read, the works and episodes, and the
+     * work read on the most days. The month's leads on to its year.
+     */
+    void renderSummary(YearMonth m, ReadLog.Summary s) {
+        summary.removeAllViews();
+        TextView h = text(m == null ? month.getYear() + "年のまとめ" : m.getMonthValue() + "月のまとめ", 14, fg);
+        h.setTypeface(Typeface.DEFAULT_BOLD);
+        summary.addView(h);
+        if (s.days == 0) {
+            summary.addView(text(m == null ? "この年の記録はありません" : "この月の記録はありません", 13, sub));
+            if (m != null) summary.addView(toYear(m));
+            return;
+        }
+        TextView n = text(s.days + "日・" + s.works.size() + "作品" + (s.episodes > 0 ? "・" + s.episodes + "話" : ""), 15, fg);
+        n.setPadding(0, dp(4), 0, 0);
+        summary.addView(n);
+        ReadLog.WorkSum t = s.works.get(0);
+        TextView top = text("いちばん読んだ作品：" + t.title + "（" + t.days + "日）", 13, sub);
+        top.setMaxLines(2);
+        top.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        top.setPadding(0, dp(2), 0, 0);
+        summary.addView(top);
+        if (m != null) summary.addView(toYear(m));
+    }
+
+    TextView toYear(YearMonth m) {
+        TextView y = text(m.getYear() + "年のまとめを見る", 14, accent);
+        y.setMinHeight(dp(TOUCH_DP));
+        y.setGravity(Gravity.CENTER_VERTICAL);
+        y.setOnClickListener(v -> showYear());
+        return y;
     }
 
     /** 少ない ●●●● 多い: what the marks mean. */
