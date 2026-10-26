@@ -1,6 +1,6 @@
 # Releasing an APK
 
-How a signed APK of the public build is made and published as a GitHub pre-release, for people who
+How a signed APK of the public build is made and published as a GitHub release, for people who
 install it by hand before the app is on Google Play. The testers' side is `install.md`.
 
 ## The key
@@ -61,13 +61,14 @@ one for every published build and never goes down; Play requires the same.
 Rename the APK to `tategaki-cho-<versionName>.apk`, then:
 
 ```
-gh release create v0.1.0 tategaki-cho-0.1.0.apk --prerelease --title "たてがき帖 0.1.0" --notes-file <notes>
+gh release create v0.1.1 tategaki-cho-0.1.1.apk --latest --title "たてがき帖 0.1.1" --notes-file <notes>
 ```
 
 The notes give the SHA-256 of the APK (`shasum -a 256`) and link to
 `docs/install.md`.
 
 Then point the download page at the new APK: in `site/index.html`, the button's `href`, its label's version, and
-`downloadUrl` in the JSON-LD all name `releases/download/v<versionName>/tategaki-cho-<versionName>.apk`. (GitHub's
-`/releases/latest` skips pre-releases, so a fixed "latest" link does not work while releases are pre-releases.) A
-push to main that touches `site/` deploys the page.
+`downloadUrl` in the JSON-LD all name `releases/download/v<versionName>/tategaki-cho-<versionName>.apk` (the asset
+name carries the version, so no fixed link reaches it). A push to main that touches `site/` deploys the page.
+Releases are full releases marked Latest since 0.1.1 (0.1.0 went out as a pre-release); GitHub's
+`/releases/latest` skips pre-releases.
