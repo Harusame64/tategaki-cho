@@ -108,6 +108,14 @@ final class ReadLog {
         return out;
     }
 
+    /**
+     * How deep a read day's mark is in the calendar (1 … 4), by the pages turned that day: fixed steps, so a day
+     * reads the same in any month (a month's only day read is not its deepest).
+     */
+    static int depth(int pages) {
+        return pages < 5 ? 1 : pages < 20 ? 2 : pages < 50 ? 3 : 4;
+    }
+
     /** The works read on a day, most pages first. */
     static List<Entry> day(File dir, LocalDate day) {
         List<Entry> out = new ArrayList<>();

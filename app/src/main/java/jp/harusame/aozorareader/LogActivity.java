@@ -69,6 +69,7 @@ public class LogActivity extends ThemedActivity {
         grid = new GridLayout(this);
         grid.setColumnCount(7);
         root.addView(grid, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        root.addView(legend(), new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         dayList = new LinearLayout(this);
         dayList.setOrientation(LinearLayout.VERTICAL);
         dayList.setPadding(0, dp(16), 0, 0);
@@ -115,15 +116,13 @@ public class LogActivity extends ThemedActivity {
         for (String n : names) grid.addView(cell(n, sub, 0, cell, false));
         int lead = m.atDay(1).getDayOfWeek().getValue() % 7;          // Sunday first
         for (int i = 0; i < lead; i++) grid.addView(cell("", fg, 0, cell, false));
-        int most = 1;
-        for (int p : pages.values()) most = Math.max(most, p);
         for (int d = 1; d <= m.lengthOfMonth(); d++) {
             LocalDate date = m.atDay(d);
-            int p = pages.getOrDefault(d, 0);
-            int depth = p == 0 ? 0 : 1 + 3 * p / most;
-            // The number stays readable on a deep mark; the day picked is bold.
-            TextView c = cell(String.valueOf(d), depth >= 3 ? onAccent : date.equals(picked) ? accent : fg, depth, cell, date.equals(LocalDate.now()));
-            if (date.equals(picked)) c.setTypeface(Typeface.DEFAULT_BOLD);
+            Integer p = pages.get(d);
+            int depth = p == null ? 0 : ReadLog.depth(p);
+            // The number stays readable on a deep mark; the day picked has a ring, today is bold.
+            TextView c = cell(String.valueOf(d), depth >= 3 ? onAccent : fg, depth, cell, date.equals(picked));
+            if (date.equals(LocalDate.now())) c.setTypeface(Typeface.DEFAULT_BOLD);
             c.setOnClickListener(v -> { picked = date; show(); });
             grid.addView(c);
         }
@@ -152,19 +151,45 @@ public class LogActivity extends ThemedActivity {
         }
     }
 
-    /** A day: its number on a mark as deep as its pages (0 none … 4 most), and a ring for today. */
-    TextView cell(String label, int color, int depth, int size, boolean today) {
+    int markColor(int depth) {
+        return (Math.min(255, 50 + 50 * depth) << 24) | (accent & 0xFFFFFF);
+    }
+
+    /** 少ない ●●●● 多い: what the marks mean. */
+    LinearLayout legend() {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        r.setPadding(0, dp(4), 0, 0);
+        r.addView(text("読んだ日　少ない", 11, sub));
+        for (int d = 1; d <= 4; d++) {
+            android.view.View dot = new android.view.View(this);
+            android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+            g.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            g.setColor(markColor(d));
+            dot.setBackground(g);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(12), dp(12));
+            lp.leftMargin = dp(4);
+            r.addView(dot, lp);
+        }
+        TextView more = text("多い", 11, sub);
+        more.setPadding(dp(4), 0, 0, 0);
+        r.addView(more);
+        return r;
+    }
+
+    /** A day: its number on a mark as deep as its pages (0 none … 4 most), and a ring for the day picked. */
+    TextView cell(String label, int color, int depth, int size, boolean ring) {
         TextView c = text(label, 14, color);
         c.setGravity(Gravity.CENTER);
         GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
         lp.width = size;
         lp.height = size;
         c.setLayoutParams(lp);
-        if (depth > 0 || today) {
+        if (depth > 0 || ring) {
             android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
             d.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            if (depth > 0) d.setColor((Math.min(255, 50 + 50 * depth) << 24) | (accent & 0xFFFFFF));
-            if (today) d.setStroke(dp(2), accent);
+            if (depth > 0) d.setColor(markColor(depth));
+            if (ring) d.setStroke(dp(2), fg);
             android.graphics.drawable.InsetDrawable in = new android.graphics.drawable.InsetDrawable(d, dp(4));
             c.setBackground(in);
         }

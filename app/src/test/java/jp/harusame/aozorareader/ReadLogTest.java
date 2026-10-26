@@ -57,4 +57,16 @@ class ReadLogTest {
         ReadLog.record(dir, LocalDate.of(2026, 10, 26), "n9999zx", "試験作品", 1, 1);
         assertEquals(2, dir.listFiles((d, n) -> n.startsWith("readlog.json.bad-")).length);
     }
+
+    @Test
+    void aReadDayIsAlwaysMarkedAndItsDepthIsFixed(@TempDir File dir) {
+        // An episode only opened (no page turned) still counts as a day read.
+        ReadLog.record(dir, LocalDate.of(2026, 10, 8), "n9999zx", "試験作品", 2, 0);
+        int p = ReadLog.month(dir, YearMonth.of(2026, 10)).get(8);
+        assertEquals(1, ReadLog.depth(p), "the lightest mark, even as the month's only day");
+        assertEquals(1, ReadLog.depth(4));
+        assertEquals(2, ReadLog.depth(5));
+        assertEquals(3, ReadLog.depth(20));
+        assertEquals(4, ReadLog.depth(50));
+    }
 }
