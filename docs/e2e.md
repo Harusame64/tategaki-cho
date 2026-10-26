@@ -71,6 +71,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | B1 | A new shelf holds the guide book, and はじめかた offers the ways to add a work | aNewShelfHoldsTheGuideAndHowToStart (GuideBookTest) |
 | B2 | The guide book opens without a request, with a 目次 and no links to a site | theGuideOpensOfflineWithoutSiteLinks (GuideBookTest) |
 | B3 | Taken off, the guide stays off at the next start, and ＋ puts it back | takenOffItStaysOffAndComesBackFromPlus (GuideBookTest) |
+| B4 | The end of the guide book offers no link to a site | theGuidesEndCardHasNoSiteLink (GuideBookTest) |
 | T1 | From the read log, the 本棚 tab leads back to the shelf | theShelfTabLeavesTheReadLog |
 | K1 | カクヨム: an episode inserted before the one read; "next" opens the one after it, and the place follows | nextAfterAnInsertBefore (KakuyomuTest) |
 | K2 | カクヨム: the list changes while the 目次 is open; the episode tapped is the one opened | aTocJumpAfterTheListChanged |

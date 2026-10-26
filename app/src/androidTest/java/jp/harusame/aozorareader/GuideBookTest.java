@@ -20,7 +20,7 @@ import org.junit.runner.RunWith;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-/** docs/e2e.md B1–B3: the bundled guide book, and はじめかた on a shelf with nothing else. */
+/** docs/e2e.md B1–B4: the bundled guide book, and はじめかた on a shelf with nothing else. */
 @RunWith(AndroidJUnit4.class)
 public class GuideBookTest {
     ActivityScenario<?> scenario;
@@ -59,6 +59,22 @@ public class GuideBookTest {
         E2E.waitFor(a.get(), "document.getElementById('book').textContent.indexOf('この本について')>=0", "true");
         assertEquals("0", E2E.js(a.get(), "document.querySelectorAll('#info .head a').length"));
         assertEquals("true", E2E.js(a.get(), "getComputedStyle(document.getElementById('tocb')).display!=='none'"));
+        assertEquals(0, Net.asked.size());
+    }
+
+    /** B4: the end of the guide book offers no link to a site. */
+    @Test
+    public void theGuidesEndCardHasNoSiteLink() throws Exception {
+        Guide.ensure(E2E.ctx());
+        scenario = ActivityScenario.launch(new Intent(E2E.ctx(), ReaderActivity.class)
+                .putExtra("url", Shelf.episodeUrl(Guide.KEY, 999)).putExtra("page", 0));   // past the last: the last section
+        AtomicReference<Activity> a = new AtomicReference<>();
+        ((ActivityScenario<ReaderActivity>) scenario).onActivity(a::set);
+        E2E.waitReady(a.get());
+        E2E.js(a.get(), "__reader.go(__reader.pages()-1)");
+        E2E.tapLeft();
+        E2E.waitFor(a.get(), "document.getElementById('end').classList.contains('on')", "true");
+        assertEquals("0", E2E.js(a.get(), "document.querySelectorAll('#end a').length"));
         assertEquals(0, Net.asked.size());
     }
 

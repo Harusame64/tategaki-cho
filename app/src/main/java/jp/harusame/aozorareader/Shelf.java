@@ -480,7 +480,9 @@ final class Shelf {
         return w.page != null && !w.page.isEmpty() ? w.page : workUrl(w.ncode);
     }
 
+    /** The work's own page on its site; "" for the bundled guide book, which has none. */
     static String workUrl(String key) {
+        if (Guide.is(key)) return "";
         if (isKakuyomu(key)) return KakuyomuSite.workPage(key.substring(KK.length()));
         if (isAozora(key)) return "https://www.aozora.gr.jp/";
         return "https://ncode.syosetu.com/" + key + "/";
