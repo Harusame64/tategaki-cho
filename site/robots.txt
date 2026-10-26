@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://harusame64.github.io/tategaki-cho/sitemap.xml
