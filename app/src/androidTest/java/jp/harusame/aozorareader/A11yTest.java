@@ -86,6 +86,7 @@ public class A11yTest {
             all.addAll(screen(LogActivity.class, theme));
             all.addAll(screen(AozoraActivity.class, theme));
             all.addAll(screen(SearchActivity.class, theme));
+            all.addAll(screen(LicenceActivity.class, theme));
         }
         assertTrue(all.size() + " accessibility errors:\n" + String.join("\n", all), all.isEmpty());
     }

@@ -72,6 +72,10 @@ android {
         buildConfig true
     }
 
+    // The licence screen reads the repository's own notices, copied in at build time (licences/ in the assets),
+    // so the APK carries the same text as the repository and there is no second copy to keep in step.
+    sourceSets.main.assets.srcDir(layout.buildDirectory.dir("generated/licenceAssets").get().asFile)
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -84,6 +88,15 @@ android {
         unitTests.all { useJUnitPlatform() }
     }
 }
+
+def copyLicences = tasks.register("copyLicences", Sync) {
+    from(rootProject.file("NOTICE"))
+    from(rootProject.file("LICENSE"))
+    from(rootProject.file("THIRD-PARTY-NOTICES.txt"))
+    from(rootProject.file("licenses"))
+    into(layout.buildDirectory.dir("generated/licenceAssets/licences"))
+}
+tasks.named("preBuild") { dependsOn(copyLicences) }
 
 gradle.taskGraph.whenReady { graph ->
     def release = graph.allTasks.find { it.project == project && it.name ==~ /(assemble|bundle|package)\w*Release/ }

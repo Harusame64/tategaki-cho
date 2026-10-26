@@ -48,6 +48,7 @@ docs/   this file, e2e.md
 | `AozoraActivity` | 青空文庫: popular, by author, by category, search |
 | `ReaderActivity` | the reader: a WebView with `assets/reader.html`, the bridge `Android.*` |
 | `LogActivity` | the read log: a month (pages per day, the month summed up) or a year (its months and works); a back arrow and no tabs |
+| `LicenceActivity` | ライセンス (from ⋮): the GPL notice and the source, the shipped libraries and fonts, each licence in full; the texts are the repository's, copied into the assets at build time |
 | `ThemedActivity` | shared look and tabs |
 | `App` | counts the screens shown (for 全話を保存) |
 
@@ -161,7 +162,7 @@ and the backup limit is 25 MB).
   day (see "Two builds").
 - Long-press a work: 共有, 作品ページを開く, タグ, 全話を保存 / 全話の保存を止める, 保存した話を消す,
   本棚から外す. Taking a work off the shelf deletes its kept text.
-- ⋮: まとめて外す, 保存容量の整理 (per work: read episodes or all), 読書の記録, 新着の確認.
+- ⋮: まとめて外す, 保存容量の整理 (per work: read episodes or all), 読書の記録, 新着の確認, ライセンス.
 
 ## 全話を保存 (`FullSave`)
 

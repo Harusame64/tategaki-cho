@@ -35,6 +35,9 @@
             android:name=".LogActivity"
             android:exported="false" />
         <activity
+            android:name=".LicenceActivity"
+            android:exported="false" />
+        <activity
             android:name=".AozoraActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

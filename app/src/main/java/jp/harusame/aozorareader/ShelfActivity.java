@@ -87,10 +87,12 @@ public class ShelfActivity extends ThemedActivity {
             m.getMenu().add(0, 2, 1, "保存容量の整理");
             m.getMenu().add(0, 3, 2, "読書の記録");
             m.getMenu().add(0, 4, 3, "新着の確認…");
+            m.getMenu().add(0, 5, 4, "ライセンス");
             m.setOnMenuItemClickListener(i -> {
                 if (i.getItemId() == 1) startPicking();
                 else if (i.getItemId() == 2) storage();
                 else if (i.getItemId() == 3) startActivity(new Intent(this, LogActivity.class));
+                else if (i.getItemId() == 5) startActivity(new Intent(this, LicenceActivity.class));
                 else checkSettings();
                 return true;
             });
