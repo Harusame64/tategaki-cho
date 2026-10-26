@@ -1,0 +1,995 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>縦書き試作</title><style>@charset "utf-8";
+@namespace "http://www.w3.org/1999/xhtml";
+
+/** 縦書き テキスト用スタイル */
+@page {
+margin: 0 0 0 0;
+}
+
+html {
+margin: 0 0 0 0;
+padding: 0;
+writing-mode: vertical-rl;
+-webkit-writing-mode: vertical-rl;
+-epub-writing-mode: vertical-rl;
+-epub-line-break: strict;
+line-break: strict;	
+-epub-word-break: normal;
+word-break: normal;
+}
+body {
+margin: 0;
+padding: 0;
+display: block;
+color: #000;
+font-size: 100%;
+line-height: 1.8;
+vertical-align: baseline;
+}
+
+/** 太字、ゴシック */
+.gtc {
+font-family: '@ＭＳ ゴシック','@MS Gothic',sans-serif;
+}
+.b { font-weight: bold; }
+.i { font-style: italic; }
+
+/** 外字フォント */
+@charset "utf-8";
+@namespace "http://www.w3.org/1999/xhtml";
+
+body {
+	font-family: "@ＭＳ 明朝", "@MS Mincho", "ヒラギノ明朝 ProN W3", "HiraMinProN-W3", serif, sans-serif;
+	line-height: 1.8em !important;
+}
+
+.gtc, .b {
+	font-family: '@ＭＳ ゴシック','@MS Gothic',sans-serif !important;
+}
+
+.b { font-weight: bold; }
+.i { font-style: italic; }
+
+rt { font-size: 0.6em; }
+
+/* 柱（もどき） */
+.running_head {
+	position: absolute !important;
+	top: 15px;
+	left: 10px;
+	font-size: 0.8em;
+}
+
+/* 二分アキ */
+.half_em_space { padding-top: 0.5em; }
+
+/* パラメーター（折り返しあり） */
+.custom_parameter_block {
+	font-size: 100%;
+	line-height: 1.2em !important;
+	border: 2px solid #000;
+	border-radius: 4px;
+	margin: 1em 0.5em 1em 0.5em;
+	padding: 1em 0.2em 1em 0.2em;
+	display: inline-block;
+	font-family: sans-serif !important;
+	font-weight: bold;
+	box-shadow: 3px 3px 3px #bbb;
+	-webkit-box-shadow: 3px 3px 3px #bbb;
+}
+.jzm .custom_parameter_block { display: block; }
+.jzm .p .custom_parameter_block { display: inline-block; }
+
+/* 前書き */
+.introduction {
+	float: right;
+	font-size: 83%;
+	line-height: 1.5em !important;
+	border-top: 3px solid #aaa;
+	color: #555;
+	margin: 0.25em;
+	margin-right: 1em;
+	padding: 1em 0.5em 1em 0.5em;
+	display: inline-block;
+	font-family: sans-serif !important;
+	text-align: left !important;
+	height: 70%;
+}
+.jzm .introduction { display: block; }
+.jzm .p .introduction { display: inline-block; }
+
+/* 後書き */
+.postscript {
+	float: right;
+	font-size: 83%;
+	line-height: 1.5em !important;
+	border-top: 3px solid #888;
+	color: #222;
+	margin: 0.25em;
+	margin-right: 2em;
+	padding: 1em 0.5em 1em 0.5em;
+	display: inline-block;
+	font-family: sans-serif !important;
+	text-align: left !important;
+	height: 70%;
+}
+.jzm .postscript { display: block; }
+.jzm .p .postscript { display: inline-block; }
+
+div.clear { clear: both; }
+@charset "utf-8";
+@namespace "http://www.w3.org/1999/xhtml";
+
+/** 縦書き用 ページ設定以外の基本部分 */
+p {
+text-align: justify;
+margin: 0;
+}
+:link { color: #00C; background: transparent; }
+:visited { color: #609; background: transparent; }
+a:active { color: #C00; background: transparent; }
+a:link img, a:visited img { border-style: none; }
+
+/* 画像 */
+span.img {
+clear: both;
+display: inline-block;
+max-width: 100%;
+max-height: 100%;
+line-height: 1.2em;
+writing-mode: horizontal-tb;
+-webkit-writing-mode: horizontal-tb;
+-epub-writing-mode: horizontal-tb;
+}
+span.img img {
+min-width: 1em;
+}
+/* 単ページ横100% */
+.fit_w span.img {
+width: 100%;
+}
+/* 単ページ縦100% */
+.fit_h span.img {
+height: 100%;
+}
+/* 回り込み 上 */
+span.img.ft {
+display: inline;
+float: left;
+clear: left;
+padding: 0 .5em .5em .5em;
+}
+/* 回り込み 下 */
+span.img.fb {
+display: inline;
+float: right;
+clear: right;
+padding: .5em .5em 0 .5em;
+}
+span.img.fw img {
+width: 100%;
+}
+span.img.fh img {
+height: 100%;
+}
+/* 単ページfloat表示 */
+span.img.fpage {
+display: block;
+float: left;
+clear: both;
+width: 100%;
+height: 100%;
+text-align: center;
+vertical-align: center;
+padding-bottom: 100%;
+}
+/* 画像float表示 */
+span.img.fblk {
+display: block;
+float:left;
+padding: 0 .5em 100% .5em;
+}
+/* キャプション */
+span.img .caption {
+display: block;
+text-align: center;
+font-size: 85%;
+margin-bottom: .5em;
+}
+
+/* floatクリア用 */
+p.clear { clear:both; width:0; line-height:0;}
+p.clear_r { clear:right; width:0; line-height:0;}
+p.clear_l { clear:left; width:0; line-height:0;}
+
+/* 区切り線 */
+hr { margin: .5em 0 .5em 0; }
+
+/* 取り消し線 */
+.strike { text-decoration:line-through; }
+.dbl_strike { text-decoration:line-through; }
+
+/* 外字文字画像 */
+.gaiji {
+display: inline-block;
+vertical-align: middle;
+}
+.gaiji img {
+width: 1em;
+left: -.2em;
+}
+/* 外字フォント */
+.glyph {
+width: 1em;
+text-orientation: upright;
+-webkit-text-orientation: upright;
+-epub-text-orientation: upright;
+}
+
+/* 罫囲み */
+.border {
+border: 1px solid #000;
+margin: 0.25em;
+padding: 0.25em;
+}
+/* 破線罫囲み */
+.dashed_border {
+border: 1px dashed #000;
+margin: 0.25em;
+padding: 0.25em;
+}
+
+/* 濁点がつく文字 */
+.dakuten {
+display:inline-block;
+position:relative;	
+text-orientation: upright;
+-webkit-text-orientation: upright;
+-epub-text-orientation: upright;
+}
+/* 濁点半濁点文字 kindleは位置が異なる */
+.dakuten span {
+position:absolute;
+top:-.7em; left:.1em;
+}
+.kindle .dakuten span {
+top:0; left:0.76em;
+}
+
+/* 圏点 */
+span.sesame {
+text-emphasis-style: sesame;
+-webkit-text-emphasis-style: sesame;
+-epub-text-emphasis-style: sesame;
+}
+span.open_sesame {
+text-emphasis-style: open sesame;
+-webkit-text-emphasis-style: open sesame;
+-epub-text-emphasis-style: open sesame;
+}
+span.dot {
+text-emphasis-style: dot;
+-webkit-text-emphasis-style: dot;
+-epub-text-emphasis-style: dot;
+}
+span.open_dot {
+text-emphasis-style: open dot;
+-webkit-text-emphasis-style: open dot;
+-epub-text-emphasis-style: open dot;
+}
+span.circle {
+text-emphasis-style: circle;
+-webkit-text-emphasis-style: circle;
+-epub-text-emphasis-style: circle;
+}
+span.open_circle {
+text-emphasis-style: open circle;
+-webkit-text-emphasis-style: open circle;
+-epub-text-emphasis-style: open circle;
+}
+span.double-circle {
+text-emphasis-style: double-circle;
+-webkit-text-emphasis-style: double-circle;
+-epub-text-emphasis-style: double-circle;
+}
+span.open_double-circle {
+text-emphasis-style: open double-circle;
+-webkit-text-emphasis-style: open double-circle;
+-epub-text-emphasis-style: open double-circle;
+}
+span.triangle {
+text-emphasis-style: triangle;
+-webkit-text-emphasis-style: triangle;
+-epub-text-emphasis-style: triangle;
+}
+span.open_triangle {
+text-emphasis-style: open triangle;
+-webkit-text-emphasis-style: open triangle;
+-epub-text-emphasis-style: open triangle;
+}
+span.x-dot {
+text-emphasis-style: '×';
+-webkit-text-emphasis-style: '×';
+-epub-text-emphasis-style: '×';
+}
+span.left_emp {
+text-emphasis-position: under;
+-webkit-text-emphasis-position: under;
+-epub-text-emphasis-position: under;
+}
+
+/* 傍線 */
+span.underline, span.double_underline, span.dotted_underline, span.dashed_underline, span.wave_underline {
+border-right-width: 1px;
+padding-right: 1px;
+}
+span.underline {
+border-right-style: solid;
+}
+span.double_underline {
+border-right-width: 3px;
+border-right-style: double;
+}
+span.dotted_underline {
+border-right-style: dotted;
+}
+span.dashed_underline {
+border-right-style: dashed;
+}
+span.wave_underline {
+border-right-style: solid;/*wave;*/
+}
+span.left_underline {
+border-left-style: solid;
+padding-left: 1px;
+border-left-width: 1px;
+}
+
+/* 文字サイズ 大 */
+.font1, .chap3 { font-size: 110%; }
+.font2 { font-size: 120%; }
+.font3, .chap2 { font-size: 130%; }
+.font4 { font-size: 140%; }
+.font5, .chap1 { font-size: 150%; }
+.font6 { font-size: 160%; }
+/* 文字サイズ 小 */
+.font-1 { font-size: 90%; }
+.font-2 { font-size: 83%; }
+.font-3 { font-size: 77%; }
+.font-4, .kogaki  { font-size: 70%; }
+.font-5 { font-size: 66%; }
+.font-6 { font-size: 62%; }
+
+/* 見出し*/
+.chap1, .chap2, .chap3 {
+clear: both;
+}
+
+/* 縦中横 */
+/* 外字画像と重ならない対策 ※有効にすると字下げ折り返し内で画面外にずれる */
+/*span.tcy { display: inline-block; }*/
+.tcy span {
+text-combine: horizontal;
+-webkit-text-combine: horizontal;
+-epub-text-combine: horizontal;
+}
+
+/* 正立 */
+.upr {
+text-orientation: upright;
+-webkit-text-orientation: upright;
+-epub-text-orientation: upright;
+}
+
+/* ルビ内改行無し (Kindleで縦中横でずれるため) */
+.kindle ruby {
+white-space: nowrap;
+}
+
+/* 窓見出し 行頭2行のみ対応 */
+span.mado {
+float: left;
+display: inline-block;
+line-height: 1em;
+}
+/* 窓見出し 左右paddingは (lineheight-文字サイズ/2)/文字サイズ */
+span.mado.L { font-size:1.5em; padding:0 0.625em 0.33em 0; line-height:1em;}
+span.mado.M { font-size:1.3em; padding:0 0.846em 0.38em 0; line-height:1em;}
+span.mado.S { font-size:1.1em; padding:0 1.091em 0.45em 0; line-height:1em;}
+
+/** 割り注 (要改行) */
+span.wrc {
+display: inline-block;
+font-size: .6em;
+line-height: 1em;
+vertical-align: middle;
+padding: .2em 0 .1em 0;
+position: relative;
+left: -.4em;
+}
+
+/** 横組み (右に回転) */
+span.swr {
+display: inline-block;
+}
+.swr {
+text-orientation: sideways-right;
+-webkit-text-orientation: sideways-right;
+-epub-text-orientation: sideways-right;
+vertical-align: bottom;
+}
+
+/* 横書き */
+div.yoko {
+display: inline-block;
+writing-mode: horizontal-tb;
+-webkit-writing-mode: horizontal-tb;
+-epub-writing-mode: horizontal-tb;
+}
+
+/* 行右小書き 上付き小文字 */
+.sup {
+vertical-align: super;
+font-size: 0.66em;
+}
+/* 行左小書き 下付き小文字 */
+.sub {
+vertical-align: sub;
+font-size: 0.66em;
+}
+
+/* 中央揃え */
+div.center, div.center p { text-align: center; }
+
+/* 字下げ */
+div.pt1 { margin-top: 1em; }
+div.pt2 { margin-top: 2em; }
+div.pt3 { margin-top: 3em; }
+div.pt4 { margin-top: 4em; }
+div.pt5 { margin-top: 5em; }
+div.pt6 { margin-top: 6em; }
+div.pt7 { margin-top: 7em; }
+div.pt8 { margin-top: 8em; }
+div.pt9 { margin-top: 9em; }
+div.pt10 { margin-top: 10em; }
+div.pt11 { margin-top: 11em; }
+div.pt12 { margin-top: 12em; }
+div.pt13 { margin-top: 13em; }
+div.pt14 { margin-top: 14em; }
+div.pt15 { margin-top: 15em; }
+div.pt16 { margin-top: 16em; }
+div.pt17 { margin-top: 17em; }
+div.pt18 { margin-top: 18em; }
+div.pt19 { margin-top: 19em; }
+div.pt20 { margin-top: 20em; }
+div.pt21 { margin-top: 21em; }
+div.pt22 { margin-top: 22em; }
+div.pt23 { margin-top: 23em; }
+div.pt24 { margin-top: 24em; }
+div.pt25 { margin-top: 25em; }
+div.pt26 { margin-top: 26em; }
+div.pt27 { margin-top: 27em; }
+div.pt28 { margin-top: 28em; }
+div.pt29 { margin-top: 29em; }
+div.pt30 { margin-top: 30em; }
+
+/* 字上げ */
+div.pb1 { margin-bottom: 1em; }
+div.pb2 { margin-bottom: 2em; }
+div.pb3 { margin-bottom: 3em; }
+div.pb4 { margin-bottom: 4em; }
+div.pb5 { margin-bottom: 5em; }
+div.pb6 { margin-bottom: 6em; }
+div.pb7 { margin-bottom: 7em; }
+div.pb8 { margin-bottom: 8em; }
+div.pb9 { margin-bottom: 9em; }
+div.pb10 { margin-bottom: 10em; }
+div.pb11 { margin-bottom: 11em; }
+div.pb12 { margin-bottom: 12em; }
+div.pb13 { margin-bottom: 13em; }
+div.pb14 { margin-bottom: 14em; }
+div.pb15 { margin-bottom: 15em; }
+div.pb16 { margin-bottom: 16em; }
+div.pb17 { margin-bottom: 17em; }
+div.pb18 { margin-bottom: 18em; }
+div.pb19 { margin-bottom: 19em; }
+div.pb20 { margin-bottom: 20em; }
+div.pb21 { margin-bottom: 21em; }
+div.pb22 { margin-bottom: 22em; }
+div.pb23 { margin-bottom: 23em; }
+div.pb24 { margin-bottom: 24em; }
+div.pb25 { margin-bottom: 25em; }
+
+/* 地付き */
+div.btm, div.btm p { text-align: right; }
+/* 地付きで字詰め */
+div.btm .jzm { text-align: right;  display: inline-block; }
+
+/* 行内地付き */
+span.btm.fr {
+float: right;
+display: inline-block;
+}
+
+/* 改行天付き、折り返して(.+?)字下げ → class="pt{$1} idt-{$1}" */
+/* ここから(.+?)字下げ、折り返して(.+?)字下げ → class="pt{$2} idt{$1-$2}" */
+div.idt1 { text-indent: 1em; }
+div.idt2 { text-indent: 2em; }
+div.idt3 { text-indent: 3em; }
+div.idt4 { text-indent: 4em; }
+div.idt5 { text-indent: 5em; }
+div.idt6 { text-indent: 6em; }
+div.idt7 { text-indent: 7em; }
+div.idt8 { text-indent: 8em; }
+div.idt9 { text-indent: 9em; }
+div.idt10 { text-indent: 10em; }
+div.idt11 { text-indent: 11em; }
+div.idt12 { text-indent: 12em; }
+div.idt13 { text-indent: 13em; }
+div.idt14 { text-indent: 14em; }
+div.idt15 { text-indent: 15em; }
+div.idt16 { text-indent: 16em; }
+div.idt17 { text-indent: 17em; }
+div.idt18 { text-indent: 18em; }
+div.idt19 { text-indent: 19em; }
+div.idt20 { text-indent: 20em; }
+div.idt21 { text-indent: 21em; }
+div.idt22 { text-indent: 22em; }
+div.idt23 { text-indent: 23em; }
+div.idt24 { text-indent: 24em; }
+div.idt25 { text-indent: 25em; }
+div.idt-1 { text-indent: -1em; }
+div.idt-2 { text-indent: -2em; }
+div.idt-3 { text-indent: -3em; }
+div.idt-4 { text-indent: -4em; }
+div.idt-5 { text-indent: -5em; }
+div.idt-6 { text-indent: -6em; }
+div.idt-7 { text-indent: -7em; }
+div.idt-8 { text-indent: -8em; }
+div.idt-9 { text-indent: -9em; }
+div.idt-10 { text-indent: -10em; }
+div.idt-11 { text-indent: -11em; }
+div.idt-12 { text-indent: -12em; }
+div.idt-13 { text-indent: -13em; }
+div.idt-14 { text-indent: -14em; }
+div.idt-15 { text-indent: -15em; }
+div.idt-16 { text-indent: -16em; }
+div.idt-17 { text-indent: -17em; }
+div.idt-18 { text-indent: -18em; }
+div.idt-19 { text-indent: -19em; }
+div.idt-20 { text-indent: -20em; }
+div.idt-21 { text-indent: -21em; }
+div.idt-22 { text-indent: -22em; }
+div.idt-23 { text-indent: -23em; }
+div.idt-24 { text-indent: -24em; }
+div.idt-25 { text-indent: -25em; }
+
+/* 字詰め */
+div.jzm1 { max-height: 1em; }
+div.jzm2 { max-height: 2em; }
+div.jzm3 { max-height: 3em; }
+div.jzm4 { max-height: 4em; }
+div.jzm5 { max-height: 5em; }
+div.jzm6 { max-height: 6em; }
+div.jzm7 { max-height: 7em; }
+div.jzm8 { max-height: 8em; }
+div.jzm9 { max-height: 9em; }
+div.jzm10 { max-height: 10em; }
+div.jzm11 { max-height: 11em; }
+div.jzm12 { max-height: 12em; }
+div.jzm13 { max-height: 13em; }
+div.jzm14 { max-height: 14em; }
+div.jzm15 { max-height: 15em; }
+div.jzm16 { max-height: 16em; }
+div.jzm17 { max-height: 17em; }
+div.jzm18 { max-height: 18em; }
+div.jzm19 { max-height: 19em; }
+div.jzm20 { max-height: 20em; }
+div.jzm21 { max-height: 21em; }
+div.jzm22 { max-height: 22em; }
+div.jzm23 { max-height: 23em; }
+div.jzm24 { max-height: 24em; }
+div.jzm25 { max-height: 25em; }
+div.jzm26 { max-height: 26em; }
+div.jzm27 { max-height: 27em; }
+div.jzm28 { max-height: 28em; }
+div.jzm29 { max-height: 29em; }
+div.jzm30 { max-height: 30em; }
+div.jzm31 { max-height: 31em; }
+div.jzm32 { max-height: 32em; }
+div.jzm33 { max-height: 33em; }
+div.jzm34 { max-height: 34em; }
+div.jzm35 { max-height: 35em; }
+div.jzm36 { max-height: 36em; }
+div.jzm37 { max-height: 37em; }
+div.jzm38 { max-height: 38em; }
+div.jzm39 { max-height: 39em; }
+div.jzm40 { max-height: 40em; }
+
+/* 行内全角スペース調整用 */
+span.fullsp { padding-top:.5em; }
+
+:root{--ff:"Noto Serif CJK JP","Noto Serif JP",serif;--bg:#fbf8f1;--fg:#222;--sub:#888;--card:#faf8f3;--line:#e4e0d6;--link:#1a5fb4;--fs:19px}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);-webkit-user-select:none;user-select:none}
+.pagebox{writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;position:absolute;overflow:hidden;will-change:transform;
+ font-size:var(--fs);line-height:var(--lh,2);font-family:var(--ff);column-fill:auto}
+/* Bundled fonts (SIL OFL 1.1; licences beside them in assets/fonts). */
+@font-face{font-family:"BIZ UDMincho";src:url("fonts/BIZUDMincho-Regular.ttf")}
+@font-face{font-family:"Shippori Mincho";src:url("fonts/ShipporiMincho-Regular.ttf")}
+.pagebox p{margin:0}
+section.ep+section.ep{break-before:column}
+.tcy span{text-combine-upright:all;-webkit-text-combine:horizontal}
+span.sesame{text-emphasis-position:over right}
+/* Ruby (and なろう's 傍点, which is ruby of ・) fits in the half-leading of line-height 2, so a line
+   with ruby is no wider than the others. Below 2 (行間 in Aa) such a line is a little wider. */
+.pagebox rt{font-size:.5em;line-height:1}
+/* aozora's 前書き and 後書き boxes fix their colours for a white page; here they follow the theme. */
+.pagebox .introduction{color:var(--sub);border-top-color:var(--line)}
+.pagebox .postscript{color:var(--fg);border-top-color:var(--sub)}
+#peer{visibility:hidden}
+#pg{writing-mode:horizontal-tb;-webkit-writing-mode:horizontal-tb;position:fixed;bottom:8px;left:0;right:0;text-align:center;font:12px sans-serif;color:var(--sub)}
+#credit{position:fixed;left:22px;bottom:8px;font:12px sans-serif;color:var(--sub);writing-mode:horizontal-tb;
+  max-width:45%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#info{display:none;position:fixed;inset:0;writing-mode:horizontal-tb;z-index:9;font:15px/1.6 sans-serif;color:var(--fg)}
+#info.on{display:block}
+#info .topbar,#info .botbar{position:absolute;left:0;right:0;background:var(--card);box-shadow:0 0 6px rgba(0,0,0,.18);box-sizing:border-box}
+#info .topbar{top:0;display:flex;align-items:center;gap:8px;padding:10px 12px}
+#info .topbar .wt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:bold}
+#info .botbar{bottom:0;padding:10px 16px 16px}
+#info .sheet{display:none;position:absolute;left:0;right:0;bottom:0;background:var(--card);padding:20px 22px 28px;box-sizing:border-box;
+  box-shadow:0 -2px 10px rgba(0,0,0,.25);max-height:88%;overflow-y:auto}
+#info.work .sheet.w,#info.disp .sheet.d{display:block}
+#info.work .botbar,#info.disp .botbar{display:none}
+#info .t{font-size:17px;font-weight:bold;margin-bottom:4px}
+#info .a{color:var(--sub);margin-bottom:14px}
+#info a{display:block;padding:10px 0;color:var(--link);text-decoration:none;border-top:1px solid var(--line)}
+#info .note{margin-top:10px;font-size:12px;color:var(--sub)}
+#info .disp{margin:0}
+#info .row{display:flex;align-items:center;gap:10px;margin:6px 0}
+#info .row .k{width:4em;color:var(--sub);font-size:13px}
+#info button{font:15px sans-serif;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--fg);
+  min-width:44px;height:40px;padding:0 10px}
+#info .sw{width:40px;height:40px;border-radius:50%;padding:0;min-width:0}
+#info .sw.on{outline:3px solid var(--link);outline-offset:2px}
+#info .fsv{min-width:3em;text-align:center}
+#info .bar{margin:0}
+#info .bar input{flex:1;accent-color:var(--link)}
+#info .bar span{font-size:13px;color:var(--sub);min-width:4.5em;text-align:right}
+/* The first-time guide: where a tap turns or opens the menu (the zones of the touchend handler). */
+#guide{display:none;position:fixed;inset:0;z-index:12;writing-mode:horizontal-tb;font:15px/1.5 sans-serif;color:#fff}
+#guide.on{display:flex}
+#guide .z{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;box-sizing:border-box;padding:0 6px}
+#guide .z b{font-size:19px}
+#guide .n{width:40%;background:rgba(26,95,180,.93)}
+#guide .m{width:20%;background:rgba(50,50,50,.93);font-size:13px}
+#guide .m b{font-size:15px}
+#guide .p{width:40%;background:rgba(190,110,30,.93)}
+#guide .foot{position:absolute;left:0;right:0;bottom:28px;text-align:center;font-size:13px;padding:0 16px}
+#end{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);writing-mode:horizontal-tb;z-index:11;align-items:center;justify-content:center;font:15px/1.6 sans-serif}
+#end.on{display:flex}
+#end .card{background:var(--card);color:var(--fg);border-radius:14px;padding:22px 20px;width:84%;box-sizing:border-box}
+#end .t{font-weight:bold;font-size:18px;margin-bottom:4px}
+#end .a{color:var(--sub);font-size:13px;margin-bottom:14px}
+#end button,#end a{display:block;width:100%;box-sizing:border-box;margin:8px 0 0;padding:11px;border:1px solid var(--line);border-radius:8px;
+  background:transparent;color:var(--fg);font:15px sans-serif;text-align:center;text-decoration:none}
+#end .main{background:var(--link);border-color:var(--link);color:var(--card)}
+#info .topbar .home{font-weight:bold}
+#toc{display:none;position:fixed;inset:0;background:var(--card);color:var(--fg);writing-mode:horizontal-tb;z-index:10;flex-direction:column;font:15px/1.5 sans-serif}
+#toc.on{display:flex}
+#toc .hd{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
+#toc .tt{flex:1;font-weight:bold;font-size:17px}
+#toc button{font:15px sans-serif;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--fg);height:40px;padding:0 14px}
+#toc .st{padding:6px 18px;font-size:12px;color:var(--sub)}
+#toc .st:empty{display:none}
+#toc .ls{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 24px}
+#toc .ch{padding:14px 18px 6px;font-size:13px;color:var(--sub);font-weight:bold}
+#toc .ep{display:block;padding:11px 18px;border-top:1px solid var(--line);color:var(--fg);text-decoration:none}
+#toc .ep.cur{color:var(--link);font-weight:bold}
+/* kept in the app: readable without a signal */
+#toc .ep.kept::after{content:"保存済み";float:right;margin-left:10px;font-size:11px;font-weight:normal;color:var(--sub)}
+#info .fonts{flex-wrap:wrap}
+#info .fonts .k{width:100%}
+#info .vk.on,#info .ah.on,#info .bk.on,#info .ft.on,#info .pk.on,#info .ik.on,#info .lh.on,#info .mx.on,#info .my.on{border-color:var(--link);color:var(--link);font-weight:bold}
+</style></head><body>
+<div id="book" class="pagebox">%%BOOK%%</div><div id="credit"></div><div id="pg"></div>
+<div id="info"></div>
+<div id="guide"><div class="z n"><b>次のページ</b><span>ここを触る<br>または右へスワイプ</span></div><div class="z m"><b>メニュー</b><span>目次<br>設定<br>作品</span></div><div class="z p"><b>前のページ</b><span>ここを触る<br>または左へスワイプ</span></div><div class="foot">どこかを触ると閉じます<br>Aa の「触る場所」でいつでも見直せます</div></div>
+<div id="end"><div class="card"><div class="t"></div><div class="a"></div><div class="btns"></div></div></div>
+<div id="toc"><div class="hd"><span class="tt">目次</span><button id="tocx">閉じる</button></div><div class="st"></div><div class="ls"></div></div>
+<script>var INFO=%%INFO%%, START=%%START%%, SHARE=%%SHARE%%, PREFS=%%PREFS%%;</script><script>
+(function(){
+  var book=document.getElementById('book'), pg=document.getElementById('pg');
+  // The page a turn slides in: a copy of the episode scrolled to that page, kept beside the book.
+  var peer=book.cloneNode(true); peer.id='peer'; peer.setAttribute('aria-hidden','true'); book.after(peer);
+  // 上下余白 and 左右余白 in Aa: the margins left and right (PADX) and above and below (PADY) the text, in px.
+  var MX={s:12,m:22,l:36}, MY={s:28,m:36,l:52};
+  var PADX=22, PADY=36, H=0, STEP=0;
+  // One page = one column of a vertical-rl multicol box. Columns stack downwards, so the browser
+  // breaks pages between lines and never cuts a line in half; a page turn scrolls one column down.
+  function layout(){
+    PADX=MX[prefs.mx]; PADY=MY[prefs.my];
+    var w=window.innerWidth-2*PADX; H=window.innerHeight-2*PADY;
+    [book,peer].forEach(function(b){
+      b.style.left=PADX+'px'; b.style.top=PADY+'px';
+      b.style.width=w+'px'; b.style.height=H+'px';
+      b.style.columnWidth=H+'px'; b.style.columnGap=(2*PADY)+'px';
+    });
+    STEP=H+2*PADY;
+    show();
+  }
+  function pages(){return Math.max(1,Math.round((book.scrollHeight+2*PADY)/STEP));}
+  function cur(){return Math.round(book.scrollTop/STEP);}
+  function go(n){n=Math.max(0,Math.min(pages()-1,n));book.scrollTop=n*STEP;show();}
+  // While the page starts (laid out at 0, then moved to the saved page), the place is not reported: page 0 was never read.
+  var starting=true;
+  function show(){pg.textContent=(cur()+1)+' / '+pages();if(!starting&&window.Android)Android.page(cur(),pages(),INFO?INFO.url:'');}
+  // Past the last page goes on to the next episode, before the first back to the previous one.
+  // A turn past an end asks the app once; more taps before it answers are not passed on.
+  var edgeAt=0;
+  function edge(d){
+    var now=Date.now(); if(now-edgeAt<1500)return; edgeAt=now;
+    if(window.Android){if(d>0)Android.next();else Android.prev();}
+  }
+  // Pages turn leftwards: the next page comes in from the left, the previous one from the right.
+  var W=0, busy=false;
+  function place(el,x){el.style.transform=x?'translateX('+x+'px)':'';}
+  function slide(x,d,ms,done){
+    [book,peer].forEach(function(el){el.style.transition=ms?'transform '+ms+'ms ease-out':'';});
+    place(book,x); place(peer,x-d*W);
+    if(!ms){done&&done();return;}
+    var fin=false; function end(){if(fin)return;fin=true;done&&done();}
+    book.addEventListener('transitionend',end,{once:true}); setTimeout(end,ms+80);
+  }
+  function arm(d){
+    W=window.innerWidth; peer.scrollTop=(cur()+d)*STEP; peer.style.visibility='visible';
+  }
+  function settle(){
+    [book,peer].forEach(function(el){el.style.transition='';place(el,0);});
+    peer.style.visibility='hidden'; busy=false;
+  }
+  function turn(d,from){
+    if(busy||toc.classList.contains('on'))return;
+    var n=cur()+d;
+    if(n>=pages()||n<0){if(from)slide(0,d,150,settle);edge(d);return;}
+    if(!from){go(n);return;}                                         // a tap turns at once
+    busy=true;
+    slide(d*W,d,180,function(){book.scrollTop=n*STEP;show();settle();});
+  }
+  var credit=document.getElementById('credit'), info=document.getElementById('info');
+  function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  // The work is always credited: its author stays on screen, and a tap in the middle shows the work
+  // and the links back to the original site.
+  var h='', curNo=0, curId='';
+  function setInfo(i){
+    INFO=i; var t='';
+    credit.textContent=i?(i.author?('作者：'+i.author):(i.workTitle||'')):'';
+    // 空行 and 字下げ are the web novels' formatting; a 青空文庫 book is shown as its text is written.
+    var ao=!!(i&&i.url&&i.url.indexOf('aozora://')===0);
+    info.querySelectorAll('.row.web').forEach(function(r){r.style.display=ao?'none':'';});
+    if(i){
+      t='<div class="t">'+esc(i.workTitle||'')+'</div><div class="a">作者：'+esc(i.author||'不明')
+        +(i.number?'　（'+esc(i.number)+'）':'')+'</div>';
+      t+='<a href="'+esc(i.page||i.url)+'">この話を原作サイトで開く</a>';
+      if(i.workUrl)t+='<a href="'+esc(i.workUrl)+'">作品ページ（目次）</a>';
+      if(i.authorUrl)t+='<a href="'+esc(i.authorUrl)+'">作者のページ</a>';
+      t+='<div class="note">感想・評価・ブックマークは原作サイトでどうぞ。</div>';
+    }
+    info.querySelector('.head').innerHTML=t;
+    info.querySelector('.wt').textContent=i?(i.workTitle||''):'';
+    info.querySelector('#tocb').style.display=i&&i.workUrl?'':'none';
+    // カクヨム's episodes are named by id (kakuyomu://<work>/e/<id>): marked in the 目次 by it, not by a number.
+    curId=i&&i.id?String(i.id):'';
+    var m=!curId&&i&&i.url&&i.url.match(/\/(\d+)\/?$/); curNo=i&&i.no?Number(i.no):m?Number(m[1]):0;
+  }
+  // Display settings: the theme and the text size, kept by the app across episodes.
+  var THEMES={
+    kinari:{bg:'#fbf8f1',fg:'#222',sub:'#888',card:'#faf8f3',line:'#e4e0d6',link:'#1a5fb4'},
+    white:{bg:'#ffffff',fg:'#111',sub:'#888',card:'#ffffff',line:'#e2e2e2',link:'#1a5fb4'},
+    sepia:{bg:'#f1e7d0',fg:'#4a3b2a',sub:'#8a7a63',card:'#efe4cb',line:'#d9cbaa',link:'#7a4b12'},
+    dark:{bg:'#1f1f1f',fg:'#d6d2c8',sub:'#8a877f',card:'#2a2a2a',line:'#3a3a3a',link:'#8ab4f8'},
+    black:{bg:'#000000',fg:'#a8a49a',sub:'#6b6862',card:'#121212',line:'#2a2a2a',link:'#8ab4f8'}};
+  var THEME_ORDER=['kinari','white','sepia','dark','black'];
+  var SIZES=[15,17,19,21,23,26,30];
+  var AHEAD=[1,3,5];
+  var LHS=[1.6,1.8,2,2.2];
+  // Two fonts the phone has, two bundled with the app.
+  var FONTS={serif:{n:'明朝',f:'"Noto Serif CJK JP","Noto Serif JP",serif'},sans:{n:'ゴシック',f:'"Noto Sans CJK JP","Noto Sans JP",sans-serif'},
+    bizud:{n:'BIZ UD明朝',f:'"BIZ UDMincho",serif'},shippori:{n:'しっぽり明朝',f:'"Shippori Mincho",serif'}};
+  var FONT_ORDER=['serif','sans','bizud','shippori'];
+  var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,lh:2,mx:'m',my:'m',guided:false};
+  if(PREFS){if(THEMES[PREFS.theme])prefs.theme=PREFS.theme;if(SIZES.indexOf(PREFS.fs)>=0)prefs.fs=PREFS.fs;
+    if(AHEAD.indexOf(PREFS.ahead)>=0)prefs.ahead=PREFS.ahead;else if(PREFS.ahead>5)prefs.ahead=5;if(PREFS.vol===true)prefs.vol=true;if(PREFS.bar===true)prefs.bar=true;if(FONTS[PREFS.font])prefs.font=PREFS.font;if(PREFS.pack===false)prefs.pack=false;if(PREFS.indent===true)prefs.indent=true;
+    if(LHS.indexOf(PREFS.lh)>=0)prefs.lh=PREFS.lh;if(MX[PREFS.mx])prefs.mx=PREFS.mx;if(MY[PREFS.my])prefs.my=PREFS.my;if(PREFS.guided===true)prefs.guided=true;}
+  function applyTheme(){
+    var t=THEMES[prefs.theme], r=document.documentElement.style;
+    for(var k in t)r.setProperty('--'+k,t[k]);
+    r.setProperty('--fs',prefs.fs+'px');
+    r.setProperty('--lh',String(prefs.lh));
+    r.setProperty('--ff',FONTS[prefs.font].f);
+  }
+  function save(){if(window.Android)Android.savePrefs(JSON.stringify(prefs));}
+  h+='<div class="sheet d"><div class="disp"><div class="row"><span class="k">背景</span>'
+    +THEME_ORDER.map(function(k){return '<button class="sw" data-theme="'+k+'" style="background:'+THEMES[k].bg+'"></button>';}).join('')
+    +'</div><div class="row fonts"><span class="k">書体</span>'
+    +FONT_ORDER.map(function(k){return '<button class="ft" data-font="'+k+'" style="font-family:'+FONTS[k].f.replace(/"/g,"&quot;")+'">'+FONTS[k].n+'</button>';}).join('')
+    +'</div><div class="row web"><span class="k">空行</span><button class="pk" data-pack="1">詰める</button><button class="pk" data-pack="0">原文のまま</button>'
+    +'</div><div class="row web"><span class="k">字下げ</span><button class="ik" data-indent="1">付ける</button><button class="ik" data-indent="0">原文のまま</button>'
+    +'</div><div class="row"><span class="k">文字</span><button data-fs="-1">A−</button><span class="fsv"></span><button data-fs="1">A＋</button></div>'
+    +'<div class="row"><span class="k">行間</span>'+LHS.map(function(v){return '<button class="lh" data-lh="'+v+'">'+v.toFixed(1)+'</button>';}).join('')+'</div>'
+    +'<div class="row"><span class="k">上下余白</span>'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="my" data-my="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div>'
+    +'<div class="row"><span class="k">左右余白</span>'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="mx" data-mx="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div>'
+    +'<div class="row"><span class="k">触る場所</span><button data-guide="1">見る</button></div>'
+    +'<div class="row"><span class="k">先読み</span>'
+    +AHEAD.map(function(n){return '<button class="ah" data-ahead="'+n+'">'+n+'話</button>';}).join('')+'</div>'
+    +'<div class="row"><span class="k">時計</span><button class="bk" data-bar="1">時刻・通知を出す</button><button class="bk" data-bar="0">隠す</button></div>'
+    +'<div class="row"><span class="k">音量キー</span><button class="vk" data-vol="1">ページをめくる</button><button class="vk" data-vol="0">使わない</button></div></div></div>';
+  // As in Kindle, a tap in the middle shows only the bars: the work and its buttons on top, the page bar
+  // below. The settings (Aa) and the work's links each open from their button, never from that tap.
+  h='<div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
+    +'<div class="botbar"><div class="row bar"><input id="seek" type="range" min="1" value="1"><span id="seekv"></span></div></div>'
+    +'<div class="sheet w"><div class="head"></div></div>'+h;
+  info.innerHTML=h;
+  setInfo(INFO);
+  function markDisp(){
+    info.querySelectorAll('.sw').forEach(function(b){b.classList.toggle('on',b.dataset.theme===prefs.theme);});
+    info.querySelector('.fsv').textContent=prefs.fs+'px';
+    info.querySelectorAll('.ah').forEach(function(b){b.classList.toggle('on',Number(b.dataset.ahead)===prefs.ahead);});
+    info.querySelectorAll('.vk').forEach(function(b){b.classList.toggle('on',(b.dataset.vol==='1')===prefs.vol);});
+    info.querySelectorAll('.ft').forEach(function(b){b.classList.toggle('on',b.dataset.font===prefs.font);});
+    info.querySelectorAll('.pk').forEach(function(b){b.classList.toggle('on',(b.dataset.pack==='1')===prefs.pack);});
+    info.querySelectorAll('.lh').forEach(function(b){b.classList.toggle('on',Number(b.dataset.lh)===prefs.lh);});
+    info.querySelectorAll('.mx').forEach(function(b){b.classList.toggle('on',b.dataset.mx===prefs.mx);});
+    info.querySelectorAll('.my').forEach(function(b){b.classList.toggle('on',b.dataset.my===prefs.my);});
+    info.querySelectorAll('.ik').forEach(function(b){b.classList.toggle('on',(b.dataset.indent==='1')===prefs.indent);});
+    info.querySelectorAll('.bk').forEach(function(b){b.classList.toggle('on',(b.dataset.bar==='1')===prefs.bar);});
+  }
+  info.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('button'); if(!b)return;
+    if(b.dataset.theme){prefs.theme=b.dataset.theme;applyTheme();}
+    if(b.dataset.font&&b.dataset.font!==prefs.font){
+      // Keep the place across the relayout a new font brings, as for a new size.
+      var f0=cur()/Math.max(1,pages()-1); prefs.font=b.dataset.font; applyTheme();
+      document.fonts.load('16px '+FONTS[prefs.font].f.split(',')[0]).then(function(){layout();go(Math.round(f0*(pages()-1)));});
+    }
+    if(b.dataset.ahead){prefs.ahead=Number(b.dataset.ahead);}
+    if(b.dataset.vol){prefs.vol=b.dataset.vol==='1';}
+    if(b.dataset.bar){prefs.bar=b.dataset.bar==='1';}
+    if(b.dataset.pack&&(b.dataset.pack==='1')!==prefs.pack){
+      // The blank lines are the formatter's, so the app formats the episode again, at the same share read.
+      prefs.pack=b.dataset.pack==='1'; markDisp(); save();
+      if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1)); return;
+    }
+    if(b.dataset.indent&&(b.dataset.indent==='1')!==prefs.indent){
+      // Likewise: the indent is put in by the formatter.
+      prefs.indent=b.dataset.indent==='1'; markDisp(); save();
+      if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1)); return;
+    }
+    if(b.id==='tocb'){openToc();return;}
+    if(b.id==='homeb'){if(window.Android)Android.shelf();return;}
+    if(b.id==='workb'||b.id==='dispb'){var k=b.id==='workb'?'work':'disp';var o=info.classList.contains(k);
+      info.classList.remove('work','disp');if(!o)info.classList.add(k);return;}
+    if(b.dataset.guide){info.classList.remove('on','work','disp');guide.classList.add('on');return;}
+    if(b.dataset.lh||b.dataset.mx||b.dataset.my){
+      // As for a new size: the same share of the episode read, after the relayout.
+      var f1=cur()/Math.max(1,pages()-1);
+      if(b.dataset.lh)prefs.lh=Number(b.dataset.lh); if(b.dataset.mx)prefs.mx=b.dataset.mx; if(b.dataset.my)prefs.my=b.dataset.my;
+      applyTheme(); layout(); go(Math.round(f1*(pages()-1)));
+    }
+    if(b.dataset.fs){
+      var i=SIZES.indexOf(prefs.fs)+Number(b.dataset.fs); if(i<0||i>=SIZES.length)return;
+      // Keep the place: the same share of the episode read, at the new size.
+      var f=cur()/Math.max(1,pages()-1); prefs.fs=SIZES[i]; applyTheme(); layout(); go(Math.round(f*(pages()-1)));
+    }
+    markDisp(); save();
+  });
+  applyTheme(); markDisp();
+  var openedAt=0;
+  var seek=document.getElementById('seek'), seekv=document.getElementById('seekv');
+  function markSeek(){seek.max=pages();seek.value=cur()+1;seekv.textContent=(cur()+1)+' / '+pages();}
+  seek.addEventListener('input',function(){go(Number(seek.value)-1);seekv.textContent=seek.value+' / '+pages();});
+  var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0;
+  function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocLs.innerHTML='';tocSt.textContent='目次を読み込み中…';
+    if(window.Android)Android.toc();}
+  function renderToc(d){
+    if(!toc.classList.contains('on'))return;
+    if(!d){tocSt.textContent='この作品には目次がありません';return;}
+    if(d.error){tocSt.textContent='目次を読み込めませんでした';return;}
+    var html='';
+    for(var i=tocShown;i<d.entries.length;i++){var e=d.entries[i];
+      if(e.c)html+='<div class="ch">'+esc(e.c)+'</div>';
+      var cur=e.id?String(e.id)===curId:e.n===curNo;
+      html+='<a class="ep'+(cur?' cur':'')+(e.k?' kept':'')+'" data-n="'+e.n+'"'+(e.id?' data-id="'+esc(e.id)+'"':'')+'>'+esc(e.t)+'</a>';}
+    var first=tocShown===0; tocShown=d.entries.length;
+    tocLs.insertAdjacentHTML('beforeend',html);
+    var k=0; d.entries.forEach(function(e){if(e.k)k++;});
+    tocSt.textContent=d.done?(k?'保存済み '+k+' / '+d.entries.length+' 話':''):'目次を読み込み中…（'+d.read+' / '+d.pages+'）';
+    var c=tocLs.querySelector('.ep.cur'); if(c&&!toc.dataset.scrolled){c.scrollIntoView({block:'center'});toc.dataset.scrolled='1';}
+  }
+  document.getElementById('tocx').addEventListener('click',function(){toc.classList.remove('on');delete toc.dataset.scrolled;if(window.Android)Android.tocClosed();});
+  tocLs.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('.ep');if(!a)return;
+    if(a.dataset.id?a.dataset.id===curId:Number(a.dataset.n)===curNo){toc.classList.remove('on');go(0);return;}
+    tocSt.textContent='開いています…'; if(window.Android)Android.open(String(a.dataset.id||a.dataset.n));});
+  function toggleInfo(on){info.classList.toggle('on',on);info.classList.remove('work','disp');if(on){openedAt=Date.now();markSeek();}}
+  // The tap that opens the card is followed by its own click, which lands on the backdrop just shown.
+  // That click can also land on a link or button of the card, now that it reaches the middle of the
+  // screen: nothing in the card takes a click until the tap that opened it is over.
+  info.addEventListener('click',function(e){if(Date.now()-openedAt<500){e.preventDefault();e.stopImmediatePropagation();}},true);
+  info.addEventListener('click',function(e){if(e.target===info)toggleInfo(false);});
+  // A swipe drags the page with the finger (rightwards = next); let go past a fifth of the width, or
+  // flick, and it turns, otherwise it slides back. A tap turns by the side it lands on.
+  var x0=null, t0=0, drag=0, dir=0, lastX=0, lastT=0, vx=0;
+  document.addEventListener('touchstart',function(e){
+    if(busy||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||document.getElementById('end').classList.contains('on')){x0=null;return;}
+    x0=lastX=e.touches[0].clientX; t0=lastT=Date.now(); drag=0; dir=0; vx=0;
+  },{passive:true});
+  document.addEventListener('touchmove',function(e){
+    if(x0===null)return;
+    var x=e.touches[0].clientX, now=Date.now(), dx=x-x0;
+    if(now>lastT){vx=(x-lastX)/(now-lastT);} lastX=x; lastT=now;
+    if(!dir){if(Math.abs(dx)<10)return; dir=dx>0?1:-1;
+      var n=cur()+dir; if(n>=0&&n<pages())arm(dir);}
+    var inside=cur()+dir>=0&&cur()+dir<pages();
+    drag=inside?dx:dx/4;                                             // past an end the page only gives a little
+    if(dir*drag<0)drag=0;
+    slide(drag,dir,0);
+  },{passive:true});
+  document.addEventListener('touchend',function(e){
+    if(x0===null)return;
+    if(info.classList.contains('on')||guide.classList.contains('on')){x0=null;return;}
+    var x=e.changedTouches[0].clientX;
+    if(dir){
+      var go2=Math.abs(drag)>window.innerWidth*0.2||(dir*vx>0.5&&Math.abs(drag)>20);
+      if(go2)turn(dir,true); else{busy=true;slide(0,dir,150,settle);}
+    } else if(Date.now()-t0<500){
+      var w=window.innerWidth; if(x<w*0.4)turn(1); else if(x>w*0.6)turn(-1); else toggleInfo(true);
+    }
+    x0=null;
+  });
+  document.addEventListener('touchcancel',function(){if(x0!==null&&dir&&!busy){busy=true;slide(0,dir,150,settle);}x0=null;});
+  window.addEventListener('resize',function(){var c=cur();layout();go(c);});
+    // The next episode, formatted ahead by the app, replaces this one in place: no page load between them.
+  function swap(body,i,start){
+    settle(); book.innerHTML=body; peer.innerHTML=body; setInfo(i); edgeAt=0;
+    if(toc.classList.contains('on')&&window.Android)Android.tocClosed();
+    toc.classList.remove('on'); delete toc.dataset.scrolled; info.classList.remove('on'); endEl.classList.remove('on');
+    book.scrollTop=0; layout(); go(start<0?pages()-1:start);
+  }
+  // The end of a work: finished, or the newest episode so far.
+  var endEl=document.getElementById('end');
+  // Shown once, the first time a book opens; closed by any tap (which turns nothing).
+  var guide=document.getElementById('guide');
+  function closeGuide(){if(!guide.classList.contains('on'))return;guide.classList.remove('on');if(!prefs.guided){prefs.guided=true;save();}}
+  guide.addEventListener('click',closeGuide);
+  function end(done,page,aozora){
+    endEl.querySelector('.t').textContent=done?'この作品を読み終えました':'最新話まで読みました';
+    endEl.querySelector('.a').textContent=(INFO&&INFO.workTitle?INFO.workTitle+'　':'')+(done?'':'続きは本棚の新着でお知らせします。');
+    var b='<button class="main" data-go="shelf">本棚へ</button>';
+    if(page)b+='<a href="'+esc(page)+'">'+(aozora?'図書カードを開く':'作品ページで感想・評価を')+'</a>';
+    b+='<button data-go="toc">目次</button><button data-go="close">このページに戻る</button>';
+    endEl.querySelector('.btns').innerHTML=b; endEl.classList.add('on');
+  }
+  endEl.addEventListener('click',function(e){
+    var g=e.target.closest&&e.target.closest('[data-go]');
+    if(e.target===endEl||(g&&g.dataset.go==='close')){endEl.classList.remove('on');return;}
+    if(!g)return; endEl.classList.remove('on');
+    if(g.dataset.go==='shelf'&&window.Android)Android.shelf();
+    if(g.dataset.go==='toc')openToc();
+  });
+  // A key (the volume keys) turns only the page in view: not under the bars, the 目次 or the end card.
+  // Back (from the app) closes what is open; the app is told when anything opens or closes.
+  function anyOverlay(){return guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on');}
+  function closeOverlays(){
+    if(toc.classList.contains('on')){toc.classList.remove('on');delete toc.dataset.scrolled;if(window.Android)Android.tocClosed();}
+    info.classList.remove('on','work','disp');endEl.classList.remove('on');closeGuide();tellOverlay();
+  }
+  var overlayWas=false;
+  function tellOverlay(){var o=anyOverlay();if(o!==overlayWas){overlayWas=o;if(window.Android)Android.overlay(o);}}
+  new MutationObserver(tellOverlay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
+  function key(d){if(guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on'))return;turn(d);}
+  window.__reader={swap:swap,end:end,key:key,closeOverlays:closeOverlays,go:go,cur:cur,pages:pages,turn:turn,vol:function(){return prefs.vol&&!info.classList.contains('on')&&!guide.classList.contains('on');},toc:renderToc};
+  function start(){if(window.Android)Android.overlay(false);layout();starting=false;if(!prefs.guided)guide.classList.add('on');go(SHARE>=0?Math.round(SHARE*(pages()-1)):START<0?pages()-1:START);}
+  document.fonts&&document.fonts.ready?document.fonts.ready.then(start):start();
+})();
+</script></body></html>

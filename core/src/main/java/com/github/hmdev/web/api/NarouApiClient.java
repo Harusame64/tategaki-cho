@@ -1,0 +1,295 @@
+package com.github.hmdev.web.api;
+
+import java.io.ByteArrayInputStream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.zip.GZIPInputStream;
+
+import com.github.hmdev.web.api.exception.ApiException;
+import com.github.hmdev.web.api.exception.NetworkException;
+import com.github.hmdev.web.api.exception.RateLimitException;
+import com.github.hmdev.web.api.model.NovelMetadata;
+
+/**
+ * なろう小説API クライアント (プロトタイプ版)
+ * 
+ * 参考: https://dev.syosetu.com/man/api/
+ */
+public class NarouApiClient {
+	/** APIエンドポイント (通常) */
+	private static final String API_ENDPOINT = "https://api.syosetu.com/novelapi/api/";
+	/** APIエンドポイント (R18: ノクターンノベルズ/ムーンライトノベルズ) */
+	private static final String API_ENDPOINT_R18 = "https://api.syosetu.com/novel18api/api/";
+
+	/** リクエストカウント (簡易版) */
+	private int requestCount = 0;
+	private long bytesTransferred = 0;
+
+	/** 共有 HttpClient */
+	private final HttpClient httpClient;
+
+	/** デフォルトコンストラクタ (テスト用スタブで使用) */
+	public NarouApiClient() {
+		this.httpClient = HttpClient.newBuilder()
+			.connectTimeout(Duration.ofSeconds(10))
+			.build();
+	}
+
+	public NarouApiClient(HttpClient httpClient) {
+		this.httpClient = httpClient;
+	}
+
+	/**
+	 * Nコードから作品メタデータを取得 (通常サイト)
+	 * @param ncode 作品コード (例: "n0001a")
+	 * @return NovelMetadata 作品情報
+	 * @throws ApiException API呼び出し失敗
+	 */
+	public NovelMetadata getNovelMetadata(String ncode) throws ApiException {
+		return getNovelMetadata(ncode, false);
+	}
+
+	/**
+	 * Nコードから作品メタデータを取得
+	 * @param ncode 作品コード (例: "n0001a")
+	 * @param isR18 R18サイト (novel18.syosetu.com) の場合true
+	 * @return NovelMetadata 作品情報
+	 * @throws ApiException API呼び出し失敗
+	 */
+	public NovelMetadata getNovelMetadata(String ncode, boolean isR18) throws ApiException {
+		// Nコードを小文字に正規化
+		ncode = ncode.toLowerCase();
+
+		// URLパラメータ構築
+		Map<String, String> params = new HashMap<>();
+		params.put("ncode", ncode);
+		params.put("out", "json");  // JSON形式で取得
+		params.put("of", "t-n-u-w-s-bg-g-k-gf-gl-nt-e-ga-l-ti-i-gp-f-r-nu");  // 必要項目のみ
+		params.put("gzip", "5");   // gzip圧縮 (narou.rbと同様)
+
+		String endpoint = isR18 ? API_ENDPOINT_R18 : API_ENDPOINT;
+		String jsonResponse = makeApiRequest(endpoint, params);
+		return parseJsonToMetadata(jsonResponse);
+	}
+	
+	/**
+	 * APIリクエスト実行
+	 * @param endpoint APIエンドポイントURL
+	 * @param params リクエストパラメータ
+	 */
+	private String makeApiRequest(String endpoint, Map<String, String> params) throws ApiException {
+		try {
+			// URL構築
+			StringBuilder urlBuilder = new StringBuilder(endpoint);
+			urlBuilder.append("?");
+			boolean first = true;
+			for (Map.Entry<String, String> entry : params.entrySet()) {
+				if (!first) urlBuilder.append("&");
+				urlBuilder.append(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8));
+				urlBuilder.append("=");
+				urlBuilder.append(URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8));
+				first = false;
+			}
+
+			String url = urlBuilder.toString();
+			System.out.println("[API] リクエスト: " + url);
+
+			// HTTP接続
+			HttpRequest request = HttpRequest.newBuilder()
+				.uri(new URI(url))
+				.header("User-Agent", "AozoraEpub3/1.7.5")
+				.header("Accept-Encoding", "gzip")
+				.timeout(Duration.ofSeconds(30))
+				.GET().build();
+			HttpResponse<byte[]> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+
+			// レスポンス取得
+			int responseCode = httpResponse.statusCode();
+			if (responseCode == 503) {
+				throw new RateLimitException("サーバー負荷制限中 (503)。時間をおいて再試行してください。");
+			}
+			if (responseCode != 200) {
+				throw new ApiException("API呼び出しエラー: HTTP " + responseCode);
+			}
+
+			// レスポンス読み込み (gzip対応)
+			byte[] body = httpResponse.body();
+			InputStream is = new ByteArrayInputStream(body);
+			String contentEncoding = httpResponse.headers().firstValue("Content-Encoding").orElse("");
+			if ("gzip".equalsIgnoreCase(contentEncoding) || params.containsKey("gzip")) {
+				is = new GZIPInputStream(is);
+			}
+			BufferedReader reader = new BufferedReader(
+				new InputStreamReader(is, StandardCharsets.UTF_8));
+			StringBuilder response = new StringBuilder();
+			String line;
+			while ((line = reader.readLine()) != null) {
+				response.append(line);
+			}
+			reader.close();
+
+			// 統計更新
+			requestCount++;
+			bytesTransferred += response.length();
+
+			System.out.println("[API] レスポンス取得成功 (" + response.length() + " bytes)");
+			return response.toString();
+
+		} catch (IOException e) {
+			throw new NetworkException("ネットワークエラー: " + e.getMessage(), e);
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new ApiException("APIリクエストエラー: " + e.getMessage(), e);
+		}
+	}
+	
+	/**
+	 * JSONレスポンスをNovelMetadataにパース (簡易実装)
+	 * 
+	 * 注: 本実装ではJacksonやGsonなどのライブラリ使用を推奨
+	 */
+	private NovelMetadata parseJsonToMetadata(String json) throws ApiException {
+		try {
+			// JSONレスポンスは配列形式: [{"allcount":1}, {...作品データ...}]
+			// 2番目の要素を抽出
+			int startIndex = json.indexOf("{", json.indexOf("{") + 1);
+			int endIndex = json.lastIndexOf("}");
+			if (startIndex == -1 || endIndex == -1) {
+				throw new ApiException("作品が見つかりませんでした");
+			}
+			
+			String dataJson = json.substring(startIndex, endIndex + 1);
+			
+			NovelMetadata metadata = new NovelMetadata();
+			
+			// 各フィールドを抽出 (簡易パーサー)
+			metadata.setTitle(extractJsonString(dataJson, "title"));
+			metadata.setNcode(extractJsonString(dataJson, "ncode"));
+			metadata.setWriter(extractJsonString(dataJson, "writer"));
+			metadata.setStory(extractJsonString(dataJson, "story"));
+			metadata.setKeyword(extractJsonString(dataJson, "keyword"));
+			
+			metadata.setUserid(extractJsonInt(dataJson, "userid"));
+			metadata.setBiggenre(extractJsonInt(dataJson, "biggenre"));
+			metadata.setGenre(extractJsonInt(dataJson, "genre"));
+			metadata.setNovelType(extractJsonInt(dataJson, "novel_type"));
+			metadata.setEnd(extractJsonInt(dataJson, "end"));
+			metadata.setGeneralAllNo(extractJsonInt(dataJson, "general_all_no"));
+			metadata.setLength(extractJsonInt(dataJson, "length"));
+			metadata.setTime(extractJsonInt(dataJson, "time"));
+			metadata.setIsstop(extractJsonInt(dataJson, "isstop"));
+			metadata.setGlobalPoint(extractJsonInt(dataJson, "global_point"));
+			metadata.setFavNovelCnt(extractJsonInt(dataJson, "fav_novel_cnt"));
+			metadata.setReviewCnt(extractJsonInt(dataJson, "review_cnt"));
+			
+			metadata.setGeneralFirstup(extractJsonString(dataJson, "general_firstup"));
+			metadata.setGeneralLastup(extractJsonString(dataJson, "general_lastup"));
+			metadata.setNovelupdatedAt(extractJsonString(dataJson, "novelupdated_at"));
+			
+			return metadata;
+			
+		} catch (Exception e) {
+			throw new ApiException("JSONパースエラー: " + e.getMessage(), e);
+		}
+	}
+	
+	/**
+	 * JSON文字列から文字列値を抽出
+	 */
+	private String extractJsonString(String json, String key) {
+		String searchKey = "\"" + key + "\":\"";
+		int startIndex = json.indexOf(searchKey);
+		if (startIndex == -1) return "";
+		
+		startIndex += searchKey.length();
+		int endIndex = json.indexOf("\"", startIndex);
+		if (endIndex == -1) return "";
+		
+		String value = json.substring(startIndex, endIndex);
+		return unescapeJson(value);
+	}
+	
+	/**
+	 * JSONエスケープ文字列をデコード
+	 */
+	private String unescapeJson(String str) {
+		if (str == null || str.isEmpty()) return str;
+		
+		StringBuilder result = new StringBuilder();
+		for (int i = 0; i < str.length(); i++) {
+			char c = str.charAt(i);
+			if (c == '\\' && i + 1 < str.length()) {
+				char next = str.charAt(i + 1);
+				switch (next) {
+					case 'n': result.append('\n'); i++; break;
+					case 'r': result.append('\r'); i++; break;
+					case 't': result.append('\t'); i++; break;
+					case '"': result.append('"'); i++; break;
+					case '\\': result.append('\\'); i++; break;
+					case '/': result.append('/'); i++; break;
+					case 'u':
+					// Unicode escape sequence (backslash u + 4 hex digits)
+						if (i + 5 < str.length()) {
+							try {
+								String hex = str.substring(i + 2, i + 6);
+								int code = Integer.parseInt(hex, 16);
+								result.append((char) code);
+								i += 5;
+							} catch (NumberFormatException e) {
+								result.append(c);
+							}
+						} else {
+							result.append(c);
+						}
+						break;
+					default:
+						result.append(c);
+				}
+			} else {
+				result.append(c);
+			}
+		}
+		return result.toString();
+	}
+	
+	/**
+	 * JSON文字列から整数値を抽出
+	 */
+	private int extractJsonInt(String json, String key) {
+		String searchKey = "\"" + key + "\":";
+		int startIndex = json.indexOf(searchKey);
+		if (startIndex == -1) return 0;
+		
+		startIndex += searchKey.length();
+		int endIndex = json.indexOf(",", startIndex);
+		if (endIndex == -1) endIndex = json.indexOf("}", startIndex);
+		if (endIndex == -1) return 0;
+		
+		String valueStr = json.substring(startIndex, endIndex).trim();
+		try {
+			return Integer.parseInt(valueStr);
+		} catch (NumberFormatException e) {
+			return 0;
+		}
+	}
+	
+	/**
+	 * リクエスト統計を取得
+	 */
+	public String getStatistics() {
+		return String.format("リクエスト: %d回, 転送量: %.2f KB", 
+			requestCount, bytesTransferred / 1024.0);
+	}
+}

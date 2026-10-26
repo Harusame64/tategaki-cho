@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Told apart from the store build on the same phone. -->
+    <string name="app_name">たてがき帖（個人）</string>
+</resources>

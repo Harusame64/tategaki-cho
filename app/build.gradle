@@ -1,0 +1,78 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "jp.harusame.aozorareader"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "jp.harusame.tategakicho"
+        minSdk 33
+        targetSdk 36
+        versionCode 1
+        versionName "0.0.1-spike"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // The E2E tests run against their own build (…tategakicho.e2e, …tategakicho.personal.e2e), so they can sit
+    // beside the real app on a phone without touching its shelf. `./gradlew :app:connectedPublicE2eAndroidTest
+    // :app:connectedPersonalE2eAndroidTest` on an emulator or a phone.
+    buildTypes {
+        e2e {
+            initWith debug
+            applicationIdSuffix ".e2e"
+            matchingFallbacks = ["debug"]
+        }
+    }
+    testBuildType "e2e"
+
+    // Two builds from one source. public: the store build — no 全話を保存, and a work deleted or made
+    // private on its site has its kept text dropped once that is confirmed. personal: for the family, by APK —
+    // 全話を保存, and kept text stays. personal sits beside public on a phone (its own id and name).
+    flavorDimensions "dist"
+    productFlavors {
+        create("public") {
+            dimension "dist"
+            buildConfigField "boolean", "FULL_SAVE", "false"
+            buildConfigField "boolean", "DROP_GONE", "true"
+        }
+        create("personal") {
+            dimension "dist"
+            applicationIdSuffix ".personal"
+            buildConfigField "boolean", "FULL_SAVE", "true"
+            buildConfigField "boolean", "DROP_GONE", "false"
+        }
+    }
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // JVM tests of the app's own logic (URLs, the network door, the page template, CSV); Android calls they
+    // reach return defaults.
+    testOptions {
+        unitTests.returnDefaultValues = true
+        unitTests.all { useJUnitPlatform() }
+    }
+}
+
+dependencies {
+    implementation project(":core")
+    // The check for new episodes runs in the background with WorkManager.
+    implementation "androidx.work:work-runtime:2.9.1"
+    testImplementation platform("org.junit:junit-bom:5.13.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    testImplementation "org.json:json:20250517"
+    androidTestImplementation "androidx.test:runner:1.6.2"
+    androidTestImplementation "androidx.test:rules:1.6.1"
+    androidTestImplementation "androidx.test.ext:junit:1.2.1"
+    androidTestImplementation "androidx.test.espresso:espresso-core:3.6.1"
+    androidTestImplementation "androidx.test.uiautomator:uiautomator:2.3.0"
+    androidTestImplementation "androidx.work:work-testing:2.9.1"
+}

@@ -1,0 +1,457 @@
+package com.github.hmdev.image;
+
+import java.awt.image.BufferedImage;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
+
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
+import com.github.hmdev.info.ImageInfo;
+import com.github.hmdev.io.ArchiveCache;
+import com.github.hmdev.util.FileNameComparator;
+import com.github.hmdev.util.LogAppender;
+import com.github.junrar.Archive;
+import com.github.junrar.exception.RarException;
+import com.github.junrar.rarfile.FileHeader;
+
+/**
+ * 画像情報を格納するクラス
+ * 画像取得関連のメソッドもここで定義
+ */
+public class ImageInfoReader
+{
+	private static final Logger logger = LoggerFactory.getLogger(ImageInfoReader.class);
+
+	/** 画像が圧縮ファイル内でなくファイルならtrue
+	 *  画像データ取得時にファイルシステムから取得するかの判別用 */
+	boolean isFile = true;
+	
+	/** 変換するtxtまたは圧縮ファイル */
+	Path srcPath = null;
+
+	/** テキストファイルの親のパス 末尾は"/"または空文字列
+	 *  txtなら絶対パス zipならentryのパス */
+	String srcParentPath = null;
+	
+	/** Zipならzip内テキストの親entry ルートならnull */
+	public String archiveTextParentPath = "";
+	
+	/** 出力順にファイル名を格納 imageFileInfosのkeyと同じ文字列 */
+	ArrayList<String> imageFileNames;
+	
+	/** txtならZip内の画像情報 初回にすべて読み込む
+	 * txtでなければファイルシステムの画像情報 取得するごとに追加していく */
+	HashMap<String, ImageInfo> imageFileInfos;
+	
+	/** 初期化 画像情報格納用のvectorとマップを生成
+	 * @param isFile 圧縮ファイル内ならfalse
+	 * @param srcParentPath 変換するソースの親のパス
+	 * @param archiveTextParentPath Zipならテキストファイルのentryの親のパス 圧縮ファイルで無い場合やルートならnull */
+	public ImageInfoReader(boolean isFile, File srcFile)
+	{
+		this.isFile = isFile;
+		this.srcPath = srcFile.toPath();
+		this.srcParentPath = srcFile.getParent()+"/";
+		this.archiveTextParentPath = "";
+		this.imageFileNames = new ArrayList<String>();
+		this.imageFileInfos = new HashMap<String, ImageInfo>();
+	}
+	
+	/** zipの場合はzip内のtxtのentryNameと親のパスを設定 */
+	public void setArchiveTextEntry(String archiveTextEntry)
+	{
+		int idx = archiveTextEntry.lastIndexOf('/');
+		if (idx > -1) {
+			//アーカイブ内のテキストの親のパスを設定
+			this.archiveTextParentPath = archiveTextEntry.substring(0, idx+1);
+		}
+	}
+	
+	/** 画像ファイルを取得 */
+	public File getImageFile(String fileName)
+	{
+		return new File(this.srcParentPath+fileName);
+	}
+
+	/** パストラバーサルを防止して画像ファイルを取得 (srcParentPath 配下にあることを検証)。
+	 * candidate が存在する場合は toRealPath でシンボリックリンクを追跡し、
+	 * source dir 内の symlink が外部を指すケースを弾く。存在しない場合は
+	 * normalize 結果で startsWith 比較 (caller が File.exists() でハンドリングする前提)。 */
+	public File getImageFileSafe(String fileName) throws IOException
+	{
+		Path base = Path.of(this.srcParentPath).toRealPath();
+		Path candidate = base.resolve(fileName).normalize();
+		Path resolved = Files.exists(candidate) ? candidate.toRealPath() : candidate;
+		if (!resolved.startsWith(base)) {
+			throw new IOException("画像パスが許可されたディレクトリ外です: " + fileName);
+		}
+		return resolved.toFile();
+	}
+	
+	/** 画像出力順にImageInfoを格納 zipの場合は後で並び替える */
+	public void addImageFileName(String imageFileName)
+	{
+		this.imageFileNames.add(this.archiveTextParentPath+imageFileName);
+	}
+	
+	/** 名前順で並び替え */
+	public void sortImageFileNames()
+	{
+		Collections.sort(this.imageFileNames, new FileNameComparator());
+	}
+	
+	/** 指定位置の画像ファイル名を取得 */
+	public String getImageFileName(int idx)
+	{
+		return this.imageFileNames.get(idx);
+	}
+	/** 画像ファイル名のVectorを取得 */
+	public ArrayList<String> getImageFileNames()
+	{
+		return this.imageFileNames;
+	}
+	
+	/** 画像情報のカウント zipの場合はzip内にある画像すべて  */
+	public int countImageFileInfos()
+	{
+		return this.imageFileInfos.size();
+		//return this.imageFileNames.size();
+	}
+	/** テキスト内の画像順で格納された画像ファイル名の件数
+	 * zipテキストの場合は、本文以外の画像も後から追加される
+	 * zip画像のみ場合はソートされてすべての画像の件数 */
+	public int countImageFileNames()
+	{
+		return this.imageFileNames.size();
+	}
+	
+	/** 指定した順番の画像情報を取得 */
+	public ImageInfo getImageInfo(int idx) throws IOException
+	{
+		if (this.imageFileNames.size()-1 < idx) return null;
+		return this.getImageInfo(this.imageFileNames.get(idx));
+	}
+	
+	/** ImageInfoを取得 拡張子違いを吸収
+	 * zip内テキストファイルがサブフォルダ以下にある場合はnullになるので本文中のパスに親のパスをつけて再取得
+	 * @param srcImageFileName テキスト内の画像注記で指定されている相対ファイル名 */
+	public ImageInfo getImageInfo(String srcImageFileName) throws IOException
+	{
+		return this._getImageInfo(srcImageFileName);
+	}
+	
+	public ImageInfo getCollectImageInfo(String srcImageFileName) throws IOException
+	{
+		ImageInfo imageInfo = this._getImageInfo(srcImageFileName);
+		if (imageInfo == null) imageInfo = this._getImageInfo(this.correctExt(srcImageFileName));
+		return imageInfo;
+	}
+	
+	/** 拡張子修正 大文字小文字は3パターンのみ */
+	public String correctExt(String srcImageFileName) throws IOException
+	{
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		//拡張子修正
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".png");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".jpg");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".jpeg");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".gif");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".PNG");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".JPG");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".JPEG");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".GIF");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".Png");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".Jpg");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".Jpeg");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".Gif");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		
+		return null;
+	}
+	
+	private boolean hasImage(String srcImageFileName)
+	{
+		if (this.imageFileInfos.containsKey(srcImageFileName)) return true;
+		if (isFile) {
+			//ファイルシステムから取得
+			Path imageFile = Path.of(this.srcParentPath+srcImageFileName);
+			//フォルダは画像ではない（名前が空の <img src=""> だと入力のフォルダそのものを指す。internal #33）
+			if (Files.isRegularFile(imageFile)) return true;
+		} else {
+			if (this.imageFileInfos.containsKey(this.archiveTextParentPath+srcImageFileName)) return true;
+		}
+		return false;
+	}
+	
+	/** ImageInfoを取得
+	 * zip内テキストファイルがサブフォルダ以下にある場合はnullになるので本文中のパスに親のパスをつけて再取得
+	 * @param srcImageFileName テキスト内の画像注記で指定されている相対ファイル名 */
+	private ImageInfo _getImageInfo(String srcImageFileName) 
+	{
+		//取得済みならそれを返す zipならすべて取得済み
+		ImageInfo imageInfo = this.imageFileInfos.get(srcImageFileName);
+		if (imageInfo != null) return imageInfo;
+		//zipのサブパスから取得
+		if (isFile) {
+			//ファイルシステムから取得
+			Path imageFile = Path.of(this.srcParentPath+srcImageFileName);
+			//フォルダは画像ではない。開こうとすると Windows では AccessDeniedException になり、それを素のまま出していた（internal #33）
+			if (Files.isRegularFile(imageFile)) {
+				try {
+					imageInfo = ImageInfo.getImageInfo(imageFile.toFile());
+					if (imageInfo != null) {
+						this.imageFileInfos.put(srcImageFileName, imageInfo);
+						return imageInfo;
+					}
+				} catch (IOException ioe) { logger.warn("画像を読めませんでした: {}", imageFile, ioe); }
+			}
+		} else {
+			//Zipで中にフォルダがある場合
+			imageInfo = this.imageFileInfos.get(this.archiveTextParentPath+srcImageFileName);
+			return imageInfo;
+		}
+		return null;
+	}
+	
+	/** zip内の画像情報をすべて読み込み（ArchiveCacheを使用してスキャンを1回のみに）
+	 * @throws IOException */
+	public void loadZipImageInfos(File srcFile, boolean addFileName) throws IOException
+	{
+		try {
+			loadArchiveImageInfosFromCache(srcFile.toPath(), "zip", addFileName);
+		} catch (RarException e) {
+			throw new IOException(e);
+		}
+	}
+
+	/** rar内の画像情報をすべて読み込み（ArchiveCacheを使用） */
+	public void loadRarImageInfos(File srcFile, boolean addFileName) throws IOException, RarException
+	{
+		loadArchiveImageInfosFromCache(srcFile.toPath(), "rar", addFileName);
+	}
+
+	/** キャッシュから画像エントリを取得してImageInfoを読み込む */
+	private void loadArchiveImageInfosFromCache(Path srcPath, String ext, boolean addFileName) throws IOException, RarException
+	{
+		ArchiveCache cache = new ArchiveCache(srcPath.toFile(), ext);
+		cache.scan();
+
+		List<String> imageEntries = cache.getImageEntries();
+		int idx = 0;
+		for (String entryName : imageEntries) {
+			if (idx++ % 10 == 0) LogAppender.append(".");
+
+			// ZipSlip脆弱性対策: パストラバーサル攻撃をチェック
+			try {
+				entryName = sanitizeArchiveEntryName(entryName);
+			} catch (IllegalArgumentException e) {
+				System.err.println("Skipping suspicious archive entry: " + e.getMessage());
+				continue;
+			}
+
+			ImageInfo imageInfo = null;
+			try {
+				// アーカイブを再度開いて画像を読み込む（画像内容はキャッシュしない）
+				imageInfo = readImageInfoFromArchive(srcPath, ext, entryName);
+			} catch (Exception e) {
+				LogAppender.error("画像が読み込めませんでした: " + entryName);
+				logger.error("画像情報の取得に失敗: {}", entryName, e);
+			}
+			if (imageInfo != null) {
+				this.imageFileInfos.put(entryName, imageInfo);
+				if (addFileName) this.addImageFileName(entryName);
+			}
+		}
+		LogAppender.println();
+	}
+
+	/** zip の中の画像を、名前（大文字小文字を見ない）で探して読む。読めなければ null（ログに出す）
+	 * @param found 名前の合う項目が在れば found[0] を true にする（在って読めなければ、拡張子を直して探し直さない。前と同じ） */
+	private BufferedImage readZipImage(String srcImageFileName, String failMessage, boolean[] found) throws IOException
+	{
+		found[0] = false;
+		final BufferedImage[] image = new BufferedImage[1];
+		//前は ZipArchiveInputStream(fis, "MS932")＝useUnicodeExtraFields は既定の true
+		com.github.hmdev.io.ZipEntries.forEach(this.srcPath, true, (name, opener) -> {
+			if (!name.equalsIgnoreCase(srcImageFileName)) return true;
+			found[0] = true;
+			try (InputStream is = opener.open()) {
+				image[0] = ImageUtils.readImage(srcImageFileName.substring(srcImageFileName.lastIndexOf('.')+1).toLowerCase(), is);
+			} catch (Exception e) {
+				logger.warn(failMessage, srcImageFileName, e);
+			}
+			return false;
+		});
+		return image[0];
+	}
+
+	/** アーカイブ内の特定エントリからImageInfoを読み込む */
+	private ImageInfo readImageInfoFromArchive(Path srcPath, String ext, String entryName) throws IOException, RarException {
+		if ("zip".equals(ext) || "txtz".equals(ext)) {
+			//目次から開く（ほかの項目は展開しない。internal #36）
+			final ImageInfo[] found = new ImageInfo[1];
+			com.github.hmdev.io.ZipEntries.forEach(srcPath, false, (name, opener) -> {
+				if (!name.equals(entryName)) return true;
+				try (InputStream is = opener.open()) {
+					found[0] = ImageInfo.getImageInfo(is);
+				}
+				return false;
+			});
+			if (found[0] != null) return found[0];
+		} else if ("rar".equals(ext)) {
+			try (Archive archive = new Archive(srcPath.toFile())) {
+				for (FileHeader fileHeader : archive.getFileHeaders()) {
+					String rarEntryName = fileHeader.getFileName().replace('\\', '/');
+					if (rarEntryName.equals(entryName)) {
+						ByteArrayOutputStream baos = new ByteArrayOutputStream();
+						archive.extractFile(fileHeader, baos);
+						baos.close();
+						try (InputStream is = new ByteArrayInputStream(baos.toByteArray())) {
+							return ImageInfo.getImageInfo(is);
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+	
+	
+	/** 圧縮ファイル内の画像で画像注記以外の画像も表紙に選択できるように追加 */
+	public void addNoNameImageFileName()
+	{
+		//名前順にソートしてから追加
+		ArrayList<String> names = new ArrayList<String>();
+		for (String name : this.imageFileInfos.keySet()) {
+			if (!this.imageFileNames.contains(name)) names.add(name);
+		}
+		Collections.sort(names, new FileNameComparator());
+		for (String name : names) this.imageFileNames.add(name);
+	}
+	
+	/**
+	 * Path Traversal 脆弱性対策
+	 * ZipEntry のパス名から安全なファイル名を抽出する
+	 * @param entryName ZipEntry の名前
+	 * @return 正規化されたファイル名
+	 * @throws IllegalArgumentException パストラバーサル攻撃が検出された場合
+	 */
+	static String sanitizeArchiveEntryName(String entryName) throws IllegalArgumentException
+	{
+		if (entryName == null || entryName.isEmpty()) {
+			throw new IllegalArgumentException("Entry name cannot be null or empty");
+		}
+		
+		// 絶対パスの検出
+		if (entryName.startsWith("/") || entryName.startsWith("\\")) {
+			throw new IllegalArgumentException("Absolute path detected in archive entry: " + entryName);
+		}
+		
+		// パストラバーサル攻撃の検出
+		if (entryName.contains("..") || entryName.contains("~") || entryName.contains("$")) {
+			throw new IllegalArgumentException("Path traversal attempt detected: " + entryName);
+		}
+		
+		// バックスラッシュをスラッシュに統一
+		String normalized = entryName.replace("\\", "/");
+		
+		// ダブルスラッシュを単一スラッシュに
+		while (normalized.contains("//")) {
+			normalized = normalized.replace("//", "/");
+		}
+		
+		return normalized;
+	}
+	
+	/** 指定した順番の画像情報を取得 
+	 * @throws RarException */
+	public BufferedImage getImage(int idx) throws IOException, RarException
+	{
+		return this.getImage(this.imageFileNames.get(idx));
+	}
+	
+	
+	/** ファイル名から画像を取得
+	 * 拡張子変更等は外側で修正しておく
+	 * ファイルシステムまたはZipファイルから指定されたファイル名の画像を取得
+	 * @param srcImageFileName ファイル名 Zipならエントリ名
+	 * ※先頭からシークされるので遅い? 
+	 * @throws RarException */
+	public BufferedImage getImage(String srcImageFileName) throws IOException, RarException
+	{
+		if (this.isFile) {
+			Path file = Path.of(this.srcParentPath+srcImageFileName);
+			if (!Files.isRegularFile(file)) {
+				//拡張子修正
+				srcImageFileName = this.correctExt(srcImageFileName);
+				//見つからなければ null が返る（そのまま足すと「…/null」というパスを探してしまう）
+				if (srcImageFileName == null) return null;
+				file = Path.of(this.srcParentPath+srcImageFileName);
+				if (!Files.isRegularFile(file)) return null;
+			}
+			BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(file), 8192);
+			try {
+				return ImageUtils.readImage(srcImageFileName.substring(srcImageFileName.lastIndexOf('.')+1).toLowerCase(), bis);
+			} finally { bis.close(); }
+		} else {
+			if (this.srcPath.getFileName().toString().endsWith(".rar")) {
+				InputStream is = null;
+				Archive archive = new Archive(this.srcPath.toFile());
+				try {
+				FileHeader fileHeader = archive.nextFileHeader();
+				while (fileHeader != null) {
+					if (!fileHeader.isDirectory()) {
+						String entryName = fileHeader.getFileName();
+						entryName = entryName.replace('\\', '/');
+						if (srcImageFileName.equals(entryName)) {
+							is = archive.getInputStream(fileHeader);
+							return ImageUtils.readImage(srcImageFileName.substring(srcImageFileName.lastIndexOf('.')+1).toLowerCase(), is);
+						}
+					}
+					fileHeader = archive.nextFileHeader();
+				}
+				} finally {
+					if (is != null) is.close();
+					archive.close();
+				}
+
+			} else {
+				//目次から開く（ほかの項目は展開しない。internal #36）。名前の大文字小文字は見ない（前と同じ）
+				boolean[] found = new boolean[1];
+				BufferedImage image = readZipImage(srcImageFileName, "ZIP 内画像の読み込みに失敗: {}", found);
+				if (image != null || found[0]) return image;
+				// 拡張子が異なる場合は正しい拡張子を探す（見つからなければ探しに行かない）
+				String corrected = this.correctExt(srcImageFileName);
+				if (corrected == null) return null;
+				return readZipImage(corrected, "ZIP 内画像の読み込みに失敗（拡張子訂正後）: {}", found);
+			}
+		}
+		return null;
+	}
+}

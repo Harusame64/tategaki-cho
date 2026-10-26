@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What Google's backup and a phone-to-phone transfer carry: the shelf (works and reading places), the 青空文庫
+  works' details (works/), the read log, and the display settings. Episodes, 目次 and the 青空文庫 list are a cache that is
+  fetched again, and are left out so the backup stays far below its 25 MB limit (over it, nothing is backed up).
+  WebView's own files are left out by naming only these.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="shelf.json" />
+        <include domain="file" path="works/" />
+        <include domain="file" path="readlog.json" />
+        <include domain="sharedpref" path="reader.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="shelf.json" />
+        <include domain="file" path="works/" />
+        <include domain="file" path="readlog.json" />
+        <include domain="sharedpref" path="reader.xml" />
+    </device-transfer>
+</data-extraction-rules>

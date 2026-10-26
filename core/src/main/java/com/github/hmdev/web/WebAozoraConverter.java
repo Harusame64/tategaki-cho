@@ -1,0 +1,3894 @@
+package com.github.hmdev.web;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.Writer;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Node;
+import org.jsoup.nodes.TextNode;
+import org.jsoup.select.Elements;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.github.hmdev.info.BookLedger;
+import com.github.hmdev.util.CharUtils;
+import com.github.hmdev.util.PathUtils;
+import com.github.hmdev.util.LogAppender;
+import com.github.hmdev.web.ExtractInfo.ExtractId;
+import com.github.hmdev.web.api.NarouApiClient;
+import com.github.hmdev.web.api.exception.ApiException;
+import com.github.hmdev.web.api.model.NovelMetadata;
+
+/** HTMLを青空txtに変換 */
+public class WebAozoraConverter
+{
+	private static final Logger logger = LoggerFactory.getLogger(WebAozoraConverter.class);
+
+	/** 「変換日時」表示用
+	 *  元コード SimpleDateFormat と同じくインスタンス生成時にシステム TZ を捕捉。
+	 *  非グレゴリオロケールでは常に ISO/Gregorian 年を出力する (Epub3Writer.MODIFIED_FORMATTER 参照)。
+	 *  withLocale(Locale.ROOT) は ISO/Gregorian 化が意図的であることを明示する。 */
+	final DateTimeFormatter dateFormat =
+		DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
+			.withLocale(Locale.ROOT)
+			.withZone(ZoneId.systemDefault());
+	
+	/** 読んだサイトの定義（extract.txt・replace.txt）。key は FQDN。変換器はここから変換ごとに作る（定義だけを使い回す。internal #22） */
+	static HashMap<String, WebAozoraConverter> converters = new HashMap<String, WebAozoraConverter>();
+
+	/**
+	 * Web 変換（変換器を {@link #createWebAozoraConverter} で取ってから {@code convertToAozoraText} が終わるまで）を
+	 * 1 つずつにする鍵。キャッシュの txt と台帳（book.properties）を書き直すので、GUI の変換と本棚の更新が同時に動くと互いの物を壊し、
+	 * 同じサイトへの取得の間隔も守れない（internal #11。PR #116 のゲート2）。
+	 * 変換器は変換ごとに新しく作るので、設定と途中の状態はもう共有しない（internal #22）。
+	 * 取れるかを先に試せるよう ReentrantLock にする（GUI は本棚の更新を待つとき、待っていることを知らせる。internal #22）
+	 */
+	public static final java.util.concurrent.locks.ReentrantLock WEB_LOCK = new java.util.concurrent.locks.ReentrantLock();
+	
+	/**
+	 * WEB_LOCK を、中止を見ながら待って取る（GUI 用。本棚は lock() で待つ）。
+	 * 中止を見るため 250ms ごとに試し直すので、本棚の仕事が続けて来ると、その後になることがある（待っていることは知らせる）。
+	 * しばらく（quietMillis）待っても取れなければ onWaitStart を、その後に取れたら onWaitEnd を呼ぶ（一瞬で取れる待ちは知らせない）。
+	 * 待っている間の割り込みでは待つのをやめない（中止していないのに「中止しました」にしない）。印は戻して返るので、その後の取得は印で止まりうる（master と同じ）
+	 * @return 取れたら true。中止されたら false（鍵は持っていない） */
+	public static boolean lockWebLockWaiting(java.util.function.BooleanSupplier canceled, Runnable onWaitStart, Runnable onWaitEnd)
+	{
+		return lockWaiting(WEB_LOCK, canceled, 1000, onWaitStart, onWaitEnd);
+	}
+	static boolean lockWaiting(java.util.concurrent.locks.ReentrantLock lock, java.util.function.BooleanSupplier canceled, long quietMillis,
+		Runnable onWaitStart, Runnable onWaitEnd)
+	{
+		if (lock.tryLock()) return true;
+		boolean interrupted = false;
+		boolean announced = false;
+		long start = System.nanoTime();
+		try {
+			while (true) {
+				try {
+					if (lock.tryLock(250, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+						if (announced) onWaitEnd.run();
+						return true;
+					}
+				} catch (InterruptedException e) {
+					interrupted = true;
+				}
+				if (canceled.getAsBoolean()) return false;
+				if (!announced && System.nanoTime() - start >= quietMillis * 1_000_000L) {
+					announced = true;
+					onWaitStart.run();
+				}
+			}
+		} finally {
+			if (interrupted) Thread.currentThread().interrupt();
+		}
+	}
+
+	private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+	/** 共有 HttpClient (HTTP/2, Cookie自動管理, リダイレクト自動追跡)。
+	 * aozora-reader-android: 取得するときに初めて作る。Android に java.net.http は無く、クラスの static
+	 * 初期化で作ると WebAozoraConverter を読み込んだだけで落ちる。Android は取得を自分で行い、ここを通らない。 */
+	private static final class Http {
+		static final HttpClient CLIENT;
+		static {
+			CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+			CLIENT = HttpClient.newBuilder()
+				.followRedirects(HttpClient.Redirect.ALWAYS)
+				.cookieHandler(cookieManager)
+				.connectTimeout(Duration.ofSeconds(10))
+				.build();
+		}
+	}
+	/** HttpClient を外部から取得するための getter */
+	public static HttpClient getHttpClient() { return Http.CLIENT; }
+	
+	//設定ファイルから読み込むパラメータ
+	/** リストページ抽出対象 HashMap<String key, String[]{cssQuery1, cssQuery2}> キーとJsoupのcssQuery(or配列) */
+	HashMap<ExtractId, ExtractInfo[]> queryMap;
+	
+	/** 出力文字列置換情報 */
+	HashMap<ExtractId, ArrayList<String[]>> replaceMap;
+	
+	/** テキスト出力先パス 末尾は/ */
+	String dstPath;
+	
+	/** DnDされたページのURL文字列 */
+	String urlString = null;
+	
+	/** http?://fqdn/ の文字列 */
+	String baseUri;
+	
+	////////////////////////////////
+	//変換設定
+	/** 取得間隔 ミリ秒（なろう等のレート制限対策: 最低1秒推奨） */
+	int interval = 700;
+	
+	/** 未更新時は変換スキップ */
+	boolean convertUpdated = false;
+	
+	/** 追加更新分のみ出力する */
+	boolean convertModifiedOnly = false;
+	/** 最新話から連続した追加更新分のみ出力 */
+	boolean convertModifiedTail = false;
+	/** 更新分に追加で変換する話数 */
+	int beforeChapter = 0;
+	/** この時間前までに取得された追加更新話を変換する */
+	float modifiedExpire = 24;
+	/** 本文内挿絵のダウンロードをスキップする（表紙は除く） */
+	public boolean skipImages = false;
+	/** Cloudflare の確認画面で止められた。以降はこのサイトに取りに行かない（変換ごとに戻す） */
+	boolean blockedByChallenge = false;
+	
+	////////////////////////////////
+	//キャンセルリクエストされたらtrue
+	/** 中止された（中止のボタンは画面のスレッドから立てるので volatile） */
+	volatile boolean canceled = false;
+
+	/**
+	 * 本棚の更新の守り（internal #11）。立てると、目次が取れないときにキャッシュの目次で続けず、
+	 * 目次の話数が台帳の話数より少ないときは書かずに止める。本棚の更新が鍵（WEB_LOCK）を持って立てる（変換器は変換ごとに新しいので、次の変換には残らない。internal #22）
+	 */
+	public boolean updateGuard = false;
+	/** 本棚の更新の守りで、話数が減っていても続ける（利用者が「減ったまま更新」を選んだ） */
+	public boolean allowFewerEpisodes = false;
+	/** 本棚の更新で上書きする本。話数はこの本の記録と比べ、この本の記録に書く（PR #120 の codex） */
+	public File guardBook = null;
+	/**
+	 * 新着を確かめるだけ（internal #11）。目次を読んで、新しい話（まだキャッシュに無い話）と改稿された話（目次の更新日が
+	 * 前に記録したものと違う話）を数え、話は取らず、何も書かずに止める。守り（updateGuard）と一緒に立てる
+	 */
+	public boolean checkOnly = false;
+	/**
+	 * 作り直す（internal #54）。サイトへは取りに行かず、キャッシュの目次と話だけで、今の設定で txt を作り直す。
+	 * キャッシュに無い目次・話、本文の無い話のキャッシュがあれば、何も書かずに止める（offlineMisses）。更新情報（update.txt）は書かない。
+	 * 守り（updateGuard）と一緒に立てる（止めたときに txt を前に戻す・話数が減っていたら止める）
+	 */
+	public boolean offline = false;
+	/** 結果: offline のとき、キャッシュに無くて取りに行かなかった目次・話の数 */
+	public int offlineMisses = 0;
+	/**
+	 * 全話を取り直す（internal #54）。キャッシュにある話も、改稿の印が無くても、目次の話をすべて取り直す
+	 * （キャッシュが壊れた・サイトが改稿の日付を変えずに直した、など）。取れなかった話は前のキャッシュで本を作る（refetchFailures）。
+	 * 挿絵は取り直さない。守り（updateGuard）と一緒に立てる（話数が減っていたら止める）
+	 */
+	public boolean refetchAll = false;
+	/** refetchAll のとき、目次を読んだ周で取り直せなかった話 */
+	private final HashSet<String> refetchFailedHrefs = new HashSet<>();
+
+	/** 結果: refetchAll のとき、取り直せず、本文のあるキャッシュも無かった話の数。1 話でもあれば本は書かずに止める */
+	public int refetchUnusable = 0;
+
+	/** 結果: refetchAll のとき、取り直せなかった話の数（前のキャッシュがあれば、それで作った）。書き出しの周で取れた話は数えない */
+	public int refetchFailures()
+	{
+		int n = 0;
+		for (String href : this.refetchFailedHrefs) if (!this.confirmedHrefs.contains(href)) n++;
+		return n;
+	}
+
+	/**
+	 * 1 ページの作品（話の一覧が無く、目次のページに本文がある）のキャッシュか。話の一覧を HTML の外から読むサイトもあるので、
+	 * 「話のリンクが無いページ」を一律に壊れたページとは見なさない。前のキャッシュがこの形だったときだけ、取り直しを確かめる
+	 */
+	private boolean isSinglePageCache(File page, String url)
+	{
+		if (!page.isFile() || !this.queryMap.containsKey(ExtractId.CONTENT_ARTICLE)) return false;
+		try {
+			Document cached = Jsoup.parse(page, null, url);
+			//変換も、話の一覧のセレクタに当たる要素が 1 つも無いときだけ 1 ページの作品として本文を読む。同じ条件で見分ける
+			Elements hrefs = getExtractElements(cached, this.queryMap.get(ExtractId.HREF));
+			Elements article = getExtractElements(cached, this.queryMap.get(ExtractId.CONTENT_ARTICLE));
+			return (hrefs == null || hrefs.isEmpty()) && article != null && !article.isEmpty();
+		} catch (IOException e) {
+			return false;
+		}
+	}
+
+	/**
+	 * 目次のページから話として使うリンクの数。話の一覧を組み立てるときと同じく、空の href と、HREF のパターンに合わない
+	 * リンクは数えない（当たった要素をそのまま数えると、本文の無いページを「話の一覧がある」と受け入れてしまう。PR #182 の codex）
+	 */
+	private int usableEpisodeLinks(Document page)
+	{
+		Elements hrefs = getExtractElements(page, this.queryMap.get(ExtractId.HREF));
+		if (hrefs == null) return 0;
+		ExtractInfo extractInfo = this.queryMap.get(ExtractId.HREF)[0];
+		int n = 0;
+		for (Element href : hrefs) {
+			String hrefString = href.attr("href");
+			if (hrefString == null || hrefString.length() == 0) continue;
+			if (!extractInfo.hasPattern() || extractInfo.matches(hrefString)) n++;
+		}
+		return n;
+	}
+
+	/**
+	 * 全話を取り直すとき、キャッシュにある話を上書きする取り方。本文の無いページ（メンテナンス・年齢確認・削除の知らせなどが
+	 * 200 で返る）で、よいキャッシュを消さない。本文が無ければキャッシュはそのまま、取れなかったとして投げる
+	 */
+	private void refetchOver(String href, File cache, String referer) throws IOException
+	{
+		refetchOver(href, cache, referer, false);
+	}
+
+	/**
+	 * @param listPage 目次のページ（1 ページの作品の本文のキャッシュ）。本文が無くても、話の一覧があれば受け入れる
+	 *                 （1 ページの作品が連載になったとき、新しい目次を拒み続けない。internal #56 の Opus のレビュー）
+	 */
+	private void refetchOver(String href, File cache, String referer, boolean listPage) throws IOException
+	{
+		File fresh = new File(cache.getPath() + ".refetch");
+		try {
+			cacheFile(href, fresh, referer);
+			if (this.queryMap.containsKey(ExtractId.CONTENT_ARTICLE)) {
+				Document page = Jsoup.parse(fresh, null, href);
+				Elements article = getExtractElements(page, this.queryMap.get(ExtractId.CONTENT_ARTICLE));
+				boolean hasArticle = article != null && article.size() > 0;
+				boolean hasEpisodes = listPage && usableEpisodeLinks(page) > 0;
+				if (!hasArticle && !hasEpisodes) throw new IOException("本文の無いページが返りました: " + href);
+			}
+			Files.move(fresh.toPath(), cache.toPath(), StandardCopyOption.REPLACE_EXISTING);
+		} finally {
+			Files.deleteIfExists(fresh.toPath());
+		}
+	}
+	/** 結果: 確かめたときの、目次の話数・新しい話・改稿された話。確かめていなければ -1 */
+	public int checkedEpisodes = -1;
+	public int checkedNew = -1;
+	public int checkedRevised = -1;
+	/** 結果: 目次を取れなかったときの HTTP の状態。取れたら 0、HTTP の応答が無かったら -1 */
+	public int listFailure = 0;
+	/** 結果: 取れなかったのは目次の 2 ページ目以降（作品が消えたのではない） */
+	public boolean listFailureOnLaterPage = false;
+	/** 結果: 守りで止めたときの、台帳の話数と今の目次の話数。止めていなければ -1 */
+	public int shrunkFrom = -1;
+	public int shrunkTo = -1;
+	/** 結果: 台帳に今の話数を書いたか、と書く前の台帳（本棚の更新で EPUB を作れなかったとき、話数を元に戻すため） */
+	public boolean episodesRecorded = false;
+	public BookLedger ledgerBeforeEpisodes = null;
+	/** txt を作り終えたら台帳に書く、作品の話数（上げるだけ）と今の目次の話数。書かないなら -1 */
+	private int pendingEpisodes = -1;
+	private int pendingLastEpisodes = -1;
+	/** 本棚の更新の守りで止めた。止めたら txt と update.txt を変換の前に戻す */
+	private boolean guardStopped = false;
+	//更新有りフラグ
+	boolean updated = false;
+
+	////////////////////////////////
+	// 段階的レート制限 (narou.rbパターン: 10話ごとに長い休止)
+	/** ダウンロードカウンター (段階的待機用) */
+	private static int downloadCounter = 0;
+	/** 長い休止を入れる間隔 (話数) */
+	private static final int LONG_PAUSE_INTERVAL = 10;
+	/** 長い休止の時間 (ミリ秒) */
+	private static final int LONG_PAUSE_MS = 5000;
+
+	////////////////////////////////
+	// なろうAPI関連
+	/** なろうAPI使用フラグ */
+	private boolean useApi = false;
+	/** API失敗時のHTMLフォールバック有効フラグ */
+	private boolean apiFallbackEnabled = true;
+	/** なろうAPIクライアント */
+	private NarouApiClient apiClient = null;
+
+	////////////////////////////////
+	// narou.rb互換フォーマット設定
+	/** narou.rb互換フォーマット設定 */
+	private NarouFormatSettings formatSettings = new NarouFormatSettings();
+	/** 作品タイトル (章見出しで柱に使用) */
+	private String bookTitle = null;
+	/** エピソードURL→章タイトルマップ (__NEXT_DATA__ JSON またはTOCテーブルから構築) */
+	private HashMap<String, String> nextDataEpisodeChapterMap = null;
+	/** __NEXT_DATA__ JSON から構築したエピソードURL→更新日時マップ (カクヨムPhase 2-2) */
+	private HashMap<String, String> nextDataEpisodeDateMap = null;
+	/** 英文保護用リスト（記号全角化処理で使用） */
+	private java.util.ArrayList<String> englishSentences = new java.util.ArrayList<>();
+	/** カンマ区切りの数字の退避（PH_COMMA_NUMBER の出てきた順。printText 1 回ぶん） */
+	private final java.util.ArrayList<String> commaNumbers = new java.util.ArrayList<>();
+	/** 漢数字退避用リスト（数字の漢数字化処理で使用） */
+	private java.util.ArrayList<String> kanjiNumbers = new java.util.ArrayList<>();
+
+	////////////////////////////////////////////////////////////////
+	/** fqdn に対応した変換器を、変換ごとに新しく作る。サイトの定義は読んだものを使い回す。
+	 * 変換器は設定と変換の途中の状態を持つので、使い回すと GUI の中止が本棚の更新に届き、前の変換の設定や守りが残る（internal #22） */
+	public static WebAozoraConverter createWebAozoraConverter(String urlString, File configPath) throws IOException
+	{
+		synchronized (converters) {
+			urlString = urlString.trim();
+			//パスなし URL (https://example.com) は indexOf が -1 になり substring が例外を投げる
+			int pathIdx = urlString.indexOf('/', urlString.indexOf("//")+2);
+			String baseUri = pathIdx == -1 ? urlString : urlString.substring(0, pathIdx);
+			String fqdn = baseUri.substring(baseUri.indexOf("//")+2);
+			WebAozoraConverter converter = converters.get(fqdn);
+			if (converter == null) {
+				converter = new WebAozoraConverter(fqdn, configPath);
+				if (!converter.isValid()) {
+					LogAppender.println("サイトの定義がありません: "+configPath.getName()+"/"+siteDirName(fqdn, configPath));
+					return null;
+				}
+				converters.put(fqdn, converter);
+			}
+			return new WebAozoraConverter(converter);
+		}
+	}
+	
+	/** 読んだサイトの定義だけを受け継いだ、新しい変換器（定義は作った後に書き換えないので共有してよい） */
+	private WebAozoraConverter(WebAozoraConverter definition)
+	{
+		this.queryMap = definition.queryMap;
+		this.replaceMap = definition.replaceMap;
+	}
+	
+	/**
+	 * サイト定義のフォルダ名（web/ の下）。サイト定義は URL のホスト名で探し、ポート番号は見ない
+	 * （Windows はフォルダ名に ':' を使えず、「ホスト名:ポート」のフォルダを置けないため。internal #29）。
+	 * 以前の「ホスト名:ポート」のフォルダが置いてあれば、そちらを使う（置ける OS で作った定義を壊さない）。
+	 * @param authority URL の「//」と次の「/」の間（ホスト名、またはホスト名:ポート）
+	 */
+	static String siteDirName(String authority, File configPath)
+	{
+		if (new File(configPath, authority).isDirectory()) return authority;
+		int colon = authority.lastIndexOf(':');
+		//IPv6 のアドレス（[::1]）の中の ':' はポートの区切りではない
+		if (colon > 0 && colon > authority.lastIndexOf(']') && colon < authority.length() - 1
+			&& authority.substring(colon + 1).chars().allMatch(c -> c >= '0' && c <= '9')) {
+			return authority.substring(0, colon);
+		}
+		return authority;
+	}
+
+	////////////////////////////////////////////////////////////////
+	/** fqdnに対応したパラメータ取得
+	 * @throws IOException */
+	WebAozoraConverter(String fqdn, File configPath) throws IOException
+	{
+		String siteDirName = siteDirName(fqdn, configPath);
+		if (configPath.isDirectory()) {
+			for (File file : configPath.listFiles()) {
+				if (file.isDirectory() && file.getName().equals(siteDirName)) {
+
+					//抽出情報
+					File extractInfoFile = new File(configPath.getAbsolutePath()+"/"+siteDirName+"/extract.txt");
+					if (!extractInfoFile.isFile()) return;
+					this.queryMap = new HashMap<ExtractId, ExtractInfo[]>();
+					String line;
+					BufferedReader br = new BufferedReader(new InputStreamReader(Files.newInputStream(extractInfoFile.toPath()), "UTF-8"));
+					try {
+						while ((line = br.readLine()) != null) {
+							if (line.length() == 0 || line.charAt(0) == '#') continue;
+							String[] values = line.split("\t", -1);
+							if (values.length > 1) {
+								//未知のキーは無視して続行 (将来のキー追加に対する前方互換。.NET ポートと同挙動)
+								ExtractId extractId;
+								try { extractId = ExtractId.valueOf(values[0]); }
+								catch (IllegalArgumentException e) {
+									LogAppender.println("未対応の抽出設定キーを無視します : "+values[0]);
+									continue;
+								}
+								String[] queryStrings = values[1].split(",");
+								Pattern pattern = values.length > 2 ? Pattern.compile(values[2]) : null; //ExtractInfoが複数でも同じ値を設定
+								String replaceValue = values.length > 3 ? values[3] : null; //ExtractInfoが複数でも同じ値を設定
+								ExtractInfo[] extractInfos = new ExtractInfo[queryStrings.length];
+								for (int i=0; i<queryStrings.length; i++) extractInfos[i] = new ExtractInfo(queryStrings[i], pattern, replaceValue);
+								this.queryMap.put(extractId, extractInfos);
+							}
+						}
+					} finally{
+						br.close();
+					}
+					
+					//置換情報
+					this.replaceMap = new HashMap<ExtractId, ArrayList<String[]>>();
+					File replaceInfoFile = new File(configPath.getAbsolutePath()+"/"+siteDirName+"/replace.txt");
+					if (replaceInfoFile.isFile()) {
+						br = new BufferedReader(new InputStreamReader(Files.newInputStream(replaceInfoFile.toPath()), "UTF-8"));
+						try {
+							while ((line = br.readLine()) != null) {
+								if (line.length() == 0 || line.charAt(0) == '#') continue;
+								String[] values = line.split("\t");
+								if (values.length > 1) {
+									//未知のキーは無視して続行 (extract.txt 側と同じ前方互換)
+									ExtractId extractId;
+									try { extractId = ExtractId.valueOf(values[0]); }
+									catch (IllegalArgumentException e) {
+										LogAppender.println("未対応の置換設定キーを無視します : "+values[0]);
+										continue;
+									}
+									ArrayList<String[]> vecReplace = this.replaceMap.get(extractId);
+									if (vecReplace == null) {
+										vecReplace = new ArrayList<String[]>();
+										this.replaceMap.put(extractId, vecReplace);
+									}
+									vecReplace.add(new String[]{values[1], values.length==2?"":values[2]});
+								}
+							}
+						} finally{
+							br.close();
+						}
+					}
+					return;
+				}
+			}
+		}
+	}
+	
+	////////////////////////////////////////////////////////////////
+	private boolean isValid()
+	{
+		return this.queryMap != null;
+	}
+	
+	public void canceled()
+	{
+		this.canceled = true;
+	}
+	public boolean isCanceled()
+	{
+		return this.canceled;
+	}
+	public boolean isUpdated()
+	{
+		return this.updated;
+	}
+	
+	////////////////////////////////////////////////////////////////
+	// なろうAPI関連メソッド
+	
+	/**
+	 * なろうAPI使用を設定
+	 * @param useApi API使用フラグ
+	 */
+	public void setUseApi(boolean useApi) {
+		this.useApi = useApi;
+		if (useApi && apiClient == null) {
+			apiClient = new NarouApiClient(Http.CLIENT);
+			//変換ごとに知らせる（その変換が API を使うことがログで分かる）
+			LogAppender.println("なろうAPI: 有効化");
+		}
+	}
+
+	
+	/**
+	 * APIフォールバック設定
+	 * @param enabled フォールバック有効フラグ
+	 */
+	public void setApiFallbackEnabled(boolean enabled) {
+		this.apiFallbackEnabled = enabled;
+	}
+
+	/**
+	 * narou.rb互換フォーマット設定をロード
+	 * @param settingFile 設定ファイル (setting_narourb.ini または narou.rbのsetting.ini)
+	 */
+	public void loadFormatSettings(File settingFile) {
+		try {
+			formatSettings.load(settingFile);
+			LogAppender.println("フォーマット設定読み込み: " + settingFile.getName());
+		} catch (IOException e) {
+			LogAppender.error("フォーマット設定読み込み失敗: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * フォーマット設定を取得
+	 */
+	public NarouFormatSettings getFormatSettings() {
+		return formatSettings;
+	}
+	
+	/**
+	 * URLからNコードを抽出
+	 * 例: https://ncode.syosetu.com/n0001a/ → n0001a
+	 * @param url 作品URL
+	 * @return Nコード (小文字)、抽出できない場合はnull
+	 */
+	private String extractNcode(String url) {
+		if (url == null || !url.contains("syosetu.com")) {
+			return null;
+		}
+		// ncode.syosetu.com/n1234ab/ または /n1234ab/123/ のパターン
+		java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(".*/([nN]\\d{4}[a-zA-Z]+)/?.*");
+		java.util.regex.Matcher matcher = pattern.matcher(url);
+		if (matcher.matches()) {
+			return matcher.group(1).toLowerCase();
+		}
+		return null;
+	}
+
+	/**
+	 * R18サイト (novel18.syosetu.com) のURLかどうかを判定
+	 */
+	private boolean isR18Url(String url) {
+		return url != null && url.contains("novel18.syosetu.com");
+	}
+	
+	/**
+	 * APIからメタデータを取得してキャッシュ
+	 * @param ncode Nコード
+	 * @param cachePath キャッシュディレクトリ
+	 * @param urlString 元URL (R18判定に使用)
+	 * @return NovelMetadata 取得成功時、nullは失敗
+	 */
+	private NovelMetadata fetchAndCacheMetadata(String ncode, File cachePath, String urlString) {
+		if (apiClient == null) return null;
+
+		try {
+			boolean r18 = isR18Url(urlString);
+			LogAppender.println("なろうAPI: メタデータ取得中... " + ncode + (r18 ? " (R18)" : ""));
+			NovelMetadata metadata = apiClient.getNovelMetadata(ncode, r18);
+			
+			// メタデータをキャッシュに保存
+			File metadataFile = new File(cachePath, "metadata.json");
+			saveMetadataToCache(metadata, metadataFile);
+			
+			LogAppender.println("なろうAPI: 取得成功 - " + metadata.getTitle());
+			return metadata;
+			
+		} catch (ApiException e) {
+			LogAppender.println("なろうAPI: エラー - " + e.getMessage());
+			return null;
+		}
+	}
+	
+	/**
+	 * メタデータをJSONファイルとして保存
+	 */
+	private void saveMetadataToCache(NovelMetadata metadata, File file) {
+		file.getParentFile().mkdirs();
+		try (BufferedWriter writer = new BufferedWriter(
+			new OutputStreamWriter(Files.newOutputStream(file.toPath()), "UTF-8"))) {
+
+			// 簡易JSON形式で保存
+			writer.write("{\n");
+			writer.write("  \"ncode\": \"" + escapeJson(metadata.getNcode()) + "\",\n");
+			writer.write("  \"title\": \"" + escapeJson(metadata.getTitle()) + "\",\n");
+			writer.write("  \"writer\": \"" + escapeJson(metadata.getWriter()) + "\",\n");
+			writer.write("  \"story\": \"" + escapeJson(metadata.getStory()) + "\",\n");
+			writer.write("  \"general_all_no\": " + metadata.getGeneralAllNo() + ",\n");
+			writer.write("  \"length\": " + metadata.getLength() + ",\n");
+			writer.write("  \"novel_type\": " + metadata.getNovelType() + ",\n");
+			writer.write("  \"end\": " + metadata.getEnd() + ",\n");
+			writer.write("  \"global_point\": " + metadata.getGlobalPoint() + ",\n");
+			writer.write("  \"fav_novel_cnt\": " + metadata.getFavNovelCnt() + ",\n");
+			writer.write("  \"timestamp\": " + System.currentTimeMillis() + "\n");
+			writer.write("}\n");
+			
+		} catch (IOException e) {
+			LogAppender.println("メタデータキャッシュ保存エラー: " + e.getMessage());
+		}
+	}
+	
+	/**
+	 * JSON用文字列エスケープ
+	 */
+	private String escapeJson(String str) {
+		if (str == null) return "";
+		return str.replace("\\", "\\\\")
+				  .replace("\"", "\\\"")
+				  .replace("\n", "\\n")
+				  .replace("\r", "\\r")
+				  .replace("\t", "\\t");
+	}
+	
+	/**
+	 * 段階的待機 (narou.rbパターン)
+	 * 通常はintervalミリ秒待機し、LONG_PAUSE_INTERVAL話ごとに長い休止を入れる
+	 */
+	private void sleepForDownload() throws InterruptedException {
+		downloadCounter++;
+		if (downloadCounter % LONG_PAUSE_INTERVAL == 0) {
+			LogAppender.println("レート制限: " + downloadCounter + "話取得、" + (LONG_PAUSE_MS / 1000) + "秒休止");
+			Thread.sleep(LONG_PAUSE_MS);
+		} else {
+			Thread.sleep(this.interval);
+		}
+	}
+
+	////////////////////////////////////////////////////////////////
+	/** 変換実行
+	 * @param urlString
+	 * @param cachePath
+	 * @param interval
+	 * @param modifiedExpire この時間以内のキャッシュを更新分として扱う
+	 * @param convertUpdated 更新時のみ出力
+	 * @param convertModifiedOnly 追加更新分のみ変換
+	 * @param convertModifiedTail 最新話から連続したもののみ変換
+	 * @param beforeChapter 指定話数のみ変換 0は指定無し
+	 * @return 変換スキップやキャンセルならnullを返す */
+	public File convertToAozoraText(String urlString, File cachePath, int interval, float modifiedExpire,
+		boolean convertUpdated, boolean convertModifiedOnly, boolean convertModifiedTail, int beforeChapter) throws IOException
+	{
+		return convertToAozoraText(urlString, cachePath, interval, modifiedExpire, convertUpdated, convertModifiedOnly, convertModifiedTail, beforeChapter, null);
+	}
+
+	/** base ディレクトリ配下にあることを検証して File を返す（パストラバーサル対策）。
+	 * base・candidate とも PathUtils.realPath() で同じ基準に正規化してから startsWith 比較する
+	 * (PR #22/#23 の 2 段階パターンを、実在しない葉にも効くよう拡張したもの)。
+	 * 両者を同じ基準で解決するのが要点で、
+	 *  - base 自体が junction / symlink 配下にある場合の誤検知を防ぐ（正常系の保護）
+	 *  - candidate の途中ディレクトリが symlink で base 外を指すケースを弾く（脱出の防止）
+	 * を両立させる。
+	 * relative が絶対パスの場合は resolve がそれを返すため、startsWith 検査で弾かれる。
+	 * テストから利用するため package-private */
+	static File safeResolve(Path base, String relative) throws IOException {
+		Path canonicalBase = PathUtils.realPath(base);
+		Path resolved;
+		try {
+			resolved = PathUtils.realPath(canonicalBase.resolve(relative));
+		} catch (InvalidPathException e) {
+			// OS がファイル名として受け付けない文字を含む場合 (Windows の制御文字・末尾スペース等)。
+			// InvalidPathException は RuntimeException のため、そのままだと呼び出し側の
+			// catch (IOException) をすり抜けて変換全体が中断する。IOException に変換して
+			// 「該当の章・画像だけをスキップ」という既存の扱いに載せる
+			throw new IOException("ファイル名に使えない文字を含むパス: " + relative, e);
+		}
+		if (!resolved.startsWith(canonicalBase)) {
+			throw new IOException("安全でないパス: " + resolved);
+		}
+		return resolved.toFile();
+	}
+
+	/** dstPath 配下にあることを検証して File を返す（パストラバーサル対策） */
+	private File safeDstFile(String fileName) throws IOException {
+		return safeResolve(Path.of(this.dstPath), fileName);
+	}
+
+	/**
+	 * HTML キャッシュの書き込み先を決める。同名のディレクトリが既にある場合はその配下の
+	 * index.html に寄せる。
+	 *
+	 * <p>URL 末尾に「/」が無いサイト（カクヨム等）では、一覧の保存先 {@code <workId>} と
+	 * 各話の保存先 {@code <workId>/<episodeId>} が同じ名前を取り合う。先に各話ディレクトリが
+	 * できていると一覧を同名ファイルとして開けず AccessDeniedException になり、例外は握られて
+	 * 古いキャッシュにフォールバックするため、<b>一覧だけ永久に更新されず新着話を取り逃す</b>
+	 * （ユーザーには「キャッシュファイルを利用します」としか見えない）。
+	 *
+	 * <p>読み出し側は以前から {@code <dir>/index.html} へのフォールバックを持っているので、
+	 * 書き込み側をそこに合わせる。画像には適用しない（参照されない場所に書いても直らないため、
+	 * 従来どおり失敗させる）。
+	 *
+	 * <p>初回変換ではまず {@code <workId>} に平ファイルとして書かれ、各話取得時の
+	 * {@code cacheFile()} の祖先リネーム（ファイル → ディレクトリ + index.html）で
+	 * ディレクトリ化される。以降の実行は本メソッドが同じ {@code <dir>/index.html} に
+	 * 収束する — この収束は祖先リネームの存在に依存している。
+	 *
+	 * <p>ディレクトリ配下の {@code index.html} が symlink でキャッシュ外を指すケースを
+	 * 弾くため、付与後のパスも {@link #safeResolve} で再検証する（呼び出し元の検証は
+	 * 付与前のパスにしか効かない）。
+	 *
+	 * <p>docs/code-audit-followups.md 項目 21
+	 */
+	static File resolveHtmlCacheFile(File cacheFile) throws IOException {
+		if (!cacheFile.isDirectory()) return cacheFile;
+		return safeResolve(cacheFile.toPath(), "index.html");
+	}
+	
+	/** 変換実行 (ファイル名指定あり) */
+	public File convertToAozoraText(String urlString, File cachePath, int interval, float modifiedExpire,
+		boolean convertUpdated, boolean convertModifiedOnly, boolean convertModifiedTail, int beforeChapter, String outFileName) throws IOException
+	{
+		//中止の印は戻さない（変換器は変換ごとに新しい。戻すと、作ってからここまでの間に押された中止が消える。internal #22）
+		this.listFailure = 0;
+		this.listFailureOnLaterPage = false;
+		this.checkedEpisodes = -1;
+		this.checkedNew = -1;
+		this.checkedRevised = -1;
+		this.shrunkFrom = -1;
+		this.shrunkTo = -1;
+		this.episodesRecorded = false;
+		this.ledgerBeforeEpisodes = null;
+		this.pendingEpisodes = -1;
+		this.pendingLastEpisodes = -1;
+		this.guardStopped = false;
+		this.offlineMisses = 0;
+		this.refetchUnusable = 0;
+		this.refetchFailedHrefs.clear();
+		// 前の作品の状態をリセット（変換器は変換ごとに新しいので、もとから空。同じ変換器で 2 回呼ぶ呼び手のために残す）
+		this.nextDataEpisodeChapterMap = null;
+		this.nextDataEpisodeDateMap = null;
+		this.bookTitle = null;
+		//日付一覧が取得できない場合は常に更新
+		this.updated = true;
+		//サービス終了サイト: extract.txt に DEFUNCT が定義されていたら変換せず理由を表示する
+		//(サイト消滅後は DNS エラー等の分かりにくい失敗になるため、明示的に伝える)。
+		//状態リセットより後・最初の HTTP アクセスより前に置く。updated=true の後でないと
+		//GUI の「更新分のみ変換」で null 返却が「スキップしました」と誤表示される
+		ExtractInfo[] defunctInfos = this.queryMap.get(ExtractId.DEFUNCT);
+		if (defunctInfos != null && defunctInfos.length > 0) {
+			LogAppender.error("このサイトはサービスを終了しているため変換できません : "+defunctInfos[0].query);
+			return null;
+		}
+		
+		// なろう等のレート制限対策: 最低1秒間隔
+		this.interval = Math.max(1000, interval);
+		this.modifiedExpire = Math.max(0, modifiedExpire);
+		this.convertUpdated = convertUpdated;
+		this.convertModifiedOnly = convertModifiedOnly;
+		this.convertModifiedTail = convertModifiedTail;
+		this.beforeChapter = beforeChapter;
+		this.blockedByChallenge = false;
+		this.pendingUpdateInfo = null;
+		this.confirmedHrefs.clear();
+		
+		//末尾の / をリダイレクトで取得。作り直すときは問い合わせない（本の記録の URL は、取ったときにこの補正を済ませた形）
+		urlString = urlString.trim();
+		if (!this.offline && !urlString.endsWith("/") && !urlString.endsWith(".html") && !urlString.endsWith(".htm") && urlString.indexOf("?") == -1 ) {
+			try {
+				HttpRequest request = HttpRequest.newBuilder()
+					.uri(new URI(urlString+"/"))
+					.header("User-Agent", USER_AGENT)
+					.GET().build();
+				HttpResponse<Void> response = Http.CLIENT.send(request, HttpResponse.BodyHandlers.discarding());
+				if (response.statusCode() == 200) {
+					urlString += "/";
+					LogAppender.println("URL修正 : "+urlString);
+				}
+			} catch (Exception e) {
+				// 意図的: URL 末尾スラッシュ補正の HTTP 確認失敗時は元 URL のまま続行
+			}
+		}
+		
+		//作り直すときは問い合わせない代わりに、取ったときの形を、台帳のある作業フォルダで選ぶ（/ を補った作品は「…/」に、
+		//補えなかった作品＝カクヨムの works/ID などは「…_converted/」に台帳がある。違う形を選ぶと別の作業フォルダに書く）
+		if (this.offline && !urlString.endsWith("/") && !urlString.endsWith(".html") && !urlString.endsWith(".htm") && urlString.indexOf("?") == -1
+			&& urlString.indexOf('/', urlString.indexOf("//")+2) != -1) {
+			try {
+				String rel = CharUtils.escapeUrlToFile(urlString.substring(urlString.indexOf("//")+2));
+				File plain = safeResolve(cachePath.toPath(), rel + "_converted/" + BookLedger.FILE_NAME);
+				File slashed = safeResolve(cachePath.toPath(), rel + "/" + BookLedger.FILE_NAME);
+				if (!plain.isFile() && slashed.isFile()) urlString += "/";
+			} catch (IOException | RuntimeException e) {
+				/* 意図的: 置けない名前なら、渡された形のまま（キャッシュの目次が見つからなければ止まる） */
+			}
+		}
+
+		//オフライン等で末尾スラッシュ補正ができなかった場合も、パスなし URL はルート扱いにする
+		//(補正が成功した場合と同じ結果に収束させ、以降の substring が例外にならないようにする)
+		if (urlString.indexOf('/', urlString.indexOf("//")+2) == -1) urlString += "/";
+		
+		this.urlString = urlString;
+		
+		this.baseUri = urlString.substring(0, urlString.indexOf('/', urlString.indexOf("//")+2));
+		//String fqdn = baseUri.substring(baseUri.indexOf("//")+2);
+		String listBaseUrl = urlString.substring(0, urlString.lastIndexOf('/')+1);
+		//http://を除外
+		String urlFilePath = CharUtils.escapeUrlToFile(urlString.substring(urlString.indexOf("//")+2));
+		//http://を除外した文字列で比較
+		/*ExtractInfo[] extractInfos = this.queryMap.get(ExtractId.PAGE_REGEX);
+		if(extractInfos != null) {
+			if (!extractInfos[0].matches(urlString)) {
+				LogAppender.println("読み込み可能なURLではありません");
+				return null;
+			}
+		}*/
+		
+		String urlParentPath = urlFilePath;
+		boolean isPath = false;
+		if (urlFilePath.endsWith("/")) { isPath = true; urlFilePath += "index.html"; }
+		else urlParentPath = urlFilePath.substring(0, urlFilePath.lastIndexOf('/')+1);
+		
+		//変換結果
+		String dstRelative = isPath ? urlParentPath : urlFilePath+"_converted/";
+		//dstPath 自体が cachePath 配下であることを検証（ここが外に出ていると
+		//dstPath を base にする safeDstFile / 画像側の検証が空回りするため）
+		safeResolve(cachePath.toPath(), dstRelative);
+		this.dstPath = cachePath.getAbsolutePath()+"/"+dstRelative;
+
+		//urlStringのファイルをキャッシュ (cachePath 配下であることを検証)
+		//同名ディレクトリが先にできている場合は <dir>/index.html に寄せる (項目 21)
+		File cacheFile = resolveHtmlCacheFile(safeResolve(cachePath.toPath(), urlFilePath));
+		
+		// なろうAPI処理: メタデータ取得を試行
+		NovelMetadata apiMetadata = null;
+		//作り直すときは API にも問い合わせない（表題などは目次のページから読む）
+		if (useApi && !this.offline) {
+			String ncode = extractNcode(urlString);
+			if (ncode != null) {
+				LogAppender.println("なろうAPI: Nコード検出 - " + ncode);
+				apiMetadata = fetchAndCacheMetadata(ncode, new File(this.dstPath).getParentFile(), urlString);
+				
+				if (apiMetadata == null && !apiFallbackEnabled) {
+					LogAppender.println("なろうAPI: 取得失敗（フォールバック無効）");
+					return null;
+				}
+			} else {
+				LogAppender.println("なろうAPI: Nコード未検出、HTML取得を継続");
+			}
+		}
+		
+		if (this.offline) {
+			//作り直すときは、キャッシュの目次だけを読む。無ければ何も書かずに止める
+			File cachedList = cacheFile.isDirectory() ? new File(cacheFile, "index.html") : cacheFile;
+			if (!cachedList.isFile()) {
+				LogAppender.println("キャッシュに目次がありません : " + urlString);
+				this.offlineMisses++;
+				return null;
+			}
+			LogAppender.println("キャッシュの目次から作り直します : " + urlString);
+		} else try {
+			LogAppender.append(urlString);
+			//1 ページの作品は、目次のページが本文のただ 1 つのキャッシュ。200 で返る本文の無いページ（メンテナンス・年齢確認など）で
+			//上書きしない。本文が無ければ前のキャッシュのまま、取れなかったとして下へ（internal #56）
+			File cachedPage = cacheFile.isDirectory() ? new File(cacheFile, "index.html") : cacheFile;
+			if (isSinglePageCache(cachedPage, urlString)) refetchOver(urlString, cachedPage, null, true);
+			else cacheFile(urlString, cacheFile, null);
+			LogAppender.println(" : List Loaded.");
+		} catch (Exception e) {
+			logger.warn("一覧ページの取得に失敗、キャッシュ利用を試みる: {}", urlString, e);
+			LogAppender.println("一覧ページの取得に失敗しました。 ");
+			//止められたときは cacheFile が理由を出している。Java のクラス名は利用者に見せない
+			if (!(e instanceof CloudflareChallengeException)) LogAppender.println("エラー詳細: " + e.getClass().getName() + " - " + e.getMessage());
+			//https の証明書を確かめられない（自己署名・期限切れなど）。http で読めるサイトもあるので、そう伝える
+			if (e instanceof javax.net.ssl.SSLException && urlString.startsWith("https://")) {
+				LogAppender.println("サイトの https の証明書を確かめられませんでした。http:// で始まる URL で読めるか試してください");
+			}
+			this.listFailure = (e instanceof HttpStatusException h) ? h.status : -1;
+			//本棚の更新は、キャッシュの古い目次で作り直さない（掲載元で消えていても「更新しました」になる）
+			if (this.updateGuard) return null;
+			if (!cacheFile.exists()) return null;
+
+			LogAppender.println("キャッシュファイルを利用します。");
+			LogAppender.println("(一覧が古い場合、新着話は反映されません)");
+		}
+		
+		//パスならlist.txtの情報を元にキャッシュ後に青空txt変換して改ページで繋げて出力
+		// キャッシュパスがディレクトリ化されていた場合は index.html を参照
+		File parseFile = cacheFile.isDirectory() ? new File(cacheFile, "index.html") : cacheFile;
+		//相対の src・href を一覧ページの URL で解決できるよう、基準の URL を渡す
+		Document doc = Jsoup.parse(parseFile, null, urlString);
+		
+		//タイトル
+		boolean hasTitle = false;
+		String series = getExtractText(doc, this.queryMap.get(ExtractId.SERIES));
+		// APIメタデータがあればタイトルを優先使用
+		String title;
+		if (apiMetadata != null && apiMetadata.getTitle() != null && !apiMetadata.getTitle().isEmpty()) {
+			title = apiMetadata.getTitle();
+			LogAppender.println("なろうAPI: タイトル使用 - " + title);
+		} else {
+			title = getExtractText(doc, this.queryMap.get(ExtractId.TITLE));
+		}
+		if (title != null) {
+			hasTitle = true;
+			// 作品タイトルを保存 (章見出しの柱で使用)
+			this.bookTitle = title;
+		}
+		if (!hasTitle && series != null) {
+			title = series;
+			hasTitle = true;
+		}
+		if (!hasTitle) {
+			LogAppender.println("SERIES/TITLE : タイトルがありません");
+			return null;
+		}
+
+		//著者
+		// APIメタデータがあれば著者を優先使用
+		String author;
+		if (apiMetadata != null && apiMetadata.getWriter() != null && !apiMetadata.getWriter().isEmpty()) {
+			author = apiMetadata.getWriter();
+			LogAppender.println("なろうAPI: 著者使用 - " + author);
+		} else {
+			author = getExtractText(doc, this.queryMap.get(ExtractId.AUTHOR));
+		}
+		
+		//作品の台帳。txt の名前は初めて取ったときのもの、identifier は URL から決めたものを使い続ける（internal #11）
+		String textBaseName = null;
+		if (title != null && !title.isEmpty()) {
+			String safeTitle = BookLedger.safeFileName(title);
+			if (author != null && !author.isEmpty()) textBaseName = "[" + BookLedger.safeFileName(author) + "] " + safeTitle;
+			else textBaseName = safeTitle;
+		}
+		textBaseName = BookLedger.nameOrNull(textBaseName);
+		//名前を指定されたときは、その txt に台帳を当てる
+		String requestedBaseName = outFileName == null ? null
+			: BookLedger.nameOrNull(outFileName.replaceFirst("(?i)\\.txt$", ""));
+		File workDir = new File(this.dstPath);
+		BookLedger ledger = BookLedger.load(workDir);
+		BookLedger toSave = null;
+		if (ledger == null) {
+			//台帳より前に取った作品で、そのあと掲載先で題が変わっていたら、前の名前を引き継ぐ。
+			//前の EPUB の名前も（著者名の ! やシリーズの行が無ければ）txt と同じ名前なので、両方に使う
+			String legacy = requestedBaseName == null ? BookLedger.legacyTextBaseName(workDir) : null;
+			if (legacy != null && !legacy.equals(textBaseName)) {
+				LogAppender.println("前に取ったときの名前を引き継ぎます : " + legacy);
+				toSave = BookLedger.create(urlString, legacy).withOutputBaseName(legacy);
+			} else {
+				toSave = BookLedger.create(urlString, requestedBaseName != null ? requestedBaseName : textBaseName);
+			}
+		}
+		else if (requestedBaseName != null && !requestedBaseName.equals(ledger.textBaseName)) toSave = ledger.withTextBaseName(requestedBaseName);
+		//名前が取れなかった回に作った台帳は、取れた回に埋める
+		else if (requestedBaseName == null && ledger.textBaseName == null && textBaseName != null) toSave = ledger.withTextBaseName(textBaseName);
+		if (toSave != null) {
+			try {
+				toSave.save(workDir);
+				ledger = toSave;
+			} catch (IOException e) {
+				//台帳が無くても変換はできる（題が変わったときに別の本として増えるだけ）
+				logger.warn("台帳を書けませんでした: {}", this.dstPath, e);
+				LogAppender.println("作品の台帳を書けませんでした : " + e.getMessage());
+			}
+		}
+		String fileName = outFileName;
+		if (fileName == null) {
+			//台帳を書けなかったときも、今回の名前で書く
+			fileName = ledger != null ? ledger.textFileName() : (textBaseName != null ? textBaseName : "converted") + ".txt";
+		} else {
+			if (!fileName.toLowerCase().endsWith(".txt")) fileName += ".txt";
+		}
+		//その場所で作れない長い名前だけ、255 バイトに切る（Linux は題の長い作品の txt を作れなかった。internal #16）。
+		//名前を指定されたときは .. などを含みうるので、先に出力先の中かを確かめ、そのフォルダの中の名前だけを切る
+		File checkedFile = safeDstFile(fileName);
+		String leaf = checkedFile.getName();
+		String txtExt = leaf.substring(leaf.length() - 4);
+		File fittedFile = new File(checkedFile.getParentFile(),
+			PathUtils.fitFileNameIn(checkedFile.getParentFile(), leaf.substring(0, leaf.length() - 4), txtExt) + txtExt);
+		//切った名前も出力先の中かを確かめ直す（その名前の場所に、外を指すリンクが置かれているかもしれない）
+		File txtFile = fittedFile.equals(checkedFile) ? checkedFile
+			: safeDstFile(Path.of(this.dstPath).relativize(fittedFile.toPath()).toString());
+		//表紙画像（narou.rb互換: cover.jpg で保存）
+		File coverImageFile = new File(this.dstPath+"cover.jpg");
+		//更新情報格納先
+		File updateInfoFile = new File(this.dstPath+"update.txt");
+		
+		//フォルダ以外がすでにあったら削除
+		File parentFile = txtFile.getParentFile();
+		if (parentFile.exists() && !parentFile.isDirectory()) {
+			parentFile.delete();
+		}
+		parentFile.mkdirs();
+		//本棚の更新の守りは目次を読んでから効くので、txt は書き始めている。止めたら戻せるよう、前の txt を控える（PR のゲート2）
+		File guardBackup = null;
+		if (this.updateGuard && txtFile.isFile()) {
+			guardBackup = File.createTempFile(".guard.", ".txt.tmp", parentFile);
+			Files.copy(txtFile.toPath(), guardBackup.toPath(), StandardCopyOption.REPLACE_EXISTING);
+		}
+		BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(Files.newOutputStream(txtFile.toPath()), "UTF-8"));
+		//txt を最後まで書けたか。作り直すときは、途中の例外・中止でも txt を前に戻す（キャッシュの txt を書きかけで残さない）
+		boolean textWritten = false;
+		try {
+			
+			//表紙画像
+			Elements images = getExtractElements(doc, this.queryMap.get(ExtractId.COVER_IMG));
+			//確かめるだけのときは表紙を取らない
+			if (images != null && !this.checkOnly) {
+				printImage(null, images.get(0), coverImageFile);
+			}
+			
+			printSeriesAndTitle(bw, series, title);
+
+			// APIメタデータから全話数をログ出力
+			if (apiMetadata != null && apiMetadata.getGeneralAllNo() > 0) {
+				LogAppender.println("なろうAPI: 全" + apiMetadata.getGeneralAllNo() + "話"
+					+ (apiMetadata.getEnd() == 0 ? "（連載中）" : "（完結）"));
+			}
+
+			if (author != null) {
+				printText(bw, author);
+			}
+			bw.append('\n');
+
+			// narou.rb互換: 表紙挿絵注記を挿入
+			if (coverImageFile.exists()) {
+				bw.append("［＃挿絵（cover.jpg）入る］\n");
+				bw.append('\n');
+			}
+
+			// narou.rb互換: 掲載URL表示
+			if (formatSettings.isIncludeTocUrl()) {
+				bw.append("［＃区切り線］\n");
+				bw.append('\n');
+				bw.append("掲載ページ:\n");
+				bw.append("<a href=\"");
+				bw.append(urlString);
+				bw.append("\">");
+				bw.append(urlString);
+				bw.append("</a>\n");
+				bw.append("［＃区切り線］\n");
+				bw.append('\n');
+			}
+			//説明 (あらすじ)
+			// narou.rb互換: include_story設定で制御
+			if (formatSettings.isIncludeStory()) {
+				// APIメタデータのあらすじがあれば優先使用
+				if (apiMetadata != null && apiMetadata.getStory() != null && !apiMetadata.getStory().isEmpty()) {
+					if (!formatSettings.isIncludeTocUrl()) {
+						bw.append('\n');
+						bw.append("［＃区切り線］\n");
+						bw.append('\n');
+					}
+					bw.append("あらすじ：\n");
+					bw.append("［＃ここから２字下げ］\n");
+					bw.append("［＃ここから２字上げ］\n");
+					// APIのあらすじはプレーンテキスト（改行は\nのみ）
+					String story = apiMetadata.getStory().replace("\r\n", "\n").replace("\r", "\n");
+					for (String line : story.split("\n")) {
+						printBodyText(bw, line);
+						bw.append('\n');
+					}
+					bw.append("［＃ここで字上げ終わり］\n");
+					bw.append("［＃ここで字下げ終わり］\n");
+					bw.append('\n');
+					bw.append("［＃区切り線］\n");
+					bw.append('\n');
+					LogAppender.println("なろうAPI: あらすじ使用");
+				} else {
+					Element description = getExtractFirstElement(doc, this.queryMap.get(ExtractId.DESCRIPTION));
+					//確かめるだけのときは、あらすじも書き出さない（中の挿絵を取りに行かない。PR の手元の codex）
+					if (description != null && !this.checkOnly) {
+						if (!formatSettings.isIncludeTocUrl()) {
+							bw.append('\n');
+							bw.append("［＃区切り線］\n");
+							bw.append('\n');
+						}
+						bw.append("あらすじ：\n");
+						bw.append("［＃ここから２字下げ］\n");
+						bw.append("［＃ここから２字上げ］\n");
+						if ("script".equals(description.tagName())) {
+							// script要素は正規表現でテキスト抽出後、JSON \n エスケープを改行に変換して出力
+							// (カクヨムなど __NEXT_DATA__ JSON ベースの説明取得に対応)
+							String descText = getExtractText(doc, this.queryMap.get(ExtractId.DESCRIPTION));
+							if (descText != null && !descText.isEmpty()) {
+								descText = descText.replace("\\r\\n", "\n").replace("\\r", "\n").replace("\\n", "\n");
+								for (String line : descText.split("\n", -1)) {
+									printBodyText(bw, line);
+									bw.append('\n');
+								}
+							}
+						} else {
+							printNode(bw, description, true);
+						}
+						bw.append('\n');
+						bw.append("［＃ここで字上げ終わり］\n");
+						bw.append("［＃ここで字下げ終わり］\n");
+						bw.append('\n');
+						bw.append("［＃区切り線］\n");
+						bw.append('\n');
+					}
+				}
+			}
+			
+			String contentsUpdate = getExtractText(doc, this.queryMap.get(ExtractId.UPDATE));
+			
+			//章名称 変わった場合に出力
+			String preChapterTitle = "";
+			
+			//各話のURL(フルパス)を格納
+			ArrayList<String> chapterHrefs = new ArrayList<String>();
+			
+			Elements hrefs = getExtractElements(doc, this.queryMap.get(ExtractId.HREF));
+			if (hrefs == null && this.queryMap.containsKey(ExtractId.HREF)) {
+				LogAppender.println("HREF : 各話のリンク先URLが取得できません");
+			}
+			
+			ArrayList<String> subtitles = getExtractStrings(doc, this.queryMap.get(ExtractId.SUBTITLE_LIST), true);
+			if (subtitles == null && this.queryMap.containsKey(ExtractId.SUBTITLE_LIST)) {
+				LogAppender.println("SUBTITLE_LIST : 各話タイトルが取得できません");
+			}
+			
+			//更新のない各話のURL(フルパス)を格納
+			//nullならキャッシュ更新無しで、空ならすべて更新される
+			HashSet<String> noUpdateUrls = null;
+			String[] postDateList = null;
+			String[] publishDateList = null;
+			if (hrefs == null) {
+				//ページ番号取得
+				String pageNumString = getExtractText(doc, this.queryMap.get(ExtractId.PAGE_NUM));
+				if (pageNumString == null && this.queryMap.containsKey(ExtractId.PAGE_NUM)) {
+					LogAppender.println("PAGE_NUM : ページ数が取得できません");
+				}
+				int pageNum = -1;
+				try { pageNum = Integer.parseInt(pageNumString); } catch (Exception e) { /* 意図的: パース失敗時は pageNum=-1 のまま続行 */ }
+				Element pageUrlElement = getExtractFirstElement(doc, this.queryMap.get(ExtractId.PAGE_URL));
+				if (pageUrlElement == null && this.queryMap.containsKey(ExtractId.PAGE_URL)) {
+					LogAppender.println("PAGE_URL : ページ番号用のURLが取得できません");
+				}
+				if (pageNum > 0 && pageUrlElement != null) {
+					ExtractInfo pageUrlExtractInfo = this.queryMap.get(ExtractId.PAGE_URL)[0];
+					//リンク生成 1～ページ番号まで
+					for (int i=1; i<=pageNum; i++) {
+						String pageUrl = pageUrlElement.attr("href");
+						if (pageUrl != null) {
+							pageUrl = pageUrlExtractInfo.replace(pageUrl+"\t"+i);
+							if (pageUrl != null) {
+								if (!pageUrl.startsWith("http")) {
+									if (pageUrl.charAt(0) == '/') pageUrl = baseUri+pageUrl;
+									else pageUrl = listBaseUrl+pageUrl;
+								}
+								chapterHrefs.add(pageUrl);
+							}
+						}
+					}
+				} else {
+					Elements contentDivs = getExtractElements(doc, this.queryMap.get(ExtractId.CONTENT_ARTICLE));
+					if (contentDivs != null && this.checkOnly) {
+						//1 ページの作品は話が無いので、確かめられない（本文も挿絵も取りに行かない。PR の手元の codex）
+						this.guardStopped = true;
+						return null;
+					} else if (contentDivs != null) {
+						//一覧のリンクはないが本文がある場合
+						docToAozoraText(bw, doc, false, null, null, null);
+					} else {
+						LogAppender.println("一覧のURLが取得できませんでした");
+						//本棚の更新で、前は話があった作品の一覧が空になった（全部消された、など）。話数が減ったとして止め、txt を戻す（PR の手元の codex）
+						if (this.updateGuard) {
+							this.guardStopped = true;
+							int previous = ledger == null ? -1
+								: this.guardBook != null ? ledger.episodesFor(this.guardBook) : ledger.episodes;
+							if (previous > 0) {
+								this.shrunkFrom = previous;
+								this.shrunkTo = 0;
+							}
+						}
+						return null;
+					}
+				}
+			} else {
+				//更新分のみ取得するようにするためhrefに対応した日付タグの文字列(innerHTML)を取得して保存しておく
+				Elements updates = getExtractElements(doc, this.queryMap.get(ExtractId.SUB_UPDATE));
+				if (updates == null && this.queryMap.containsKey(ExtractId.SUB_UPDATE)) {
+					LogAppender.println("SUB_UPDATE : 更新確認情報が取得できません");
+				}
+				// TOC ページネーション: PAGE_URL が定義されていれば最後のページリンクから総ページ数を取得して残りの目次ページを収集 (101蹰以上対応)
+				//各話の日付を、目次の要素（hrefs）と同じ並びで持つ（1 ページ目＋目次の続きのページ）。
+				//話の URL の一覧を作るときに、残した要素の分だけ残す（リンクの空の要素などを飛ばしても位置がずれない）
+				String[] firstPostDates = getPostDateList(doc, this.queryMap.get(ExtractId.CONTENT_UPDATE_LIST));
+				String[] firstPublishDates = getPublishDateList(doc, this.queryMap.get(ExtractId.CONTENT_PUBLISH_LIST));
+				List<String> elementPostDates = alignedToElements(firstPostDates, hrefs.size());
+				List<String> elementPublishDates = alignedToElements(firstPublishDates, hrefs.size());
+				boolean anyPostDate = firstPostDates != null;
+				boolean anyPublishDate = firstPublishDates != null;
+				//目次の続きのページの日付は、日付を表示するときだけ取る（既定はどちらも表示しない）
+				boolean wantTocPageDates = formatSettings.isShowPostDate() || formatSettings.isShowPublishDate();
+				if (this.queryMap.containsKey(ExtractId.PAGE_URL)) {
+					Element tocPageUrlElem = getExtractFirstElement(doc, this.queryMap.get(ExtractId.PAGE_URL));
+					if (tocPageUrlElem != null) {
+						java.util.regex.Matcher pm = java.util.regex.Pattern.compile("[?&]p=(\\d+)").matcher(tocPageUrlElem.attr("href"));
+						int tocTotalPages = -1;
+						try { if (pm.find()) tocTotalPages = Integer.parseInt(pm.group(1)); } catch (NumberFormatException e) { /* 意図的: パース失敗時は tocTotalPages=-1 のまま続行 */ }
+						if (tocTotalPages > 1) {
+							ExtractInfo tocPageUrlInfo = this.queryMap.get(ExtractId.PAGE_URL)[0];
+							for (int pageIdx = 2; pageIdx <= tocTotalPages; pageIdx++) {
+								String nextTocUrl = tocPageUrlInfo.replace(tocPageUrlElem.attr("href") + "	" + pageIdx);
+								if (!nextTocUrl.startsWith("http")) {
+									if (nextTocUrl.charAt(0) == '/') nextTocUrl = baseUri + nextTocUrl;
+									else nextTocUrl = listBaseUrl + nextTocUrl;
+								}
+								LogAppender.println("目次ページ " + pageIdx + "/" + tocTotalPages + " 取得: " + nextTocUrl);
+								//目次の続きのページも、話と同じ規則でキャッシュに残す（作り直すときに読む。internal #54）。
+								//置けない名前のときだけ、前のように一時ファイルに取って捨てる
+								File tocPageFile;
+								boolean tempTocPage = false;
+								try {
+									//名前に印を付ける（?p=2 と、/p=2 という話の URL が、同じ名前にならないように）
+									tocPageFile = safeResolve(cachePath.toPath(),
+										CharUtils.escapeUrlToFile(nextTocUrl.substring(nextTocUrl.indexOf("//")+2)) + ".tocpage.html");
+								} catch (IOException | RuntimeException e) {
+									tocPageFile = Files.createTempFile(cachePath.toPath(), "tocpage", ".html").toFile();
+									tempTocPage = true;
+								}
+								try {
+									if (this.offline && !tempTocPage) {
+										if (!tocPageFile.isFile()) {
+											this.offlineMisses++;
+											throw new IOException("キャッシュに目次の続きのページがありません（この版より前に取った本は、⟳ で一度取ると作り直せます）: " + nextTocUrl);
+										}
+									} else {
+										cacheFile(nextTocUrl, tocPageFile, urlString);
+									}
+									Document tocPageDoc = Jsoup.parse(tocPageFile, null, nextTocUrl);
+									Elements nextHrefs = getExtractElements(tocPageDoc, this.queryMap.get(ExtractId.HREF));
+									if (nextHrefs != null) {
+										//このページの日付・更新の印を先に全部取ってから、話のリンクと一緒に足す
+										//（途中で例外が出ても、hrefs と日付の並びがずれない。日付は 1 ページ目の分しか取れていなかった）
+										String[] pagePostDates = wantTocPageDates ? getPostDateList(tocPageDoc, this.queryMap.get(ExtractId.CONTENT_UPDATE_LIST)) : null;
+										String[] pagePublishDates = wantTocPageDates ? getPublishDateList(tocPageDoc, this.queryMap.get(ExtractId.CONTENT_PUBLISH_LIST)) : null;
+										Elements nextUpdates = updates != null ? getExtractElements(tocPageDoc, this.queryMap.get(ExtractId.SUB_UPDATE)) : null;
+										hrefs.addAll(nextHrefs);
+										elementPostDates.addAll(alignedToElements(pagePostDates, nextHrefs.size()));
+										elementPublishDates.addAll(alignedToElements(pagePublishDates, nextHrefs.size()));
+										if (pagePostDates != null) anyPostDate = true;
+										if (pagePublishDates != null) anyPublishDate = true;
+										if (updates != null) {
+											if (nextUpdates != null) updates.addAll(nextUpdates);
+											else updates = null; // サイズ不一致防止
+										}
+									}
+								} catch (CloudflareChallengeException e) {
+									//目次の途中までで本を作らない（理由は cacheFile が出した）。本棚の更新なら txt も戻す（PR #120 の codex）
+									if (this.updateGuard) {
+										this.listFailure = 403;
+										this.listFailureOnLaterPage = true;
+										this.guardStopped = true;
+									}
+									return null;
+								} catch (Exception e) {
+									LogAppender.println("目次ページ " + pageIdx + " 取得エラー: " + e.getMessage());
+									//本棚の更新は、目次の一部が欠けたまま作らない（話数が減ったように見える。PR のゲート2）
+									if (this.updateGuard) {
+										this.listFailure = (e instanceof HttpStatusException h) ? h.status : -1;
+										this.listFailureOnLaterPage = true;
+										this.guardStopped = true;
+										return null;
+									}
+								} finally {
+									if (tempTocPage) tocPageFile.delete();
+								}
+							}
+						}
+					}
+				}
+				if (updates != null) {
+					//更新しないURLのチェック用
+					noUpdateUrls = createNoUpdateUrls(updateInfoFile, urlString, listBaseUrl, contentsUpdate, hrefs, updates);
+				}
+				//一覧のhrefをすべて取得（残した要素の日付だけを、話の URL と同じ並びで残す）
+				List<String> chapterPostDates = new ArrayList<>();
+				List<String> chapterPublishDates = new ArrayList<>();
+				for (int hrefIdx = 0; hrefIdx < hrefs.size(); hrefIdx++) {
+					Element href = hrefs.get(hrefIdx);
+					String hrefString = href.attr("href");
+					if (hrefString == null || hrefString.length() == 0) continue;
+					//パターンがあればマッチング
+					ExtractInfo extractInfo = this.queryMap.get(ExtractId.HREF)[0];
+					if (!extractInfo.hasPattern() || extractInfo.matches(hrefString)) {
+						String chapterHref = hrefString;
+						if (!hrefString.startsWith("http")) {
+							if (hrefString.charAt(0) == '/') chapterHref = baseUri+hrefString;
+							else chapterHref = listBaseUrl+hrefString;
+						}
+						chapterHrefs.add(chapterHref);
+						chapterPostDates.add(elementPostDates.get(hrefIdx));
+						chapterPublishDates.add(elementPublishDates.get(hrefIdx));
+					}
+				}
+				postDateList = anyPostDate ? chapterPostDates.toArray(new String[0]) : null;
+				publishDateList = anyPublishDate ? chapterPublishDates.toArray(new String[0]) : null;
+				if (postDateList == null && this.queryMap.containsKey(ExtractId.CONTENT_UPDATE_LIST)) {
+					LogAppender.println("CONTENT_UPDATE_LIST : 一覧ページの更新日時情報が取得できません");
+				}
+			}
+			
+
+			// __NEXT_DATA__ JSON フォールバック: HTMLのhrefs件数より多い場合に使用 (カクヨムなど Next.js サイト対応)
+			List<String> nextDataEpisodes = extractEpisodesFromNextData(doc, urlString);
+			if (nextDataEpisodes != null && nextDataEpisodes.size() > chapterHrefs.size()) {
+				LogAppender.println("__NEXT_DATA__ JSON からエピソード一覧取得: " + nextDataEpisodes.size() + "話");
+				chapterHrefs.clear();
+				chapterHrefs.addAll(nextDataEpisodes);
+				// Phase 2-2: 更新日時マップが構築されていれば更新チェックに使用 (カクヨム SUB_UPDATE対応)
+				if (this.nextDataEpisodeDateMap != null) {
+					noUpdateUrls = createNoUpdateUrlsFromNextData(updateInfoFile, urlString, contentsUpdate);
+				}
+			}
+	
+			// 一覧から章マッピング構築 (ハーメルンなど、各話ページに章情報を持たないサイト向け)
+			// ハーメルンは 2026-08 頃に一覧を table から ul.episode-list__items へ変えたので両方を見る
+			if (this.nextDataEpisodeChapterMap == null
+				&& (doc.selectFirst("#maind .episode-list__items") != null || doc.selectFirst("#maind .ss table") != null)) {
+				HashMap<String, String> tocChapterMap = buildEpisodeChapterMapFromToc(doc, listBaseUrl);
+				if (!tocChapterMap.isEmpty()) {
+					this.nextDataEpisodeChapterMap = tocChapterMap;
+					LogAppender.println("一覧から章マッピング構築: " + tocChapterMap.size() + "エピソード");
+				}
+			}
+
+			//目次の話数を台帳と比べる。減っていたら（掲載先で消された・要約版にされた・目次の 2 ページ目が取れなかった）、
+			//本棚の更新では書かずに止める（1 冊を上書きする方式で一番大きい事故＝読んだ話が消える、を防ぐ。internal #11）
+			//0 話になったとき（全部消された・目次の書き方が変わった）も比べる（PR の手元の codex）
+			//本棚の更新は、上書きする本の記録と比べる（無ければ作品の話数）
+			boolean bookGuard = this.updateGuard && this.guardBook != null;
+			int previous = ledger == null ? -1 : bookGuard ? ledger.episodesFor(this.guardBook) : ledger.episodes;
+			if (this.updateGuard && !this.allowFewerEpisodes && previous > chapterHrefs.size()) {
+				this.shrunkFrom = previous;
+				this.shrunkTo = chapterHrefs.size();
+				LogAppender.println("話数が減っています（前 "+previous+" 話 → 今 "+chapterHrefs.size()+" 話）。本は書き換えません");
+				this.guardStopped = true;
+				return null;
+			}
+			//台帳に書くのは txt を作り終えてから（途中で止まると、本と台帳の話数が食い違う。PR の手元の codex）。
+			//1 ページの作品（話の一覧が無い）は数えない
+			//守りの無い変換（GUI・CLI）は話数を上げるだけで下げない。下げると、本棚の本の守りが外れる
+			//（同じ作品を GUI で別のフォルダに変換しただけで、本棚の本が減った話数で上書きされる。PR のゲート2）
+			//作品の話数は、どの変換でも上げるだけ。今の話数は、本文を読み始めるときに控え、書き終えたときにその本の話数になる（BookLedger.captureEpisodes / recordBookEpisodes）
+			int now = chapterHrefs.size();
+			if (ledger != null && (now > 0 || previous > 0)) {
+				if (now > ledger.episodes) this.pendingEpisodes = now;
+				if (now != ledger.lastEpisodes) this.pendingLastEpisodes = now;
+			}
+			boolean acceptedFewer = this.updateGuard && this.allowFewerEpisodes && previous > now;
+
+			//新着を確かめるだけなら、ここで数えて止める（話は取らない。txt と更新情報は守りの止め方で前のまま）
+			if (this.checkOnly) {
+				int newCount = 0;
+				int revisedCount = 0;
+				for (String chapterHref : chapterHrefs) {
+					if (chapterHref == null || chapterHref.isEmpty()) continue;
+					File chapterCacheFile;
+					try {
+						String chapterPath = CharUtils.escapeUrlToFile(chapterHref.substring(chapterHref.indexOf("//")+2));
+						chapterCacheFile = resolveHtmlCacheFile(safeResolve(cachePath.toPath(), chapterPath+(chapterPath.endsWith("/")?"index.html":"")));
+					} catch (IOException | RuntimeException e) {
+						continue;
+					}
+					if (!chapterCacheFile.exists()) newCount++;
+					//目次の更新日が前に記録したものと違う話（更新日を出しているサイトで、前の記録＝update.txt があるときだけ。
+					//記録が無いと全部が改稿に見える。PR のゲート2）
+					else if (noUpdateUrls != null && updateInfoFile.exists() && !noUpdateUrls.contains(chapterHref)) revisedCount++;
+				}
+				//その本の話数の記録があれば、新着はそれとの差（キャッシュの有無に依らない。キャッシュにはあっても本に入っていない話＝
+				//更新で話は取れたが本を書けなかった・同じ作品を別に変換した、と、キャッシュを消しただけの話を、どちらも正しく数える。
+				//PR の手元の codex・PR の codex）。記録が無ければキャッシュに無い話
+				if (previous >= 0) newCount = Math.max(0, now - previous);
+				this.checkedEpisodes = now;
+				this.checkedNew = newCount;
+				this.checkedRevised = revisedCount;
+				this.pendingEpisodes = -1;
+				this.pendingLastEpisodes = -1;
+				this.guardStopped = true;
+				return null;
+			}
+
+			//作り直すときは、本文を書く前に、キャッシュに無い話を数える。1 話でも無ければ何も書かずに止める
+			//（書きながら見つけると、話ごとに取り直しの待ちが入り、数も重なる）
+			if (this.offline) {
+				for (String chapterHref : chapterHrefs) {
+					if (chapterHref == null || chapterHref.isEmpty()) continue;
+					try {
+						String chapterPath = CharUtils.escapeUrlToFile(chapterHref.substring(chapterHref.indexOf("//")+2));
+						File chapterCacheFile = resolveHtmlCacheFile(safeResolve(cachePath.toPath(), chapterPath+(chapterPath.endsWith("/")?"index.html":"")));
+						if (!chapterCacheFile.isFile()) this.offlineMisses++;
+					} catch (IOException | RuntimeException e) {
+						/* 意図的: 置けないパスの話は、取ったときも飛ばした（下の本文のループも飛ばす）。欠けとは数えない */
+					}
+				}
+				if (this.offlineMisses > 0) {
+					LogAppender.println("キャッシュに無い話が " + this.offlineMisses + " 話あるので、作り直しをやめました");
+					this.pendingEpisodes = -1;
+					this.pendingLastEpisodes = -1;
+					this.guardStopped = true;
+					return null;
+				}
+			}
+
+			List<String> failedHrefs = new ArrayList<>();
+			//取り直すはずだった（更新情報で更新ありと判定された）のに取れなかった話
+			HashSet<String> failedReloads = new HashSet<>();
+			//取れた話の数（全話を取り直して 1 話も取れなかったかを見る）
+			int loadedChapters = 0;
+			//止められたときに「対象の話を 1 つも書けなかったか」を見るための数（最新 N 話などで対象は目次の一部）
+			int selectedChapters = 0;
+			int writtenChapters = 0;
+			if (chapterHrefs.size() > 0) {
+				//全話で更新や追加があるかチェック。
+				//減ったまま更新すると選ばれたら、話が消えたこと自体が更新（残った話が変わっていなくても本を作り直す。PR の手元の codex）
+				updated = acceptedFewer;
+				
+				//追加更新対象の期限 これより大きければ追加更新
+				long expire = System.currentTimeMillis()-(long)(this.modifiedExpire*3600000);
+				//追加更新分のみ出力時に利用
+				HashSet<Integer> modifiedChapterIdx = null;
+				//更新されていない最後の話数 0～
+				int lastNoModifiedChapterIdx = -1;
+				if (this.convertModifiedOnly) {
+					modifiedChapterIdx = new HashSet<Integer>();
+				}
+				
+				int chapterIdx = 0;
+				for (String chapterHref : chapterHrefs) {
+					if (this.canceled) return null;
+					
+					if (chapterHref != null && chapterHref.length() > 0) {
+						//キャッシュ取得 ロードされたらWait 500ms
+						String chapterPath = CharUtils.escapeUrlToFile(chapterHref.substring(chapterHref.indexOf("//")+2));
+						File chapterCacheFile;
+						try {
+							//cachePath 配下であることを検証（パストラバーサル対策）
+							chapterCacheFile = resolveHtmlCacheFile(safeResolve(cachePath.toPath(), chapterPath+(chapterPath.endsWith("/")?"index.html":"")));
+						} catch (IOException e) {
+							logger.error("章キャッシュパスを扱えないためスキップ: {}", chapterHref, e);
+							LogAppender.println("["+(chapterIdx+1)+"/"+chapterHrefs.size()+"] 扱えないパスのためスキップします: "+chapterHref+" ("+e.getMessage()+")");
+							//failedHrefs には追加しない（同じ href は後段の変換ループでも
+							//同様に弾かれ、そちらで一度だけ記録されるため）
+							chapterIdx++;
+							continue;
+						}
+						//hrefsのときは更新分のみurlsに入っている
+						boolean loaded = false;
+						
+						//更新対象ならtrueに変更
+						boolean reload = false;
+						//nullでなく更新無しに含まれなければ再読込
+						//作り直すときは、改稿された話も取り直さない（キャッシュにある話で作る）
+						if (noUpdateUrls != null && !noUpdateUrls.contains(chapterHref) && !this.offline) reload = true;
+						//全話を取り直すときは、キャッシュにある話も取り直す
+						if (this.refetchAll && !this.offline) reload = true;
+						
+						if ((reload || !chapterCacheFile.exists()) && !this.blockedByChallenge) {
+							LogAppender.append("["+(chapterIdx+1)+"/"+chapterHrefs.size()+"] "+chapterHref);
+							try {
+								try {
+									sleepForDownload();
+								} catch (InterruptedException e) {
+									// 意図的: 中断要求を受けて canceled フラグと同様にダウンロードを終了
+									Thread.currentThread().interrupt();
+									return null;
+								}
+								//話は本文を確かめてから置く（internal #56）。⟳ で改稿された話を取り直すとき、よいキャッシュを本文の無いページ
+								//（メンテナンス・年齢確認などが 200 で返る）で上書きしない。新しい話も、本文の無いページを取れたと数えない
+								refetchOver(chapterHref, chapterCacheFile, urlString);
+								LogAppender.println(" : Loaded.");
+								//ファイルがロードされたら更新有り
+								this.updated = true;
+								loaded = true;
+								loadedChapters++;
+							} catch (CloudflareChallengeException e) {
+								//理由は cacheFile が出した。以降の話は取りに行かない（キャッシュにある話で本を作る）
+							} catch (Exception e) {
+								logger.warn("章 HTML の取得に失敗（後続でキャッシュ確認・再試行）: {}", chapterHref, e);
+								LogAppender.println("htmlファイルが取得できませんでした : "+chapterHref);
+							}
+						}
+						//取れた話・取り直す必要の無かった話は、更新情報に新しい日付を書いてよい
+						if (loaded || !reload) this.confirmedHrefs.add(chapterHref);
+						//取り直すはずだった（改稿・追加された）のに取れなかった話
+						if (reload && !loaded) failedReloads.add(chapterHref);
+						//キャッシュされているファイルが指定時間内なら更新扱い
+						if (!loaded) {
+							if (this.modifiedExpire > 0 && (this.convertModifiedOnly || this.convertUpdated) && chapterCacheFile.lastModified() >= expire) {
+								LogAppender.append("["+(chapterIdx+1)+"/"+chapterHrefs.size()+"] "+chapterHref);
+								LogAppender.println(" : Modified.");
+								this.updated = true;
+							}
+						}
+						//更新分のみ出力時のチェック
+						if (this.convertModifiedOnly) {
+							//ファイルの更新日時で比較
+							if (chapterCacheFile.lastModified() >= expire) {
+								modifiedChapterIdx.add(chapterIdx);
+							} else {
+								if (this.convertModifiedTail) {
+									//最新から連続していない話は除外
+									modifiedChapterIdx.clear();
+								}
+								lastNoModifiedChapterIdx = chapterIdx;
+							}
+						}
+					}
+					chapterIdx++;
+				}
+				//取り直せなかった話（あとの書き出しで取り直せた話は、そこで数から外す）
+				if (this.refetchAll) this.refetchFailedHrefs.addAll(failedReloads);
+				//全話を取り直して 1 話も取れなかった（掲載元が落ちている・止められた）。前と同じキャッシュで本を書き直して
+				//「取り直しました」とは言わない。本も txt も前のまま（守りで止めたのと同じく txt を戻す）、取り直せなかったと返す
+				if (this.refetchAll && loadedChapters == 0 && !failedReloads.isEmpty()) {
+					LogAppender.println("掲載元から 1 話も取り直せなかったので、本は前のままにします");
+					this.guardStopped = true;
+					return blockedUpdateCheck(true);
+				}
+				if (!failedReloads.isEmpty() && this.refetchAll) {
+					LogAppender.println(failedReloads.size() + " 話を取り直せませんでした（前のキャッシュで本を作ります）: " + String.join(" ", failedReloads));
+				} else if (!failedReloads.isEmpty()) {
+					//改稿・追加された話を取り損ねた。前のキャッシュがあればそれで本を作る。次の変換でもう一度取りに行く
+					LogAppender.println("改稿・追加された " + failedReloads.size() + " 話を取得できませんでした（次の変換でもう一度取りに行きます）: " + String.join(" ", failedReloads));
+				}
+				//更新が無くて変換もなければ終了（作り直すときは何も取らないので、いつも「更新なし」になる。言わない）
+				if (!this.updated && !this.offline) {
+					LogAppender.append("「"+title+"」");
+					//止められた・取り損ねたのを「更新なし」と言わない
+					if (this.blockedByChallenge) LogAppender.println("の更新は、サイトに止められたため確かめられませんでした");
+					else if (!failedReloads.isEmpty()) LogAppender.println("の更新を取得できませんでした");
+					else LogAppender.println("の更新はありません");
+					if (this.convertUpdated) return blockedUpdateCheck(!failedReloads.isEmpty());
+				}
+				
+				if (this.convertModifiedOnly) {
+					//更新前の話数を追加 昇順で重複もはじく
+					if (this.beforeChapter > 0) {
+						int startIdx = Math.max(0, lastNoModifiedChapterIdx-this.beforeChapter+1);
+						if (modifiedChapterIdx.size() == 0) {
+							//追加分なし
+							int idx = chapterHrefs.size()-1;
+							for (int i=0; i<this.beforeChapter; i++) {
+								modifiedChapterIdx.add(idx--);
+							}
+						} else {
+							//追加分あり
+							for (int i=startIdx; i<=lastNoModifiedChapterIdx; i++) {
+								modifiedChapterIdx.add(i);
+							}
+						}
+					}
+					if (modifiedChapterIdx.size() == 0) {
+						if (this.blockedByChallenge || !failedReloads.isEmpty()) {
+							LogAppender.println(this.blockedByChallenge ? "サイトに止められたため、追加更新分を確かめられませんでした" : "追加更新分を取得できませんでした");
+							return blockedUpdateCheck(!failedReloads.isEmpty());
+						}
+						LogAppender.println("追加更新分はありません");
+						this.updated = false;
+						return null;
+					}
+				} else {
+					//最新話数指定
+					if (this.beforeChapter > 0) {
+						int idx = chapterHrefs.size()-1;
+						modifiedChapterIdx = new HashSet<Integer>();
+						for (int i=0; i<this.beforeChapter; i++) {
+							modifiedChapterIdx.add(idx--);
+						}
+					}
+				}
+				
+				//変換実行
+				chapterIdx = 0;
+				for (String chapterHref : chapterHrefs) {
+					if (this.canceled) return null;
+
+					if (modifiedChapterIdx == null || modifiedChapterIdx.contains(chapterIdx)) {
+						selectedChapters++;
+						//キャッシュファイル取得
+						String chapterPath = CharUtils.escapeUrlToFile(chapterHref.substring(chapterHref.indexOf("//")+2));
+						File chapterCacheFile;
+						try {
+							//cachePath 配下であることを検証（パストラバーサル対策）
+							chapterCacheFile = resolveHtmlCacheFile(safeResolve(cachePath.toPath(), chapterPath+(chapterPath.endsWith("/")?"index.html":"")));
+						} catch (IOException e) {
+							logger.error("章キャッシュパスを扱えないためスキップ: {}", chapterHref, e);
+							LogAppender.println("["+(chapterIdx+1)+"/"+chapterHrefs.size()+"] 扱えないパスのためスキップします: "+chapterHref+" ("+e.getMessage()+")");
+							failedHrefs.add(chapterHref);
+							chapterIdx++;
+							continue;
+						}
+						//止められた後はキャッシュの無い話を取りに行かない（取れなかった話として記録する）
+						if (!chapterCacheFile.exists() && this.blockedByChallenge) {
+							LogAppender.println("["+(chapterIdx+1)+"/"+chapterHrefs.size()+"] キャッシュなし、取得できないためスキップします: "+chapterHref);
+							//全話を取り直すときは、話の抜けた本で上書きしない（下で止める）。扱えないパスの話はどの変換でも本に入らないので数えない
+							if (this.refetchAll) this.refetchUnusable++;
+							failedHrefs.add(chapterHref);
+							chapterIdx++;
+							continue;
+						}
+						//ダウンロード失敗でキャッシュが存在しない場合は再試行
+						if (!chapterCacheFile.exists()) {
+							LogAppender.println("["+(chapterIdx+1)+"/"+chapterHrefs.size()+"] キャッシュなし、再ダウンロードを試みます: "+chapterHref);
+							try {
+								try {
+									Thread.sleep(3000);
+								} catch (InterruptedException e2) {
+									// 意図的: 中断要求を受けて canceled フラグと同様にダウンロードを終了
+									Thread.currentThread().interrupt();
+									return null;
+								}
+								//ここでも本文の無いページを置かない（取れなければ、この話を飛ばして記録に残す）
+								refetchOver(chapterHref, chapterCacheFile, urlString);
+								this.updated = true;
+								//再試行で取れた話は、更新情報に新しい日付を書いてよい
+								this.confirmedHrefs.add(chapterHref);
+							} catch (Exception e) {
+								logger.warn("章の再ダウンロードに失敗、スキップ: {}", chapterHref, e);
+								LogAppender.println("["+(chapterIdx+1)+"/"+chapterHrefs.size()+"] 再ダウンロード失敗、スキップします: "+chapterHref);
+								//全話を取り直すときは、話の抜けた本で上書きしない（下で止める）
+								if (this.refetchAll) this.refetchUnusable++;
+								failedHrefs.add(chapterHref);
+								chapterIdx++;
+								continue;
+							}
+						}
+						//シリーズタイトルを出力
+						Document chapterDoc = Jsoup.parse(chapterCacheFile, null, chapterHref);
+						// キャッシュファイルに本文が無い場合（ダウンロード失敗・エラーページ等）は再ダウンロード
+						{
+							Elements contentCheck = getExtractElements(chapterDoc, this.queryMap.get(ExtractId.CONTENT_ARTICLE));
+							//全話を取り直すときは、目次の周で本文を確かめて取り直した（本文の無いページは取らなかった）ので、ここでは取り直さない。
+							//取り直すと本文の無いページで上書きし、取れたと数えてしまう
+							if ((contentCheck == null || contentCheck.size() == 0) && this.queryMap.containsKey(ExtractId.CONTENT_ARTICLE)
+								&& !this.blockedByChallenge && !this.offline && !this.refetchAll) {
+								LogAppender.println("本文が取得できないためキャッシュを削除して再ダウンロードします: " + chapterHref);
+								chapterCacheFile.delete();
+								try {
+									sleepForDownload();
+									cacheFile(chapterHref, chapterCacheFile, urlString);
+									chapterDoc = Jsoup.parse(chapterCacheFile, null, chapterHref);
+									this.confirmedHrefs.add(chapterHref);
+								} catch (Exception e) {
+									logger.warn("章本文の再取得に失敗: {}", chapterHref, e);
+									LogAppender.println("再ダウンロードできませんでした: " + chapterHref);
+								}
+							}
+						}
+						//止められた後、本文の無いキャッシュ（エラーページなど）は話として数えない
+						Elements articleCheck = getExtractElements(chapterDoc, this.queryMap.get(ExtractId.CONTENT_ARTICLE));
+						boolean hasArticle = (articleCheck != null && articleCheck.size() > 0) || !this.queryMap.containsKey(ExtractId.CONTENT_ARTICLE);
+						//作り直すときは取り直せないので、本文の無いキャッシュは欠けとして数える（下の止めで、話の欠けた本で上書きしない）
+						if (!hasArticle && this.offline) {
+							LogAppender.println("["+(chapterIdx+1)+"/"+chapterHrefs.size()+"] キャッシュに本文が無いため、作り直しをやめます: "+chapterHref);
+							this.offlineMisses++;
+							failedHrefs.add(chapterHref);
+							chapterIdx++;
+							continue;
+						}
+						//全話を取り直すときも、取り直せず、キャッシュにも本文が無い話があれば、話の抜けた本で上書きしない（下で止める）
+						if (!hasArticle && this.refetchAll) {
+							LogAppender.println("["+(chapterIdx+1)+"/"+chapterHrefs.size()+"] 取り直せず、キャッシュにも本文が無いため、本は前のままにします: "+chapterHref);
+							this.refetchUnusable++;
+							failedHrefs.add(chapterHref);
+							chapterIdx++;
+							continue;
+						}
+						if (!hasArticle && this.blockedByChallenge) {
+							LogAppender.println("["+(chapterIdx+1)+"/"+chapterHrefs.size()+"] 本文が無く、取得もできないためスキップします: "+chapterHref);
+							failedHrefs.add(chapterHref);
+							chapterIdx++;
+							continue;
+						}
+						String chapterTitle = getExtractText(chapterDoc, this.queryMap.get(ExtractId.CONTENT_CHAPTER));
+						// nextDataEpisodeChapterMap をフォールバックとして使用 (Phase 2-1: カクヨム章構造対応)
+						if (chapterTitle == null && this.nextDataEpisodeChapterMap != null) {
+							chapterTitle = this.nextDataEpisodeChapterMap.get(chapterHref);
+						}
+						boolean newChapter = false;
+						if (chapterTitle != null && !preChapterTitle.equals(chapterTitle)) {
+							newChapter = true;
+							preChapterTitle = chapterTitle;
+						}
+							//更新日時・初回公開日を一覧から取得
+						String postDate = null;
+						if (postDateList != null && postDateList.length > chapterIdx) {
+							postDate = postDateList[chapterIdx];
+						}
+						String publishDate = null;
+						if (publishDateList != null && publishDateList.length > chapterIdx) {
+							publishDate = publishDateList[chapterIdx];
+						}
+						String subTitle = null;
+						if (subtitles != null && subtitles.size() > chapterIdx) subTitle = subtitles.get(chapterIdx);
+						
+						printEpisode(bw, chapterDoc, newChapter ? preChapterTitle : null, subTitle, postDate, publishDate);
+						if (hasArticle) writtenChapters++;
+					}
+					chapterIdx++;
+				}
+				
+				//出力話数を表示
+				if (modifiedChapterIdx != null) {
+					StringBuilder buf = new StringBuilder();
+					int preIdx = -1;
+					boolean idxConnected = false;
+					//出力話数生成
+					for (int idx=0; idx<chapterHrefs.size(); idx++) {
+						if (modifiedChapterIdx.contains(idx)) {
+							if (buf.length() == 0) buf.append((idx+1));
+							else {
+								if (preIdx == idx-1) {
+									idxConnected = true;
+								} else {
+									if (idxConnected) buf.append("-"+(preIdx+1));
+									idxConnected = false;
+									buf.append(","+(idx));
+								}
+							}
+							preIdx = idx;
+						}
+					}
+					if (idxConnected) buf.append("-"+(preIdx+1));
+					LogAppender.println(buf+"話を変換します");
+				}
+			}
+			//作り直すときに、本文のループで欠けを見つけたら（本文の無いキャッシュ。キャッシュに無い話は先の数え上げで止まる）、
+			//書きかけの txt を前に戻して止める（話の欠けた本で上書きしない）
+			if (this.offline && this.offlineMisses > 0) {
+				LogAppender.println("キャッシュに無い（または本文の無い）話が " + this.offlineMisses + " 件あるので、作り直しをやめました");
+				this.pendingEpisodes = -1;
+				this.pendingLastEpisodes = -1;
+				this.guardStopped = true;
+				return null;
+			}
+			//全話を取り直して、本文のある版がどこにも無い話が残ったら、txt を前に戻して止める（話の欠けた本で上書きしない）
+			if (this.refetchAll && this.refetchUnusable > 0) {
+				LogAppender.println("取り直せず、キャッシュにも本文の無い話が " + this.refetchUnusable + " 話あるので、本は前のままにします");
+				this.pendingEpisodes = -1;
+				this.pendingLastEpisodes = -1;
+				this.guardStopped = true;
+				return blockedUpdateCheck(true);
+			}
+			//止められて 1 話も取れなかったら、本文の無い本を作らずに失敗にする
+			if (this.blockedByChallenge && selectedChapters > 0 && writtenChapters == 0) {
+				LogAppender.println("サイトに止められて、1 話も取得できませんでした");
+				return null;
+			}
+			//ダウンロード失敗話の報告
+			if (!failedHrefs.isEmpty()) {
+				File failedFile = new File(this.dstPath, "failed_downloads.txt");
+				try (BufferedWriter fw = new BufferedWriter(new OutputStreamWriter(Files.newOutputStream(failedFile.toPath()), "UTF-8"))) {
+					for (String href : failedHrefs) fw.write(href + "\n");
+				} catch (IOException e) {
+					logger.warn("failed_downloads.txt の書き込みに失敗: {}", failedFile, e);
+				}
+				LogAppender.println("警告: "+failedHrefs.size()+"話のダウンロードに失敗しました。失敗した話はスキップしてePubを作成しました。");
+				LogAppender.println("【再ダウンロード方法】GUIのテキスト欄に元のURLを貼り付けて変換を再実行すると、失敗した話のみ自動で再ダウンロードしてePubを再作成します。");
+				LogAppender.println("失敗したURL一覧: "+failedFile.getAbsolutePath());
+			}
+			//底本にURL追加
+			bw.append("\n［＃改ページ］\n");
+			bw.append("底本： ");
+			bw.append("<a href=\"");
+			bw.append(urlString);
+			bw.append("\">");
+			bw.append(urlString);
+			bw.append("</a>");
+			bw.append('\n');
+			bw.append("変換日時： ");
+			bw.append(dateFormat.format(Instant.now()));
+			bw.append('\n');
+
+			// 読了表示は AozoraTextFinalizer.appendEndOfBook() に統一
+			textWritten = true;
+
+		} finally {
+			bw.close();
+			if (this.guardStopped || (this.offline && !textWritten)) {
+				//守りで止めたら、txt も更新情報も変換の前のまま（キャッシュの txt から作り直しても、前の本になるように）。
+				//更新情報は書かない（下の else を通らない）
+				if (guardBackup != null) Files.move(guardBackup.toPath(), txtFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+				else Files.deleteIfExists(txtFile.toPath());
+			} else if (!this.offline) {
+				//本棚の更新で txt を最後まで書けなかった（更新なし・取り損ね・中止・例外で途中で返った）ら、txt は前に戻す。
+				//見出しだけの txt を残すと、キャッシュの txt から作り直したときに中身の無い本になる（internal #56）。
+				//txt はいつもキャッシュの話から作り直すので、戻しても取れた話は失わない
+				if (!textWritten && guardBackup != null) Files.move(guardBackup.toPath(), txtFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+				//更新情報は変換の終わりに書く。途中で止まった（キャンセル・例外）ときも、取れた話までは記録に残す。
+				//作り直すときは書かない（何も取っていないので、記録は前のままが正しい）
+				writePendingUpdateInfo();
+			}
+			if (guardBackup != null) Files.deleteIfExists(guardBackup.toPath());
+		}
+
+		// ファイナライズ処理: 文章全体の後処理
+		// (前書き・後書き検出、自動字下げ、改ページ後見出し化、括弧チェック)
+		try {
+			AozoraTextFinalizer finalizer = new AozoraTextFinalizer(this.formatSettings);
+			finalizer.finalize(txtFile, new File(this.dstPath));
+		} catch (IOException e) {
+			LogAppender.println("警告: ファイナライズ処理中にエラーが発生しました: " + e.getMessage());
+			logger.warn("テキストファイナライズ処理に失敗（付加処理のため変換は継続）: {}", txtFile, e);
+			// エラーが発生してもファイルは返す（ファイナライズ処理は付加的な処理のため）
+		}
+
+		if (this.pendingEpisodes >= 0 || this.pendingLastEpisodes >= 0) {
+			//台帳は読み直す（変換の途中で名前などが書き足されていることがある）
+			BookLedger current = BookLedger.load(workDir);
+			if (current != null) {
+				BookLedger next = current;
+				if (this.pendingEpisodes >= 0) next = next.withEpisodes(this.pendingEpisodes);
+				if (this.pendingLastEpisodes >= 0) next = next.withLastEpisodes(this.pendingLastEpisodes);
+				try {
+					next.save(workDir);
+					this.ledgerBeforeEpisodes = current;
+					this.episodesRecorded = true;
+				} catch (IOException e) {
+					logger.warn("台帳に話数を書けませんでした: {}", this.dstPath, e);
+				}
+			}
+		}
+
+		//中止の印は戻さない（変換器は変換ごとに新しい。戻すと、仕上げの間に押された中止が呼び手に見えない。internal #22）
+		return txtFile;
+	}
+	
+	/** 更新の確かめが止められた・更新を取り損ねたときの戻り値。呼び出し元（GUI）は「null で更新なし」を「スキップ」と出すので、
+	 * そのときは更新ありの扱い（isUpdated()==true）のまま失敗（null）として返す */
+	private File blockedUpdateCheck(boolean fetchFailed)
+	{
+		if (this.blockedByChallenge || fetchFailed) this.updated = true;
+		return null;
+	}
+
+	/** urlString がこのサイト（一覧の URL のホスト）か。挿絵が別のホストにあるときは止めない */
+	private boolean isSiteHost(String urlString)
+	{
+		try {
+			String host = java.net.URI.create(urlString).getHost();
+			String siteHost = java.net.URI.create(this.baseUri).getHost();
+			return host != null && host.equalsIgnoreCase(siteHost);
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	/** Cloudflare の確認画面で止められた。理由を 1 回だけ出し、以降はこのサイトに取りに行かない */
+	private void challenged(CloudflareChallengeException e)
+	{
+		if (this.blockedByChallenge) return;
+		this.blockedByChallenge = true;
+		LogAppender.println(e.getMessage());
+		LogAppender.println("以降の話は取りに行かず、キャッシュにある話だけで変換します");
+	}
+
+	/** 書く前の更新情報（update.txt）。変換の終わり（途中で止まったときも）に writePendingUpdateInfo で書く */
+	private PendingUpdateInfo pendingUpdateInfo = null;
+	/** この変換で、取れた話・取り直す必要の無かった話。update.txt に新しい日付を書いてよい話 */
+	private final HashSet<String> confirmedHrefs = new HashSet<>();
+
+	/** 書く前の更新情報。鍵は update.txt の鍵（一覧の href の生の値、または絶対 URL）、値は新しい日付と話の URL */
+	static class PendingUpdateInfo
+	{
+		final File file;
+		final String urlString;
+		final String contentsUpdate;
+		final Map<String, String> previous;
+		final LinkedHashMap<String, String[]> entries = new LinkedHashMap<>();
+
+		PendingUpdateInfo(File file, String urlString, String contentsUpdate, Map<String, String> previous)
+		{
+			this.file = file;
+			this.urlString = urlString;
+			this.contentsUpdate = contentsUpdate;
+			this.previous = previous;
+		}
+
+		void put(String key, String value, String chapterHref)
+		{
+			this.entries.put(key, new String[] { value, chapterHref });
+		}
+
+		/** 書く行。取れた話（confirmed）だけ新しい値、それ以外は前の値を残す（前の値が無ければ書かない）。
+		 * 取り損ねた話・途中で止まって取らなかった話は、次の変換で「更新あり」と判定され、取りに行く */
+		List<String> lines(Set<String> confirmed)
+		{
+			List<String> lines = new ArrayList<>();
+			if (this.contentsUpdate != null) lines.add(this.urlString + "\t" + this.contentsUpdate);
+			for (Map.Entry<String, String[]> e : this.entries.entrySet()) {
+				String value = e.getValue()[0];
+				String chapterHref = e.getValue()[1];
+				if (chapterHref != null && !confirmed.contains(chapterHref)) {
+					value = this.previous.get(e.getKey());
+					if (value == null) continue;
+				}
+				lines.add(e.getKey() + "\t" + value);
+			}
+			return lines;
+		}
+	}
+
+	/** 控えておいた更新情報を書く（変換の終わりに。途中で止まったときも、取れた話までは記録に残す） */
+	private void writePendingUpdateInfo()
+	{
+		PendingUpdateInfo info = this.pendingUpdateInfo;
+		this.pendingUpdateInfo = null;
+		if (info == null) return;
+		try (BufferedWriter updateBw = new BufferedWriter(new OutputStreamWriter(Files.newOutputStream(info.file.toPath()), "UTF-8"))) {
+			for (String line : info.lines(this.confirmedHrefs)) {
+				updateBw.append(line);
+				updateBw.append('\n');
+			}
+		} catch (Exception e) {
+			logger.warn("更新情報ファイルの書き込みに失敗: {}", info.file, e);
+		}
+	}
+
+	/** 更新情報の生成と保存 */
+	private HashSet<String> createNoUpdateUrls(File updateInfoFile, String urlString, String listBaseUrl, String contentsUpdate, Elements hrefs, Elements updates) throws IOException
+	{
+		HashMap<String, String> updateStringMap = new HashMap<String, String>();
+		
+		if (hrefs == null || updates == null || hrefs.size() != updates.size()) {
+			
+			return null;
+			
+		} else {
+			if (updateInfoFile.exists()) {
+				//前回の更新情報を取得して比較
+				BufferedReader updateBr = new BufferedReader(new InputStreamReader(Files.newInputStream(updateInfoFile.toPath()), "UTF-8"));
+				try {
+					String line;
+					while ((line=updateBr.readLine()) != null) {
+						int idx = line.indexOf("\t");
+						if (idx > 0) {
+							updateStringMap.put(line.substring(0, idx), line.substring(idx+1));
+						}
+					}
+					
+				} catch (Exception e) {
+					logger.warn("更新情報ファイルの読み込みに失敗: {}", updateInfoFile, e);
+				} finally {
+					updateBr.close();
+				}
+			}
+		}
+		
+		//新しい更新情報は控えておき、変換の終わりに書く（writePendingUpdateInfo）。
+		//先に書くと、改稿された話を取り損ねたとき、次の変換で「更新なし」と判定されて取り直されない
+		this.pendingUpdateInfo = new PendingUpdateInfo(updateInfoFile, urlString, contentsUpdate, updateStringMap);
+		HashSet<String> noUpdateUrls = new HashSet<String>();
+		for (int i = 0; i < hrefs.size(); i++) {
+			String hrefString = hrefs.get(i).attr("href");
+			String html = updates.get(i).html().replaceAll("\n", " ");
+			String chapterHref = toFullUrl(hrefString, listBaseUrl);
+			this.pendingUpdateInfo.put(hrefString, html, chapterHref);
+			if (chapterHref == null) continue;
+			String updateString = updateStringMap.get(hrefString);
+			if (updateString != null && updateString.equals(html)) noUpdateUrls.add(chapterHref);
+		}
+		
+		
+		return noUpdateUrls;
+	}
+	
+	/**
+	 * __NEXT_DATA__ JSON の publishedAt から更新なしURLセットを構築する (Phase 2-2: カクヨム SUB_UPDATE対応)
+	 * nextDataEpisodeDateMap (URL → publishedAt) を使い、前回保存した日時と比較して更新なしURLを返す
+	 */
+	private HashSet<String> createNoUpdateUrlsFromNextData(File updateInfoFile, String urlString, String contentsUpdate) throws IOException {
+		HashMap<String, String> savedUpdateMap = new HashMap<String, String>();
+		// 前回の更新情報を読み込む
+		if (updateInfoFile.exists()) {
+			BufferedReader br = new BufferedReader(new InputStreamReader(Files.newInputStream(updateInfoFile.toPath()), "UTF-8"));
+			try {
+				String line;
+				while ((line = br.readLine()) != null) {
+					int idx = line.indexOf("\t");
+					if (idx > 0) {
+						savedUpdateMap.put(line.substring(0, idx), line.substring(idx + 1));
+					}
+				}
+			} catch (Exception e) {
+				logger.warn("更新情報ファイル(NextData)の読み込みに失敗: {}", updateInfoFile, e);
+			} finally {
+				br.close();
+			}
+		}
+		// 現在の更新情報は控えておき、話を取り終えてから書く（writePendingUpdateInfo）
+		this.pendingUpdateInfo = new PendingUpdateInfo(updateInfoFile, urlString, contentsUpdate, savedUpdateMap);
+		for (HashMap.Entry<String, String> e : this.nextDataEpisodeDateMap.entrySet()) {
+			this.pendingUpdateInfo.put(e.getKey(), e.getValue(), e.getKey());
+		}
+		// publishedAt が前回と同じURLは更新不要
+		HashSet<String> noUpdateUrls = new HashSet<String>();
+		for (HashMap.Entry<String, String> e : this.nextDataEpisodeDateMap.entrySet()) {
+			String url = e.getKey();
+			String currentDate = e.getValue();
+			String savedDate = savedUpdateMap.get(url);
+			if (savedDate != null && savedDate.equals(currentDate)) {
+				noUpdateUrls.add(url);
+			}
+		}
+		return noUpdateUrls;
+	}
+
+	/** 一覧から更新日時を取得 */
+	private String[] getPostDateList(Document doc, ExtractInfo[] extractInfos)
+	{
+		if (extractInfos == null) return null;
+		for (ExtractInfo extractInfo : extractInfos) {
+			Elements elements = doc.select(extractInfo.query);
+			if (elements == null || elements.size() == 0) continue;
+			String[] postDateList = new String[elements.size()];
+			for (int i=0; i<postDateList.length; i++) {
+				postDateList[i] = extractInfo.replace(elements.get(i).html());
+			}
+			return postDateList;
+		}
+		return null;
+	}
+
+	/** 目次の 1 ページ分の日付の一覧を、そのページの要素（話のリンク）の数にそろえる（足りなければ null、多ければ切る）。
+	 * テストから利用するため package-private */
+	static List<String> alignedToElements(String[] dates, int elementCount)
+	{
+		List<String> aligned = new ArrayList<>(elementCount);
+		for (int i = 0; i < elementCount; i++) aligned.add(dates != null && i < dates.length ? dates[i] : null);
+		return aligned;
+	}
+
+	/** 一覧から初回公開日を取得 (span[title]属性から抽出) */
+	private String[] getPublishDateList(Document doc, ExtractInfo[] extractInfos)
+	{
+		if (extractInfos == null) return null;
+		for (ExtractInfo extractInfo : extractInfos) {
+			Elements elements = doc.select(extractInfo.query);
+			if (elements == null || elements.size() == 0) continue;
+			String[] publishDateList = new String[elements.size()];
+			boolean hasAny = false;
+			for (int i = 0; i < publishDateList.length; i++) {
+				org.jsoup.nodes.Element span = elements.get(i).selectFirst("span[title]");
+				if (span != null) {
+					publishDateList[i] = span.attr("title");
+					if (!publishDateList[i].isEmpty()) hasAny = true;
+				}
+			}
+			return hasAny ? publishDateList : null;
+		}
+		return null;
+	}
+
+	/** 章が変わったときの章中表紙（章題の大見出し）を出力する。
+	 * 第1話を同じページに続けるかは printEpisode で決める */
+	private void printChapterHeader(BufferedWriter bw, String chapterTitle) throws IOException
+	{
+		bw.append("\n［＃改ページ］\n");
+		// narou.rb互換: 章中表紙のレイアウト
+		if (formatSettings.isChapterUseCenterPage()) {
+			bw.append("［＃ページの左右中央］\n");
+		}
+		if (formatSettings.isChapterUseHashira() && this.bookTitle != null) {
+			bw.append("［＃ここから柱］");
+			printText(bw, this.bookTitle);
+			bw.append("［＃ここで柱終わり］\n");
+		}
+		bw.append("［＃" + formatSettings.getIndent() + "字下げ］［＃大見出し］");
+		printText(bw, chapterTitle, Heading.CHAPTER);
+		bw.append("［＃大見出し終わり］\n");
+		bw.append('\n');
+	}
+
+	/** 1話を出力する。章が変わった話なら、先に章中表紙を出力する。
+	 * 左右中央の章中表紙は章題だけで1ページにし（narou.rb と同じく章題の直後で改ページ）、
+	 * そうでなければ章題に第1話を続ける。
+	 * 改ページは話の側（docToAozoraText）で書くので、本文が取れない話では改ページも出ない
+	 * @param newChapterTitle 章が変わった話ならその章題、章の途中の話なら null */
+	private void printEpisode(BufferedWriter bw, Document doc, String newChapterTitle,
+		String listSubTitle, String postDate, String publishDate) throws IOException
+	{
+		boolean sharesChapterHeaderPage = false;
+		if (newChapterTitle != null) {
+			printChapterHeader(bw, newChapterTitle);
+			sharesChapterHeaderPage = !formatSettings.isChapterUseCenterPage();
+		}
+		docToAozoraText(bw, doc, sharesChapterHeaderPage, listSubTitle, postDate, publishDate);
+	}
+
+	
+	/** aozora-reader-android: 取得済みの1話分の HTML を青空文庫の書式にする（一覧ページ・日付行・先頭の改ページなし）。
+	 * 取得は呼び出し側が行う。 */
+	public void episodeToAozoraText(Writer out, Document doc) throws IOException
+	{
+		BufferedWriter bw = out instanceof BufferedWriter ? (BufferedWriter)out : new BufferedWriter(out);
+		docToAozoraText(bw, doc, true, null, null, null);
+		bw.flush();
+	}
+
+	/** 各話のHTMLの変換
+	 * @param sharesPreviousPage 前の出力（章中表紙）と同じページに続ける＝先頭の改ページを書かない
+	 * @param listSubTitle 一覧側で取得したタイトル */
+	private void docToAozoraText(BufferedWriter bw, Document doc, boolean sharesPreviousPage, String listSubTitle, String postDate, String publishDate) throws IOException
+	{
+		// 英文保護リストをクリア（各話ごとに初期化）
+		englishSentences.clear();
+		// 漢数字退避リストをクリア（各話ごとに初期化）
+		kanjiNumbers.clear();
+
+		Elements contentDivs = getExtractElements(doc, this.queryMap.get(ExtractId.CONTENT_ARTICLE));
+		if (contentDivs == null || contentDivs.size() == 0) {
+			LogAppender.println("CONTENT_ARTICLE : 本文が取得できません");
+		} else {
+			if (!sharesPreviousPage) bw.append("\n［＃改ページ］\n");
+			String subTitle = getExtractText(doc, this.queryMap.get(ExtractId.CONTENT_SUBTITLE));
+			if (subTitle == null) subTitle = listSubTitle; //一覧のタイトルを設定
+			if (subTitle != null) {
+				// narou.rb互換: 横書き時は1字下げ、縦書き時は3字下げ
+				bw.append("［＃" + formatSettings.getIndent() + "字下げ］［＃中見出し］");
+				printText(bw, subTitle, Heading.SUBTITLE);
+				bw.append("［＃中見出し終わり］\n");
+			}
+			//公開日付・更新日付
+			// narou.rb互換: show_post_date / show_publish_date設定で制御
+			{
+				String coutentUpdate = getExtractText(doc, this.queryMap.get(ExtractId.CONTENT_UPDATE));
+				if (coutentUpdate != null && coutentUpdate.length() > 0) postDate = coutentUpdate;
+				boolean showPost = formatSettings.isShowPostDate() && postDate != null && postDate.trim().length() > 0;
+				boolean showPublish = formatSettings.isShowPublishDate() && publishDate != null && !publishDate.isEmpty();
+				if (showPost || showPublish) {
+					bw.append("［＃ここから地から１字上げ］\n［＃ここから１段階小さな文字］\n");
+					if (showPublish) {
+						printText(bw, publishDate);
+						bw.append(" 公開\n");
+					}
+					if (showPost) {
+						printText(bw, postDate.trim());
+						bw.append(" 更新\n");
+					}
+					bw.append("［＃ここで小さな文字終わり］\n［＃ここで字上げ終わり］\n");
+				}
+			}
+			
+			bw.append('\n');
+			
+			//画像 前に表示
+			Elements images = getExtractElements(doc, this.queryMap.get(ExtractId.CONTENT_IMG));
+			if (images != null) printImage(bw, images.get(0));
+			
+			//前書き
+			Elements preambleDivs = getExtractElements(doc, this.queryMap.get(ExtractId.CONTENT_PREAMBLE));
+			if (preambleDivs != null) {
+				Element startElement = getExtractFirstElement(doc, this.queryMap.get(ExtractId.CONTENT_PREAMBLE_START));
+				Element endElement = getExtractFirstElement(doc, this.queryMap.get(ExtractId.CONTENT_PREAMBLE_END));
+				// narou.rb互換: author_comment_styleで分岐
+				String style = formatSettings.getAuthorCommentStyle();
+				if ("css".equals(style)) {
+					// css: ［＃ここから前書き］マーカーで囲む
+					bw.append("［＃ここから前書き］\n");
+					for (Element elem : preambleDivs) printNode(bw, elem, startElement, endElement, true);
+					bw.append("［＃ここで前書き終わり］\n");
+				} else if ("simple".equals(style)) {
+					// simple: 8字下げ＋2段階小さな文字
+					bw.append("\n");
+					bw.append("［＃ここから８字下げ］\n");
+					bw.append("［＃ここから２段階小さな文字］\n");
+					for (Element elem : preambleDivs) printNode(bw, elem, startElement, endElement, true);
+					bw.append("\n");
+					bw.append("［＃ここで小さな文字終わり］\n");
+					bw.append("［＃ここで字下げ終わり］\n");
+				} else {
+					// plain: 区切り線のみ
+					bw.append("\n\n");
+					for (Element elem : preambleDivs) printNode(bw, elem, startElement, endElement, true);
+					bw.append("\n\n");
+					bw.append("［＃区切り線］\n");
+					bw.append("\n");
+				}
+			}
+			//本文
+			String separator = null;
+			ExtractInfo[] separatorInfo = this.queryMap.get(ExtractId.CONTENT_ARTICLE_SEPARATOR);
+			if (separatorInfo != null && separatorInfo.length > 0) {
+				separator = separatorInfo[0].query;
+			}
+			boolean first = true;
+			for (Element elem : contentDivs) {
+				//複数のDivの場合は間に改行追加
+				if (first) first = false;
+				else {
+					bw.append("\n");
+					if (separator != null) bw.append(separator);
+				}
+				Element startElement = getExtractFirstElement(doc, this.queryMap.get(ExtractId.CONTENT_ARTICLE_START));
+				Element endElement = getExtractFirstElement(doc, this.queryMap.get(ExtractId.CONTENT_ARTICLE_END));
+				printNode(bw, elem, startElement, endElement, false);
+			}
+			
+			//後書き
+			Elements appendixDivs = getExtractElements(doc, this.queryMap.get(ExtractId.CONTENT_APPENDIX));
+			if (appendixDivs != null) {
+				Element startElement = getExtractFirstElement(doc, this.queryMap.get(ExtractId.CONTENT_APPENDIX_START));
+				Element endElement = getExtractFirstElement(doc, this.queryMap.get(ExtractId.CONTENT_APPENDIX_END));
+				bw.append("\n\n");
+				// narou.rb互換: author_comment_styleで分岐
+				String style = formatSettings.getAuthorCommentStyle();
+				if ("css".equals(style)) {
+					// css: ［＃ここから後書き］マーカーで囲む
+					bw.append("［＃ここから後書き］\n");
+					for (Element elem : appendixDivs) printNode(bw, elem, startElement, endElement, true);
+					bw.append("［＃ここで後書き終わり］\n");
+				} else if ("simple".equals(style)) {
+					// simple: 8字下げ＋2段階小さな文字
+					bw.append("［＃ここから８字下げ］\n");
+					bw.append("［＃ここから２段階小さな文字］\n");
+					for (Element elem : appendixDivs) printNode(bw, elem, startElement, endElement, true);
+					bw.append("\n");
+					bw.append("［＃ここで小さな文字終わり］\n");
+					bw.append("［＃ここで字下げ終わり］\n");
+				} else {
+					// plain: 区切り線のみ
+					bw.append("［＃区切り線］\n");
+					bw.append("\n");
+					for (Element elem : appendixDivs) printNode(bw, elem, startElement, endElement, true);
+				}
+			}
+		}
+	}
+	
+	Node startElement = null;
+	Node endElement = null;
+	boolean noHr = false;
+	/** ノードを出力 子ノード内のテキストも出力 */
+	private void printNode(BufferedWriter bw, Node parent, boolean noHr) throws IOException
+	{
+		printNode(bw, parent, null, null, noHr);
+	}
+	/** ノードを出力 子ノード内のテキストも出力 */
+	private void printNode(BufferedWriter bw, Node parent, Node start, Node end, boolean noHr) throws IOException
+	{
+		this.startElement = start;
+		this.endElement = end;
+		this.noHr = noHr;
+		_printNode(bw, parent);
+	}
+	/** ノードを出力 再帰用 */
+	private void _printNode(BufferedWriter bw, Node parent) throws IOException
+	{
+		for (Node node : parent.childNodes()) {
+			if (startElement != null) {
+				if (node.equals(startElement)) {
+					startElement = null;
+					continue;
+				}
+				if (node instanceof Element) _printNode(bw, node);
+				continue;
+			}
+			if (endElement != null && node.equals(endElement)) {
+				return;
+			}
+			if (node instanceof TextNode) printBodyText(bw, ((TextNode)node).getWholeText());
+			else if (node instanceof Element) {
+				Element elem = (Element)node;
+				if ("br".equals(elem.tagName())) {
+					if (elem.nextSibling() != null) bw.append('\n');
+				} else if ("div".equals(elem.tagName())) {
+					if (elem.previousSibling() != null && !isBlockNode(elem.previousSibling())) bw.append('\n');
+					_printNode(bw, node); //子を出力
+					if (elem.nextSibling() != null) bw.append('\n');
+				} else if ("p".equals(elem.tagName())) {
+					if (elem.previousSibling() != null && !isBlockNode(elem.previousSibling())) bw.append('\n');
+					_printNode(bw, node); //子を出力
+					if (elem.nextSibling() != null) bw.append('\n');
+				} else if ("ruby".equals(elem.tagName())) {
+					//ルビ注記出力
+					printRuby(bw, elem);
+				} else if ("img".equals(elem.tagName())) {
+					//画像をキャッシュして注記出力
+					printImage(bw, elem);
+				} else if ("hr".equals(elem.tagName()) && !this.noHr) {
+					bw.append("［＃区切り線］\n");
+				} else if ("b".equals(elem.tagName())) {
+					bw.append("［＃ここから太字］");
+					_printNode(bw, node); //子を出力
+					bw.append("［＃ここで太字終わり］");
+				} else if ("sup".equals(elem.tagName())) {
+					bw.append("［＃上付き小文字］");
+					_printNode(bw, node); //子を出力
+					bw.append("［＃上付き小文字終わり］");
+				} else if ("sub".equals(elem.tagName())) {
+					bw.append("［＃下付き小文字］");
+					_printNode(bw, node); //子を出力
+					bw.append("［＃下付き小文字終わり］");
+				} else if ("em".equals(elem.tagName()) && elem.hasClass("emphasisDots")) {
+					bw.append("［＃傍点］");
+					_printNode(bw, node); //子を出力
+					bw.append("［＃傍点終わり］");
+				} else if ("strike".equals(elem.tagName()) || "s".equals(elem.tagName()) ) {
+					bw.append("［＃取消線］");
+					_printNode(bw, node); //子を出力
+					bw.append("［＃取消線終わり］");
+				} else if ("tr".equals(elem.tagName())) {
+					_printNode(bw, node); //子を出力
+					bw.append('\n');
+				} else {
+					_printNode(bw, node); //子を出力
+				}
+			} else {
+				System.out.println(node.getClass().getName());
+			}
+		}
+	}
+	/** 前がブロック注記かどうか */
+	private boolean isBlockNode(Node node)
+	{
+		if (node instanceof TextNode && ((TextNode)node).getWholeText().trim().isEmpty()) return true;
+		if (node instanceof Element) {
+			Element elem = (Element)node;
+			String tagName = elem.tagName();
+			if ("br".equals(tagName)) return true;
+			if ("div".equals(tagName))  return true;
+			if ("p".equals(tagName))  return true;
+			if ("hr".equals(tagName))  return true;
+			if ("table".equals(tagName))  return true;
+		}
+		return false;
+	}
+	
+	/** ルビを青空ルビにして出力
+	 * narou.rb互換: <rb>タグの有無に関わらず処理 */
+	private void printRuby(BufferedWriter bw, Element ruby) throws IOException
+	{
+		String rubyHtml = ruby.html();
+
+		// <rt>タグで分割（大文字小文字無視）
+		String[] parts = rubyHtml.split("(?i)<rt>", 2);
+		if (parts.length < 2) {
+			// <rt>タグがない場合は、タグを削除してテキストのみ出力
+			String text = parts[0].replaceAll("<[^>]+>", "");
+			printBodyText(bw, text);
+			return;
+		}
+
+		// 親文字: <rt>の前の部分から<rp>を除去してタグ削除
+		String rubyBase = parts[0]
+			.replaceAll("(?i)<rp>.*?</rp>", "")  // <rp>タグ削除
+			.replaceAll("<[^>]+>", "");           // 残りのタグ削除
+
+		// 振り仮名: <rt>の後の部分から</rt>までを抽出し、<rp>を除去してタグ削除
+		String rtContent = parts[1].split("(?i)</rt>", 2)[0];
+		String rubyText = rtContent
+			.replaceAll("(?i)<rp>.*?</rp>", "")  // <rp>タグ削除
+			.replaceAll("<[^>]+>", "");           // 残りのタグ削除
+
+		// 青空文庫形式で出力
+		bw.append('｜');
+		printBodyText(bw, rubyBase);
+		bw.append('《');
+		printBodyText(bw, rubyText);
+		bw.append('》');
+	}
+	/** 画像をキャッシュして相対パスの注記にする */
+	private void printImage(BufferedWriter bw, Element img) throws IOException
+	{
+		this.printImage(bw, img, null);
+	}
+	/** img の src を、そのページの URL を基準に絶対 URL にする。http(s) でなければ null。
+	 * テストから利用するため package-private */
+	static String imageUrl(Element img)
+	{
+		String abs = img.absUrl("src");
+		if (!(abs.startsWith("http://") || abs.startsWith("https://"))) return null;
+		//#… はページの中の位置で、画像の取得にもキャッシュの置き場所にも使わない（fig.jpg#1 と fig.jpg#2 は同じ画像）
+		int hash = abs.indexOf('#');
+		return hash < 0 ? abs : abs.substring(0, hash);
+	}
+
+	/** 画像をキャッシュして相対パスの注記にする
+	 * @param bw nullなら注記文字列は出力しない
+	 * @param img imgタグ
+	 * @param imageOutFile null出なければこのファイルに画像を出力 */
+	private void printImage(BufferedWriter bw, Element img, File imageOutFile) throws IOException
+	{
+		String src = img.attr("src");
+		if (src == null || src.length() == 0) return;
+		// 挿絵スキップ設定: 本文内画像(imageOutFile==null)のみスキップ、表紙は除く
+		if (this.skipImages && imageOutFile == null) return;
+		
+		//ページの URL（Jsoup.parse に渡した基準）から、ブラウザと同じ規則で絶対 URL にする
+		//（相対・ルート相対・プロトコル相対・?・../ のどれでも、その画像のあるページを基準に解決される）
+		String absSrc = imageUrl(img);
+		if (absSrc == null) {
+			//data: URI などは長いので先頭だけ出す
+			LogAppender.println("画像の URL を解決できないためスキップします : "+(src.length() > 80 ? src.substring(0, 80)+"…" : src));
+			return;
+		}
+		src = absSrc;
+		//キャッシュの置き場所は解決した URL から作る（別のページの同じ相対 src がぶつからない）
+		String imagePath = CharUtils.escapeUrlToFile(src.substring(src.indexOf("//")+2));
+		
+		if (imagePath.endsWith("/")) imagePath += "image.png";
+
+		//dstPath 配下であることを検証（パストラバーサル対策）
+		//imageOutFile 指定時（表紙）は imageFile を使わないため検証も不要
+		File imageFile = null;
+		if (imageOutFile == null) {
+			try {
+				imageFile = safeResolve(Path.of(this.dstPath), "images/"+imagePath);
+			} catch (IOException e) {
+				logger.error("画像パスを扱えないためスキップ: {}", src, e);
+				LogAppender.println("扱えない画像パスのためスキップします : "+src+" ("+e.getMessage()+")");
+				return;
+			}
+		}
+
+		if (this.offline) {
+			//作り直すときは、キャッシュにある画像だけを使う（表紙は消さない）。無い挿絵は取りに行かず、作り直しも止めない
+			if (imageOutFile == null && !imageFile.exists()) LogAppender.println("キャッシュに無い挿絵です（取りに行きません） : "+src);
+		} else try {
+			if (imageOutFile != null) {
+				if (imageOutFile.exists()) imageOutFile.delete();
+				cacheFile(src, imageOutFile, this.urlString);
+			} else if (!imageFile.exists()) {
+				cacheFile(src, imageFile, this.urlString);
+			}
+		} catch (Exception e) {
+			logger.error("画像のダウンロードに失敗: {}", src, e);
+			//挿絵は無くても本は作れるので止めない。止められた理由は添える
+			//止められたときの理由は cacheFile が 1 回だけ出す
+			LogAppender.println("画像が取得できませんでした : "+src);
+		}
+		if (bw != null) {
+			bw.append("［＃挿絵（");
+			bw.append("images/"+imagePath);
+			bw.append("）入る］\n");
+		}
+	}
+	
+	/**
+	 * 行頭のかぎ括弧類に二分アキを追加（narou.rb互換）
+	 */
+	private String addHalfIndentBracket(String text) {
+		if (!formatSettings.isEnableHalfIndentBracket()) {
+			return text;
+		}
+
+		// 行頭の空白（全角・半角・タブ）+ かぎ括弧類
+		// 空白を削除して［＃二分アキ］に置換
+		Pattern pattern = Pattern.compile("^[ 　\\t]*([「『〔（【〈《≪〝])", Pattern.MULTILINE);
+		return pattern.matcher(text).replaceAll(phChuki("二分アキ") + "$1");
+	}
+
+	/**
+	 * 英文保護 + 短い英単語の全角化（narou.rb互換）
+	 * 参考: narou-3.9.1/lib/converterbase.rb:496-520 alphabet_to_zenkaku
+	 *
+	 * 3分岐:
+	 * 1. 複数単語（スペース区切り2語以上）→ プレースホルダーで保護
+	 * 2. 長い単語（8文字以上でアルファベット含む）→ 半角のまま保持
+	 * 3. それ以外 → アルファベットを全角化
+	 */
+	private String protectEnglishSentences(String text) {
+		Pattern pattern = Pattern.compile("[\\w.,!?'\" &:;_-]+");
+		java.util.regex.Matcher matcher = pattern.matcher(text);
+		StringBuffer result = new StringBuffer();
+
+		while (matcher.find()) {
+			String match = matcher.group();
+			if (isMultiWordEnglish(match)) {
+				// 複数単語の英文 → プレースホルダーで保護（半角のまま）
+				englishSentences.add(match);
+				matcher.appendReplacement(result,
+					Matcher.quoteReplacement(phChuki("英文＝" + (englishSentences.size() - 1))));
+			} else if (shouldKeepHankaku(match)) {
+				// 長い英単語 → 半角のまま保持（変換も保護もしない）
+				matcher.appendReplacement(result,
+					java.util.regex.Matcher.quoteReplacement(match));
+			} else {
+				// 短い英単語 → アルファベットを全角化
+				String zenkaku = alphabetToZenkaku(match);
+				matcher.appendReplacement(result,
+					java.util.regex.Matcher.quoteReplacement(zenkaku));
+			}
+		}
+		matcher.appendTail(result);
+		return result.toString();
+	}
+
+	/** 半角アルファベットを全角に変換 */
+	private String alphabetToZenkaku(String text) {
+		StringBuilder sb = new StringBuilder();
+		for (char textChar : text.toCharArray()) {
+			if (textChar >= 'a' && textChar <= 'z') {
+				sb.append((char) ('ａ' + (textChar - 'a')));
+			} else if (textChar >= 'A' && textChar <= 'Z') {
+				sb.append((char) ('Ａ' + (textChar - 'A')));
+			} else {
+				sb.append(textChar);
+			}
+		}
+		return sb.toString();
+	}
+
+	/** 英文保護の最小文字数（narou.rb: should_word_be_hankaku? のしきい値） */
+	private static final int ENGLISH_SENTENCES_MIN_LENGTH = 8;
+
+	// 英字検出用パターン（事前コンパイルして ReDoS を回避）
+	private static final java.util.regex.Pattern ASCII_LETTER_PATTERN = java.util.regex.Pattern.compile("[a-zA-Z]");
+
+	/**
+	 * 複数単語の英文かを判定（narou.rb互換: sentence?）
+	 * スペース区切りで2単語以上ならtrue
+	 * Ruby の split(" ") は先頭・末尾の空白を無視するため、trim() して判定
+	 */
+	private boolean isMultiWordEnglish(String str) {
+		String trimmed = str.trim();
+		if (trimmed.isEmpty()) return false;
+		return trimmed.split("\\s+").length >= 2;
+	}
+
+	/**
+	 * 半角のまま保持すべきかを判定（narou.rb互換: should_word_be_hankaku?）
+	 * 一定文字数以上でアルファベットを含む場合はtrue
+	 */
+	private boolean shouldKeepHankaku(String str) {
+		// 長さ条件を満たし、文字列内に英字が含まれるかを事前コンパイル済みの
+		// パターンで判定することで、パターンの再コンパイルやバックトラッキング
+		// による ReDoS のリスクを排除します。
+		return str.length() >= ENGLISH_SENTENCES_MIN_LENGTH &&
+		       ASCII_LETTER_PATTERN.matcher(str).find();
+	}
+
+	/** 退避したカンマ区切りの数字を、出てきた順に戻す（narou.rb の rebuild_hankaku_num_and_comma） */
+	private String rebuildCommaNumbers(String text) {
+		if (commaNumbers.isEmpty()) return text;
+		StringBuilder sb = new StringBuilder(text.length());
+		int n = 0, marks = 0;
+		for (int i = 0; i < text.length(); i++) {
+			char ch = text.charAt(i);
+			if (ch == PH_COMMA_NUMBER) marks++;
+			if (ch == PH_COMMA_NUMBER && n < commaNumbers.size()) sb.append(commaNumbers.get(n++));
+			else sb.append(ch);
+		}
+		//印と退避の数が合わない（サイトの文字にもともと U+E005 がある・途中の処理が印を落とした）と、数字がずれる・消える。黙って通さない
+		if (marks != commaNumbers.size()) {
+			LogAppender.println("[WARN] カンマ区切りの数字を正しく戻せませんでした（退避 " + commaNumbers.size() + " 件・印 " + marks + " 個）: " + sb);
+		}
+		commaNumbers.clear();
+		return sb.toString();
+	}
+
+	/**
+	 * 保護した英文を復元（narou.rb互換）
+	 */
+	private String rebuildEnglishSentences(String text) {
+		for (int i = 0; i < englishSentences.size(); i++) {
+			text = text.replace(phChuki("英文＝" + i), englishSentences.get(i));
+		}
+		return text;
+	}
+
+	/**
+	 * 縦中横処理（narou.rb互換）
+	 * 2～3個の感嘆符・疑問符を縦中横化
+	 */
+	/**
+	 * 縦中横処理（narou.rb互換）
+	 * 参考: narou-3.8.2/lib/converterbase.rb:384-423
+	 *
+	 * 感嘆符・疑問符の組み合わせを縦中横化:
+	 * - ！が3個: !!!
+	 * - ！が4個以上: 偶数個に調整して2個ずつ縦中横（!!)(!!）...
+	 * - ！？の2～3個の組み合わせ: 特定パターンのみ
+	 */
+	private String convertTatechuyoko(String text) {
+		String tcyOpen = phChuki("縦中横");
+		String tcyClose = phChuki("縦中横終わり");
+
+		// ！の連続（4個以上の場合は2個ずつ縦中横化）
+		Pattern pattern4Plus = Pattern.compile("！{4,}");
+		Matcher matcher = pattern4Plus.matcher(text);
+		StringBuffer sb = new StringBuffer();
+		while (matcher.find()) {
+			int len = matcher.group().length();
+			// 偶数に調整
+			if (len % 2 == 1) len++;
+			// 2個ずつ縦中横化
+			StringBuilder result = new StringBuilder();
+			for (int i = 0; i < len / 2; i++) {
+				result.append(tcyOpen).append("!!").append(tcyClose);
+			}
+			matcher.appendReplacement(sb, Matcher.quoteReplacement(result.toString()));
+		}
+		matcher.appendTail(sb);
+		text = sb.toString();
+
+		// ！が3個（4個以上の処理後に実行）
+		text = text.replaceAll("！{3}", Matcher.quoteReplacement(tcyOpen + "!!!" + tcyClose));
+
+		// ？の連続（4個以上の場合は2個ずつ縦中横化）
+		Pattern pattern4PlusQ = Pattern.compile("？{4,}");
+		Matcher matcherQ = pattern4PlusQ.matcher(text);
+		StringBuffer sbQ = new StringBuffer();
+		while (matcherQ.find()) {
+			int len = matcherQ.group().length();
+			if (len % 2 == 1) len++;
+			StringBuilder result = new StringBuilder();
+			for (int i = 0; i < len / 2; i++) {
+				result.append(tcyOpen).append("??").append(tcyClose);
+			}
+			matcherQ.appendReplacement(sbQ, Matcher.quoteReplacement(result.toString()));
+		}
+		matcherQ.appendTail(sbQ);
+		text = sbQ.toString();
+
+		// ？が3個（4個以上の処理後に実行）
+		text = text.replaceAll("？{3}", Matcher.quoteReplacement(tcyOpen + "???" + tcyClose));
+
+		// 3個の混合組み合わせ（特定パターンのみ）
+		text = text.replaceAll("！！？", Matcher.quoteReplacement(tcyOpen + "!!?" + tcyClose));
+		text = text.replaceAll("？！！", Matcher.quoteReplacement(tcyOpen + "?!!" + tcyClose));
+
+		// 2個の組み合わせ
+		text = text.replaceAll("！{2}", Matcher.quoteReplacement(tcyOpen + "!!" + tcyClose));
+		text = text.replaceAll("！？", Matcher.quoteReplacement(tcyOpen + "!?" + tcyClose));
+		text = text.replaceAll("？！", Matcher.quoteReplacement(tcyOpen + "?!" + tcyClose));
+		text = text.replaceAll("？{2}", Matcher.quoteReplacement(tcyOpen + "??" + tcyClose));
+
+		return text;
+	}
+
+	/** 見出しの中の半角の数字の並び（カンマ区切りを 1 つと見る） */
+	private static final Pattern HEADING_NUMBER = Pattern.compile("[0-9]+(?:[,，][0-9]+)*");
+	private static final Pattern HEADING_COMMA = Pattern.compile("[,，]");
+
+	/**
+	 * 話の題・章の題の数字（narou.rb の hankaku_num_to_zenkaku_num、converterbase.rb:583。internal #43）。
+	 * 半角の 2 桁は縦中横、話の題の先頭の半角 3 桁も縦中横、それ以外の半角の数字は全角。もとから全角の数字は変えない
+	 * （narou.rb の \d は半角だけ）。数字の間のカンマは全角（narou.rb は記号を全角にする段で全角になる。本文のカンマ区切りの数字と同じ形）。
+	 * 2026-10-12 までは、話の題は仕上げ（AozoraTextFinalizer）が 2 桁以上をすべて縦中横にし（「１,」と縦中横の「000」に割れた）、
+	 * 章の題は本文と同じく漢数字にしていた。
+	 * URL は守らない: narou.rb は replace_url で先に退避するが、この Web 変換には URL の退避が無く、ここに来る前に英字が全角になっている
+	 * （docs/code-audit-followups.md 項目 47 の「残り」）
+	 * @param subtitle 話の題（先頭の 3 桁の決まりがある）。false なら章の題
+	 */
+	String convertHeadingNumbers(String text, boolean subtitle)
+	{
+		//退避した物の目印（PH_BRACKET_OPEN…PH_BRACKET_CLOSE。英文の［＃英文＝0］など）の中の数字は変えない。
+		//変えると目印が戻らず、退避した字が消える（arabicToKanji と同じ飛ばし方）
+		StringBuilder sb = new StringBuilder();
+		int pos = 0;
+		while (pos < text.length()) {
+			int open = text.indexOf(PH_BRACKET_OPEN, pos);
+			int close = open < 0 ? -1 : text.indexOf(PH_BRACKET_CLOSE, open);
+			int plainEnd = close < 0 ? text.length() : open;
+			appendHeadingNumbers(sb, text, pos, plainEnd, subtitle);
+			if (close < 0) break;
+			sb.append(text, open, close + 1);
+			pos = close + 1;
+		}
+		return sb.toString();
+	}
+
+	/** text の [from, to) の数字を見出しの決まりで変換して sb に足す */
+	private void appendHeadingNumbers(StringBuilder sb, String text, int from, int to, boolean subtitle)
+	{
+		Matcher m = HEADING_NUMBER.matcher(text).region(from, to);
+		int last = from;
+		while (m.find()) {
+			sb.append(text, last, m.start());
+			String[] runs = HEADING_COMMA.split(m.group());
+			for (int i = 0; i < runs.length; i++) {
+				if (i > 0) sb.append('，');
+				String digits = runs[i];
+				//「先頭」は題の文字の先頭（narou.rb の $`.empty?）
+				boolean head = subtitle && i == 0 && m.start() == 0;
+				if (digits.length() == 2 || digits.length() == 3 && head) {
+					sb.append(phChuki("縦中横")).append(digits).append(phChuki("縦中横終わり"));
+				} else {
+					sb.append(toFullWidthDigits(digits));
+				}
+			}
+			last = m.end();
+		}
+		sb.append(text, last, to);
+	}
+
+	/** 半角の数字を全角に */
+	private static String toFullWidthDigits(String digits)
+	{
+		StringBuilder sb = new StringBuilder(digits.length());
+		for (int i = 0; i < digits.length(); i++) sb.append((char)(digits.charAt(i) - '0' + '０'));
+		return sb.toString();
+	}
+
+	/** 数字とカンマの並び（narou.rb の num_to_kanji と同じ。仕上げの AozoraTextFinalizer#convertNumsInSegment も同じ並びで見る） */
+	private static final Pattern NUMBER_RUN = Pattern.compile("[0-9０-９,，]+");
+
+	/**
+	 * 数字の漢数字化処理（narou.rb互換）
+	 * 参考: narou-3.8.2/lib/converterbase.rb:93-232
+	 *
+	 * 処理フロー:
+	 * 1. 既存の漢数字を一時退避
+	 * 2. カンマ区切りの数字は半角保護
+	 * 3. アラビア数字を漢数字に変換
+	 * 4. 単位化（enable_kanji_num_with_units=trueの場合）
+	 * 5. 退避した漢数字を復元
+	 */
+	private String convertNumbersToKanji(String text) {
+		// 1. 既存の漢数字を一時退避
+		text = stashKanjiNum(text);
+
+		// 2. カンマを含む数字の並びは漢数字にしない。narou.rb と同じく並びごと退避して、printText の最後に戻す（全角のカンマは半角に）。
+		//（前は 3 桁区切りの 1,000 だけを［＃半角数字＝1,000］の注記で包んだまま戻さず、AozoraEpub3 が知らない注記として数字ごと捨てていた。
+		//  3 桁区切りだけを見ていたので、12345,678 や 1，000 は一部が漢数字になった。internal #40）
+		Matcher run = NUMBER_RUN.matcher(text);
+		StringBuilder stashed = new StringBuilder();
+		while (run.find()) {
+			String s = run.group();
+			boolean comma = s.indexOf(',') >= 0 || s.indexOf('，') >= 0;
+			boolean digit = s.chars().anyMatch(c -> (c >= '0' && c <= '9') || (c >= '０' && c <= '９'));
+			if (comma && digit) {
+				commaNumbers.add(s.replace('，', ','));
+				run.appendReplacement(stashed, Matcher.quoteReplacement(String.valueOf(PH_COMMA_NUMBER)));
+			} else {
+				run.appendReplacement(stashed, Matcher.quoteReplacement(s));
+			}
+		}
+		run.appendTail(stashed);
+		text = stashed.toString();
+
+		// 3. アラビア数字を漢数字に変換
+		text = arabicToKanji(text);
+
+		// 4. 単位化（千・万などの単位を追加）
+		if (formatSettings.isEnableKanjiNumWithUnits()) {
+			text = addKanjiUnits(text);
+		}
+
+		// 5. 退避した漢数字を復元
+		text = rebuildKanjiNum(text);
+
+		return text;
+	}
+
+	/**
+	 * 既存の漢数字を一時退避する。
+	 * 既に存在する漢数字を保護し、後で復元できるようにする。
+	 */
+	private String stashKanjiNum(String text) {
+		// 漢数字のパターン（一、二、三...）
+		// プレースホルダー内の漢数字は除外（PH_HASH直後の位置をスキップ）
+		java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+			"(?<!" + Pattern.quote(String.valueOf(PH_HASH)) + ")[一二三四五六七八九十百千万億兆]+"
+		);
+		java.util.regex.Matcher matcher = pattern.matcher(text);
+		StringBuffer result = new StringBuffer();
+
+		while (matcher.find()) {
+			String kanjiNum = matcher.group();
+			kanjiNumbers.add(kanjiNum);
+			matcher.appendReplacement(result,
+				Matcher.quoteReplacement(phChuki("漢数字＝" + (kanjiNumbers.size() - 1))));
+		}
+		matcher.appendTail(result);
+		return result.toString();
+	}
+
+	/**
+	 * アラビア数字を漢数字に変換する。
+	 * 例: 123 → 一二三
+	 */
+	private String arabicToKanji(String text) {
+		// プレースホルダー内の数字を変換しないよう、PH領域をスキップしつつ数字を変換
+		// PH_BRACKET_OPEN...PH_BRACKET_CLOSE の範囲はそのまま保持
+		StringBuilder result = new StringBuilder();
+		int i = 0;
+		int len = text.length();
+		while (i < len) {
+			char ch = text.charAt(i);
+			if (ch == PH_BRACKET_OPEN) {
+				// プレースホルダー領域をスキップ（閉じ括弧まで）
+				int end = text.indexOf(PH_BRACKET_CLOSE, i);
+				if (end >= 0) {
+					result.append(text, i, end + 1);
+					i = end + 1;
+				} else {
+					result.append(ch);
+					i++;
+				}
+			} else if (ch >= '0' && ch <= '9') {
+				// 連続する数字を漢数字に変換
+				int start = i;
+				while (i < len && text.charAt(i) >= '0' && text.charAt(i) <= '9') {
+					i++;
+				}
+				result.append(convertNumberStringToKanji(text.substring(start, i)));
+			} else {
+				result.append(ch);
+				i++;
+			}
+		}
+		return result.toString();
+	}
+
+	/**
+	 * 数字文字列を漢数字に変換する。
+	 * 例: "123" → "一二三"
+	 */
+	private String convertNumberStringToKanji(String numStr) {
+		StringBuilder sb = new StringBuilder();
+		for (char c : numStr.toCharArray()) {
+			switch (c) {
+				case '0': sb.append("〇"); break;
+				case '1': sb.append("一"); break;
+				case '2': sb.append("二"); break;
+				case '3': sb.append("三"); break;
+				case '4': sb.append("四"); break;
+				case '5': sb.append("五"); break;
+				case '6': sb.append("六"); break;
+				case '7': sb.append("七"); break;
+				case '8': sb.append("八"); break;
+				case '9': sb.append("九"); break;
+				default: sb.append(c);
+			}
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * 漢数字に単位を追加する。
+	 * 例: 一〇〇〇 → 千、一〇〇〇〇 → 一万
+	 *
+	 * kanji_num_with_units_lower_digit_zero の設定により、
+	 * 下位桁ゼロ数で単位化の閾値を決定。
+	 */
+	/** 漢数字→数字変換テーブル */
+	private static final String KANJI_NUM_STR = "〇一二三四五六七八九";
+
+	/** 位の配列（1の位, 10の位, 100の位, 1000の位） */
+	private static final String[] KANJI_KURAI = {"", "十", "百", "千"};
+
+	/** 万以上の単位 */
+	private static final String[] KANJI_MAN_UNITS = {"", "万", "億", "兆", "京"};
+
+	/**
+	 * 漢数字に単位を追加する（narou.rb互換）
+	 * 参考: narou-3.8.2/lib/converterbase.rb:212-243
+	 *
+	 * 漢数字文字列を一度整数に変換し、4桁区切りで
+	 * 千・万・億等の単位を付与して再構築する。
+	 */
+	private String addKanjiUnits(String text) {
+		int lowerDigitZero = formatSettings.getKanjiNumWithUnitsLowerDigitZero();
+
+		Pattern kanjiNumPattern = Pattern.compile("[〇一二三四五六七八九]+");
+		Matcher matcher = kanjiNumPattern.matcher(text);
+		StringBuffer result = new StringBuffer();
+
+		while (matcher.find()) {
+			String kanjiStr = matcher.group();
+			String converted = convertKanjiNumWithUnit(kanjiStr, lowerDigitZero);
+			matcher.appendReplacement(result, Matcher.quoteReplacement(converted));
+		}
+		matcher.appendTail(result);
+		return result.toString();
+	}
+
+	/**
+	 * 漢数字文字列を単位付き表現に変換する。
+	 * narou.rb の convert_kanji_num_with_unit のコアロジック。
+	 */
+	private String convertKanjiNumWithUnit(String kanjiStr, int lowerDigitZero) {
+		// 漢数字を整数に変換
+		long total = kanjiToLong(kanjiStr);
+		if (total < 0) return kanjiStr; // 変換不能
+
+		// 整数を漢数字文字列に（〇一二...形式）
+		String numStr = String.valueOf(total);
+		StringBuilder kanjiDigits = new StringBuilder();
+		for (char c : numStr.toCharArray()) {
+			kanjiDigits.append(KANJI_NUM_STR.charAt(c - '0'));
+		}
+		String m1 = kanjiDigits.toString();
+
+		// 末尾のゼロ数がlowerDigitZero未満なら単位化しない
+		int trailingZeros = 0;
+		for (int i = m1.length() - 1; i >= 0; i--) {
+			if (m1.charAt(i) == '〇') trailingZeros++;
+			else break;
+		}
+		if (trailingZeros < lowerDigitZero) {
+			return kanjiStr; // 元のまま
+		}
+
+		// 4桁区切りで単位を付ける
+		// 下の桁から4桁ずつ区切る
+		java.util.List<String> digits = new java.util.ArrayList<>();
+		for (int i = m1.length(); i > 0; i -= 4) {
+			int start = Math.max(0, i - 4);
+			digits.add(0, m1.substring(start, i));
+		}
+
+		int keta = digits.size() - 1;
+		if (keta >= KANJI_MAN_UNITS.length) return kanjiStr; // 京以上は未対応
+
+		StringBuilder sb = new StringBuilder();
+		for (int ketaI = 0; ketaI < digits.size(); ketaI++) {
+			String nums = digits.get(ketaI);
+			StringBuilder fourDigit = new StringBuilder();
+			for (int di = 0; di < nums.length(); di++) {
+				char d = nums.charAt(di);
+				if (d == '〇') continue;
+				int kurai = nums.length() - di - 1; // 0=一の位, 1=十, 2=百, 3=千
+				String kuraiStr = KANJI_KURAI[kurai];
+				String dStr = String.valueOf(d);
+				if (d == '一') {
+					// 4桁の千の前は一は不要、5桁以上の千の前には一をつける
+					if (!kuraiStr.isEmpty() && !(keta > 0 && "千".equals(kuraiStr))) {
+						dStr = "";
+					}
+				}
+				fourDigit.append(dStr).append(kuraiStr);
+			}
+			if (fourDigit.length() > 0) {
+				sb.append(fourDigit).append(KANJI_MAN_UNITS[keta - ketaI]);
+			}
+		}
+
+		return sb.length() > 0 ? sb.toString() : kanjiStr;
+	}
+
+	/** 漢数字（〇一二...）のみの文字列を整数に変換 */
+	private long kanjiToLong(String kanjiStr) {
+		long result = 0;
+		for (char c : kanjiStr.toCharArray()) {
+			int idx = KANJI_NUM_STR.indexOf(c);
+			if (idx < 0) return -1;
+			result = result * 10 + idx;
+		}
+		return result;
+	}
+
+	/**
+	 * 退避した漢数字を復元する。
+	 */
+	private String rebuildKanjiNum(String text) {
+		for (int i = 0; i < kanjiNumbers.size(); i++) {
+			text = text.replace(phChuki("漢数字＝" + i), kanjiNumbers.get(i));
+		}
+		return text;
+	}
+
+	/**
+	 * 記号の全角化と特殊変換（narou.rb互換）
+	 * 参考: narou-3.8.2/lib/converterbase.rb:340-383
+	 *
+	 * 注意: 英文保護エリア（［＃英文＝N］）内は変換しない
+	 */
+	private String convertSymbolsToZenkaku(String text) {
+		// 基本的な記号の全角化（narou.rb互換）
+		// 参考: narou-3.8.2/lib/converterbase.rb:340-383
+		text = text.replace("-", "－");   // ハイフン
+		text = text.replace("=", "＝");   // イコール
+		text = text.replace("+", "＋");   // プラス
+		text = text.replace("/", "／");   // スラッシュ
+		text = text.replace("*", "＊");   // アスタリスク
+		text = text.replace("%", "％");   // パーセント
+		text = text.replace("$", "＄");   // ドル記号
+		text = text.replace("#", "＃");   // シャープ記号
+		text = text.replace("&", "＆");   // アンパサンド
+		text = text.replace("!", "！");   // エクスクラメーション
+		text = text.replace("?", "？");   // クエスチョン
+		text = text.replace("<", "〈");   // 小なり →始め山括弧
+		text = text.replace(">", "〉");   // 大なり → 終わり山括弧
+		text = text.replace("(", "（");   // 左丸括弧
+		text = text.replace(")", "）");   // 右丸括弧
+		text = text.replace("|", "｜");   // 縦線
+		text = text.replace(",", "，");   // カンマ
+		text = text.replace(".", "．");   // ピリオド
+		text = text.replace("_", "＿");   // アンダースコア
+		text = text.replace(";", "；");   // セミコロン
+		text = text.replace(":", "：");   // コロン
+		text = text.replace("[", "［");   // 左角括弧
+		text = text.replace("]", "］");   // 右角括弧
+		text = text.replace("{", "｛");   // 左波括弧
+		text = text.replace("}", "｝");   // 右波括弧
+		text = text.replace("\\", "￥");  // バックスラッシュ → 円記号
+
+		// 特殊な記号の変換
+		text = text.replace("≪", PH_KOME + phChuki("始め二重山括弧"));
+		text = text.replace("≫", PH_KOME + phChuki("終わり二重山括弧"));
+		text = text.replace("※※", PH_KOME + phChuki("米印、1-2-8"));
+
+		return text;
+	}
+
+	/**
+	 * ローマ数字の変換（narou.rb互換）
+	 * 参考: narou-3.8.2/lib/converterbase.rb:331-338
+	 *
+	 * ユニコードのローマ数字を通常のアルファベットに変換
+	 * 例: Ⅰ → I, Ⅱ → II, ⅲ → iii
+	 */
+	/** ローマ数字変換: アルファベット表記 → Unicodeローマ数字 (narou.rb互換) */
+	private static final String[][] ROME_NUM_PAIRS = {
+		// narou.rb: ROME_NUM_ALPHABET → ROME_NUM
+		// 長いパターンを先に処理（IIIをIIより先に）
+		{"VIII", "Ⅷ"}, {"VII", "Ⅶ"}, {"III", "Ⅲ"},
+		{"II", "Ⅱ"}, {"IV", "Ⅳ"}, {"VI", "Ⅵ"}, {"IX", "Ⅸ"},
+		{"viii", "ⅷ"}, {"vii", "ⅶ"}, {"iii", "ⅲ"},
+		{"ii", "ⅱ"}, {"iv", "ⅳ"}, {"vi", "ⅵ"}, {"ix", "ⅸ"},
+	};
+
+	/**
+	 * ローマ数字っぽいアルファベットをUnicodeローマ数字に変換（narou.rb互換）
+	 * 参考: narou-3.9.1/lib/converterbase.rb:324-335
+	 *
+	 * 非アルファベット文字に囲まれた場合のみ変換
+	 * narou.rb: /([^a-zA-Z])#{rome}([^a-zA-Z])/
+	 */
+	private String convertRomanNumerals(String text) {
+		for (String[] pair : ROME_NUM_PAIRS) {
+			String alpha = pair[0];
+			String roman = pair[1];
+			text = text.replaceAll(
+				"(^|[^a-zA-Z])" + Pattern.quote(alpha) + "([^a-zA-Z]|$)",
+				"$1" + Matcher.quoteReplacement(roman) + "$2"
+			);
+		}
+		return text;
+	}
+
+	/**
+	 * 分数変換（narou.rb互換）
+	 * 参考: narou-3.8.2/lib/converterbase.rb:265-329
+	 */
+	private String convertFractions(String text) {
+		Pattern datePattern = Pattern.compile("(\\d{4})/(\\d{1,2})/(\\d{1,2})");
+		java.util.ArrayList<String> dates = new java.util.ArrayList<>();
+		Matcher dateMatcher = datePattern.matcher(text);
+		StringBuffer dateSb = new StringBuffer();
+		while (dateMatcher.find()) {
+			dates.add(dateMatcher.group());
+			dateMatcher.appendReplacement(dateSb, "［＃日付退避＝" + (dates.size() - 1) + "］");
+		}
+		dateMatcher.appendTail(dateSb);
+		text = dateSb.toString();
+
+		Pattern fractionPattern = Pattern.compile("(\\d+)/(\\d+)");
+		Matcher fractionMatcher = fractionPattern.matcher(text);
+		StringBuffer fractionSb = new StringBuffer();
+		while (fractionMatcher.find()) {
+			String numerator = fractionMatcher.group(1);
+			String denominator = fractionMatcher.group(2);
+			fractionMatcher.appendReplacement(fractionSb,
+				Matcher.quoteReplacement(denominator + "分の" + numerator));
+		}
+		fractionMatcher.appendTail(fractionSb);
+		text = fractionSb.toString();
+
+		for (int i = 0; i < dates.size(); i++) {
+			text = text.replace("［＃日付退避＝" + i + "］", dates.get(i));
+		}
+		return text;
+	}
+
+	/**
+	 * 日付変換（narou.rb互換）
+	 */
+	private String convertDates(String text) {
+		String fmt = formatSettings.getDateFormat();
+		Pattern datePattern = Pattern.compile("(\\d{4})/(\\d{1,2})/(\\d{1,2})");
+		Matcher matcher = datePattern.matcher(text);
+		StringBuffer sb = new StringBuffer();
+		while (matcher.find()) {
+			String year = matcher.group(1);
+			String month = matcher.group(2);
+			String day = matcher.group(3);
+			String replacement = fmt
+				.replace("%Y", year)
+				.replace("%m", month)
+				.replace("%d", day);
+			matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+		}
+		matcher.appendTail(sb);
+		return sb.toString();
+	}
+
+	/**
+	 * 三点リーダー変換（narou.rb互換）
+	 */
+	private String convertHorizontalEllipsis(String text) {
+		Pattern pattern = Pattern.compile("・{3,}");
+		Matcher matcher = pattern.matcher(text);
+		StringBuffer sb = new StringBuffer();
+		while (matcher.find()) {
+			int len = matcher.group().length();
+			int ellipsisCount = len / 3;
+			if (ellipsisCount < 1) ellipsisCount = 1;
+			StringBuilder replacement = new StringBuilder();
+			for (int i = 0; i < ellipsisCount; i++) {
+				replacement.append("…");
+			}
+			matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement.toString()));
+		}
+		matcher.appendTail(sb);
+		return sb.toString();
+	}
+
+	/**
+	 * 濁点フォントの処理（narou.rb互換）
+	 */
+	private String convertDakutenFont(String text) {
+		Pattern pattern = Pattern.compile("([\\u3040-\\u309F\\u30A0-\\u30FF])[゛ﾞ]");
+		Matcher matcher = pattern.matcher(text);
+		StringBuffer sb = new StringBuffer();
+		while (matcher.find()) {
+			String base = matcher.group(1);
+			String replacement = phChuki("濁点") + base + phChuki("濁点終わり");
+			matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+		}
+		matcher.appendTail(sb);
+		return sb.toString();
+	}
+
+	/**
+	 * 長音記号の変換（narou.rb互換）
+	 */
+	private String convertProlongedSoundMark(String text) {
+		Pattern pattern = Pattern.compile("ー{2,}");
+		Matcher matcher = pattern.matcher(text);
+		StringBuffer sb = new StringBuffer();
+		while (matcher.find()) {
+			int len = matcher.group().length();
+			StringBuilder replacement = new StringBuilder();
+			for (int i = 0; i < len; i++) {
+				replacement.append("―");
+			}
+			matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement.toString()));
+		}
+		matcher.appendTail(sb);
+		return sb.toString();
+	}
+
+	/**
+	 * なろう独自タグの処理（narou.rb互換）
+	 */
+	private String convertNarouTags(String text) {
+		text = text.replace("[newpage]", phChuki("改ページ"));
+		StringBuilder out = new StringBuilder();
+		int idx = 0;
+		String key = "[chapter:";
+		while (true) {
+			int start = text.indexOf(key, idx);
+			if (start == -1) {
+				out.append(text, idx, text.length());
+				break;
+			}
+			out.append(text, idx, start);
+			int titleStart = start + key.length();
+			int end = text.indexOf(']', titleStart);
+			if (end == -1) {
+				out.append(text, start, text.length());
+				break;
+			}
+			//見出しの中は題名と同じく「［＃」を全部逃がす（閉じの［＃中見出し終わり］を飲み込まないように。internal #38）
+			String title = escapeChukiOpenAll(text.substring(titleStart, end));
+			String replacement = phChuki(formatSettings.getIndent() + "字下げ") +
+				phChuki("中見出し") + title + phChuki("中見出し終わり");
+			out.append(replacement);
+			idx = end + 1;
+		}
+		text = out.toString();
+
+		StringBuilder out2 = new StringBuilder();
+		idx = 0;
+		String jkey = "[jump:";
+		while (true) {
+			int jstart = text.indexOf(jkey, idx);
+			if (jstart == -1) {
+				out2.append(text, idx, text.length());
+				break;
+			}
+			out2.append(text, idx, jstart);
+			int urlStart = jstart + jkey.length();
+			int jend = text.indexOf(']', urlStart);
+			if (jend == -1) {
+				out2.append(text, jstart, text.length());
+				break;
+			}
+			String url = text.substring(urlStart, jend);
+			String anchor = "<a href=\"" + url + "\">" + url + "</a>";
+			out2.append(anchor);
+			idx = jend + 1;
+		}
+		text = out2.toString();
+		return text;
+	}
+
+	/**
+	 * 感嘆符・疑問符の直後に全角アキを挿入（narou.rb互換）
+	 */
+	private String insertSeparateSpace(String text) {
+		Pattern pattern = Pattern.compile("([!?！？]+)([^!?！？])");
+		Matcher matcher = pattern.matcher(text);
+		StringBuffer sb = new StringBuffer();
+		while (matcher.find()) {
+			String marks = matcher.group(1);
+			String next = matcher.group(2);
+			//逃がした「［」（題名の「［＃」）も「［」と同じく前を空けない
+			if (next.charAt(0) == PH_ESCAPED_BRACKET || next.matches("[」］｝\\]\\}』】〉》〕＞>≫)）\u201d\u201c\u2019〟　☆★♪［―]")) {
+				matcher.appendReplacement(sb, Matcher.quoteReplacement(marks + next));
+			} else if (next.matches("[ 、。]")) {
+				matcher.appendReplacement(sb, Matcher.quoteReplacement(marks + "　"));
+			} else {
+				matcher.appendReplacement(sb, Matcher.quoteReplacement(marks + "　" + next));
+			}
+		}
+		matcher.appendTail(sb);
+		return sb.toString();
+	}
+
+	/**
+	 * 小説ルールに沿う変換（narou.rb互換）
+	 */
+	private String convertNovelRule(String text) {
+		text = text.replaceAll("。([」』）])", "$1");
+		Pattern ellipsis = Pattern.compile("…+");
+		Matcher em = ellipsis.matcher(text);
+		StringBuffer sb1 = new StringBuffer();
+		while (em.find()) {
+			int len = em.group().length();
+			if (len % 2 != 0) len++;
+			em.appendReplacement(sb1, Matcher.quoteReplacement("…".repeat(len)));
+		}
+		em.appendTail(sb1);
+		text = sb1.toString();
+		Pattern doubleDot = Pattern.compile("‥+");
+		Matcher dm = doubleDot.matcher(text);
+		StringBuffer sb2 = new StringBuffer();
+		while (dm.find()) {
+			int len = dm.group().length();
+			if (len % 2 != 0) len++;
+			dm.appendReplacement(sb2, Matcher.quoteReplacement("‥".repeat(len)));
+		}
+		dm.appendTail(sb2);
+		text = sb2.toString();
+		return text;
+	}
+
+	/**
+	 * かぎ括弧内の自動連結（narou.rb互換）
+	 */
+	private String autoJoinInBrackets(String text) {
+		boolean changed = true;
+		while (changed) {
+			String before = text;
+			text = text.replaceAll("「([^「」]*)\n([^「」]*)」", "「$1　$2」");
+			text = text.replaceAll("『([^『』]*)\n([^『』]*)』", "『$1　$2』");
+			changed = !text.equals(before);
+		}
+		return text;
+	}
+
+	/**
+	 * 行末読点での自動連結（narou.rb互換）
+	 */
+	private String autoJoinLine(String text) {
+		text = text.replaceAll("、\n", "、");
+		return text;
+	}
+
+	// パイプライン生成注記のプレースホルダー文字列
+	private static final char PH_BRACKET_OPEN = '\uE000';
+	private static final char PH_BRACKET_CLOSE = '\uE001';
+	private static final char PH_HASH = '\uE002';
+	private static final char PH_KOME = '\uE003';
+	/** 逃がした「［」（※［＃始め角括弧、1-1-46］）。数字・記号の変換より前に置くので、注記の中身が変換されないよう 1 字で持つ */
+	private static final char PH_ESCAPED_BRACKET = '\uE004';
+	/** 退避したカンマ区切りの数字（1,000）。中身は commaNumbers に出てきた順に持ち、printText の最後に戻す（internal #40）。
+	 * 中に数字を書くと、後の全角化・縦中横などが中まで変えるので、1 字で持つ */
+	private static final char PH_COMMA_NUMBER = '\uE005';
+
+	static String phChuki(String content) {
+		return String.valueOf(PH_BRACKET_OPEN) + PH_HASH + content +
+			String.valueOf(PH_BRACKET_CLOSE);
+	}
+
+	private static String restorePlaceholders(String text) {
+		text = text.replace(PH_BRACKET_OPEN, '［')
+		           .replace(PH_BRACKET_CLOSE, '］')
+		           .replace(PH_HASH, '＃')
+		           .replace(PH_KOME, '※');
+		//逃がした「［」は題名にしか無いので、在るときだけ戻す
+		return text.indexOf(PH_ESCAPED_BRACKET) < 0 ? text : text.replace(String.valueOf(PH_ESCAPED_BRACKET), "※［＃始め角括弧、1-1-46］");
+	}
+
+	/** 中間テキスト先頭のシリーズ名・表題を出力
+	 * SERIES と TITLE が同一要素にマッチするサイト (青空文庫の単話 HTML 等) では
+	 * 表題が二重になるため、series が title と同一の場合は出力しない */
+	private void printSeriesAndTitle(BufferedWriter bw, String series, String title) throws IOException
+	{
+		if (series != null && !series.equals(title)) {
+			printText(bw, series);
+			bw.append('\n');
+		}
+		if (title != null) {
+			printText(bw, title);
+			bw.append('\n');
+		}
+	}
+
+	/** 題名（作品名・章題・話の題など）の文字の「［＃」の「［」を全部 PH_ESCAPED_BRACKET にする（internal #38）。
+	 * 「［＃」は注記の始まりに読まれ、作品名が柱に入ると閉じの注記を飲み込んで柱が閉じない。題名に注記を書く作者はまずいない。
+	 * 本文は逃がさない（narou.rb と同じ。作者が本文に書いた注記・返り点は効く。2026-10-12 に手元の 74 作品の取ったままの HTML を調べ、本文・題名とも［＃・[# は 0 件）。
+	 * 半角の [ # は記号を全角にする設定のときだけ「［＃」になる */
+	String escapeChukiOpenAll(String text)
+	{
+		if (text.indexOf('［') < 0 && text.indexOf('[') < 0) return text;
+		boolean zenkaku = formatSettings.isEnableConvertSymbolsToZenkaku();
+		StringBuilder sb = new StringBuilder(text.length());
+		for (int i = 0; i < text.length(); i++) {
+			char ch = text.charAt(i);
+			char next = i+1 < text.length() ? text.charAt(i+1) : 0;
+			boolean forms = (ch == '［' || (ch == '[' && zenkaku)) && (next == '＃' || (next == '#' && zenkaku));
+			sb.append(forms ? PH_ESCAPED_BRACKET : ch);
+		}
+		return sb.toString();
+	}
+
+	/** 見出しの種類。narou.rb の text_type の "subtitle"（話の題）と "chapter"（章の題）。数字の扱いが本文と違う */
+	enum Heading { NONE, SUBTITLE, CHAPTER }
+
+	/** 文字を出力 特殊文字は注記に変換。題名など（「［＃」は全部逃がす） */
+	private void printText(BufferedWriter bw, String text) throws IOException
+	{
+		printText(bw, text, Heading.NONE);
+	}
+
+	private void printText(BufferedWriter bw, String text, Heading heading) throws IOException
+	{
+		printText(bw, text, heading, true);
+	}
+
+	/** 本文の文字を出力（「［＃」は逃がさない。narou.rb と同じ） */
+	private void printBodyText(BufferedWriter bw, String text) throws IOException
+	{
+		printText(bw, text, Heading.NONE, false);
+	}
+
+	/** @param heading 話の題・章の題なら数字を見出しの決まりで変換する
+	 * @param escapeChukiOpen 文字の「［＃」を逃がす（題名） */
+	private void printText(BufferedWriter bw, String text, Heading heading, boolean escapeChukiOpen) throws IOException
+	{
+		text = text.replaceAll("[\r\n]+", "");
+		commaNumbers.clear();
+		//逃がす「［」は 1 字の PH_ESCAPED_BRACKET にして、最後に ※［＃始め角括弧、1-1-46］ に戻す。変換が足す注記は PH_* で書くので逃がさない
+		if (escapeChukiOpen) text = escapeChukiOpenAll(text);
+		if (formatSettings.isEnableAutoJoinInBrackets()) text = autoJoinInBrackets(text);
+		if (formatSettings.isEnableAutoJoinLine()) text = autoJoinLine(text);
+		if (formatSettings.isEnableNarouTag()) text = convertNarouTags(text);
+		text = addHalfIndentBracket(text);
+		text = convertRomanNumerals(text);
+		text = protectEnglishSentences(text);
+		if (heading == Heading.NONE && formatSettings.isEnableConvertNumToKanji()) text = convertNumbersToKanji(text);
+		if (formatSettings.isEnableTransformFraction()) text = convertFractions(text);
+		if (formatSettings.isEnableTransformDate()) text = convertDates(text);
+		// narou.rb互換（convert_numbers）: 話の題・章の題は漢数字にせず、半角の数字を縦中横か全角にする（漢数字化の設定に依らない）。
+		// 分数・日付の変換は半角の数字を見るので、その後にする（narou.rb は前だが、全角の数字も分数・日付として読む。
+		// ここで先にすると 1/2 が分数にならず、2 桁が縦中横の注記で囲まれて日付も読めなくなる）
+		if (heading != Heading.NONE) text = convertHeadingNumbers(text, heading == Heading.SUBTITLE);
+		if (formatSettings.isEnableConvertSymbolsToZenkaku()) text = convertSymbolsToZenkaku(text);
+		if (formatSettings.isEnableProlongedSoundMarkToDash()) text = convertProlongedSoundMark(text);
+		if (formatSettings.isEnableConvertHorizontalEllipsis()) text = convertHorizontalEllipsis(text);
+		if (formatSettings.isEnableDakutenFont()) text = convertDakutenFont(text);
+		text = insertSeparateSpace(text);
+		text = convertTatechuyoko(text);
+		text = convertNovelRule(text);
+
+		StringBuilder sb = new StringBuilder();
+		char[] chars = text.toCharArray();
+		for (char ch : chars) {
+			switch (ch) {
+			case '《': sb.append("※［＃始め二重山括弧］"); break;
+			case '》': sb.append("※［＃終わり二重山括弧］"); break;
+			case '※': sb.append("※［＃米印、1-2-8］"); break;
+			case '\t': sb.append(' '); break;
+			default: sb.append(ch);
+			}
+		}
+		String result = rebuildEnglishSentences(sb.toString());
+		result = rebuildCommaNumbers(result);
+		result = restorePlaceholders(result);
+		bw.append(result);
+	}
+	
+	////////////////////////////////////////////////////////////////
+	
+	String getExtractText(Document doc, ExtractInfo[] extractInfos)
+	{
+		return getExtractText(doc, extractInfos, true);
+	}
+	String getExtractText(Document doc, ExtractInfo[] extractInfos, boolean replace)
+	{
+		if (extractInfos == null) return null;
+		for (ExtractInfo extractInfo : extractInfos) {
+			String text = null;
+			Elements elements = doc.select(extractInfo.query);
+			if (elements == null || elements.size() == 0) continue;
+			StringBuilder buf = new StringBuilder();
+			if (extractInfo.idx == null) {
+				for (Element element : elements) {
+					String html = element.html();
+					if (html != null) buf.append(" ").append(replaceHtmlText(html, replace?extractInfo:null));
+				}
+			} else {
+				for (int i=0; i<extractInfo.idx.length; i++) {
+					if (elements.size() > extractInfo.idx[i]) {
+						int pos = extractInfo.idx[i];
+						if (pos < 0) pos = elements.size()+pos;
+						if (pos >= 0 && elements.size() > pos) {
+							String html = elements.get(pos).html();
+							if (html != null) buf.append(" ").append(replaceHtmlText(html, replace?extractInfo:null));
+						}
+					}
+				}
+				if (buf.length() > 0) text = buf.deleteCharAt(0).toString();
+			}
+			if (text != null && text.length() > 0) return text;
+		}
+		return null;
+	}
+	
+	ArrayList<String> getExtractStrings(Document doc, ExtractInfo[] extractInfos, boolean replace)
+	{
+		if (extractInfos == null) return null;
+		for (ExtractInfo extractInfo : extractInfos) {
+			Elements elements = doc.select(extractInfo.query);
+			if (elements == null || elements.size() == 0) continue;
+			ArrayList<String> vecString = new ArrayList<String>();
+			if (extractInfo.idx == null) {
+				for (Element element : elements) {
+					String html = element.html();
+					if (html != null) vecString.add(replaceHtmlText(html, replace?extractInfo:null));
+				}
+			} else {
+				for (int i=0; i<extractInfo.idx.length; i++) {
+					if (elements.size() > extractInfo.idx[i]) {
+						int pos = extractInfo.idx[i];
+						if (pos < 0) pos = elements.size()+pos;
+						if (pos >= 0 && elements.size() > pos) {
+							String html = elements.get(pos).html();
+							if (html != null) vecString.add(replaceHtmlText(html, replace?extractInfo:null));
+						}
+					}
+				}
+			}
+			return vecString;
+		}
+		return null;
+	}
+	
+	String getQueryText(Document doc, String[] queries)
+	{
+		if (queries == null) return null;
+		for (String query : queries) {
+			String text  = getFirstText(doc.select(query).first());
+			if (text != null && text.length() > 0) return text;
+		}
+		return null;
+	}
+	
+	Elements getExtractElements(Document doc, ExtractInfo[] extractInfos)
+	{
+		if (extractInfos == null) return null;
+		for (ExtractInfo extractInfo : extractInfos) {
+			Elements elements = doc.select(extractInfo.query);
+			if (elements == null || elements.size() == 0) continue;
+			if (extractInfo.idx == null) return elements;
+			Elements e2 = new Elements();
+			for (int i=0; i<extractInfo.idx.length; i++) {
+				int pos = extractInfo.idx[i];
+				if (pos < 0) pos = elements.size()+pos;
+				if (pos >= 0 && elements.size() > pos) e2.add(elements.get(pos));
+			}
+			if (e2.size() >0) return e2;
+		}
+		return null;
+	}
+	
+	/** cssQueryに対応するノードを取得 前のQueryを優先 */
+	Element getExtractFirstElement(Document doc, ExtractInfo[] extractInfos)
+	{
+		if (extractInfos == null) return null;
+		for (ExtractInfo extractInfo : extractInfos) {
+			Elements elements = doc.select(extractInfo.query);
+			if (elements == null || elements.size() == 0) continue;
+			int pos = extractInfo.idx[0];
+			if (pos < 0) pos = elements.size()+pos;//負の値なら後ろから
+			if (pos >= 0 && elements.size() > pos) return elements.get(pos);
+		}
+		return null;
+	}
+	
+	String getFirstText(Element elem)
+	{
+		if (elem != null) {
+			List<TextNode> nodes = elem.textNodes();
+			for (Node node : nodes) {
+				if (node instanceof TextNode) {
+					String text = ((TextNode) node).getWholeText();
+					if (text != null && text.length() > 0) {
+						text = text.replaceAll("[\n|\r]", "").replaceAll("\t", " ").trim();
+						if (text.length() > 0) return text;
+					}
+				}
+			}
+		}
+		return null;
+	}
+	
+
+	/**
+	 * __NEXT_DATA__ JSON からエピソードURLリストを抽出する (カクヨムなど Next.js サイト対応)
+	 * Apollo GraphQL キャッシュの "Episode:ID" エントリを出現順・重複なしで収集する
+	 */
+	private List<String> extractEpisodesFromNextData(Document doc, String urlString) {
+		Elements scripts = doc.select("script#__NEXT_DATA__");
+		if (scripts.isEmpty()) return null;
+		String json = scripts.get(0).html();
+		// URLから作品IDを取得
+		Pattern workPattern = Pattern.compile("/works/(\\d+)");
+		Matcher workMatcher = workPattern.matcher(urlString);
+		if (!workMatcher.find()) return null;
+		String workId = workMatcher.group(1);
+		// "Episode:ID" を出現順・重複なしで収集
+		Pattern epPattern = Pattern.compile("\"Episode:(\\d+)\"");
+		Matcher epMatcher = epPattern.matcher(json);
+		ArrayList<String> result = new ArrayList<String>();
+		HashSet<String> seen = new HashSet<String>();
+		while (epMatcher.find()) {
+			String epId = epMatcher.group(1);
+			if (seen.add(epId)) {
+				result.add(this.baseUri + "/works/" + workId + "/episodes/" + epId);
+			}
+		}
+		// 章-エピソードマッピングを構築 (Phase 2-1)
+		HashMap<String, String> chapterIdMap = buildEpisodeChapterMapFromNextData(json, workId);
+		if (!chapterIdMap.isEmpty()) {
+			this.nextDataEpisodeChapterMap = new HashMap<String, String>();
+			for (HashMap.Entry<String, String> e : chapterIdMap.entrySet()) {
+				this.nextDataEpisodeChapterMap.put(this.baseUri + "/works/" + workId + "/episodes/" + e.getKey(), e.getValue());
+			}
+			LogAppender.println("__NEXT_DATA__ JSON から章マッピング構築: " + this.nextDataEpisodeChapterMap.size() + "エピソード");
+		}
+		// 更新日時マップを構築 (Phase 2-2: SUB_UPDATE対応)
+		HashMap<String, String> dateIdMap = buildEpisodeDateMapFromNextData(json);
+		if (!dateIdMap.isEmpty()) {
+			this.nextDataEpisodeDateMap = new HashMap<String, String>();
+			for (HashMap.Entry<String, String> e : dateIdMap.entrySet()) {
+				this.nextDataEpisodeDateMap.put(this.baseUri + "/works/" + workId + "/episodes/" + e.getKey(), e.getValue());
+			}
+			LogAppender.println("__NEXT_DATA__ JSON から更新日時マップ構築: " + this.nextDataEpisodeDateMap.size() + "エピソード");
+		}
+		return result.isEmpty() ? null : result;
+	}
+
+	/**
+	 * __NEXT_DATA__ JSON から章-エピソード対応マップを構築する (Phase 2-1)
+	 * "TableOfContentsChapter" エントリと各話のepIdの対応を解析する
+	 *
+	 * <p>"TableOfContentsChapter" は章題を持たず、"chapter":{"__ref":"Chapter:ID"} で
+	 * 別の "Chapter:ID" エントリを指す。章題はそちらから読む。エントリの並びは作品ごとに
+	 * 違い、直後に次の章の話 ("Episode:ID") が来ることもあるので、ブロック内の最初の
+	 * "title" を拾うとその話の題を章題にしてしまう。</p>
+	 * @return epId → chapterTitle マップ (章なし作品では空マップ)
+	 */
+	private HashMap<String, String> buildEpisodeChapterMapFromNextData(String json, String workId) {
+		HashMap<String, String> result = new HashMap<String, String>();
+		// "TableOfContentsChapter:ID":{ エントリを検索
+		Pattern chapterKeyPat = Pattern.compile("\"TableOfContentsChapter:\\d+\":\\{");
+		// キャプチャーグループ内のエピソード参照パターン
+		Pattern epRefPat = Pattern.compile("\"__ref\":\"Episode:(\\d+)\"");
+		// 章本体 ("Chapter:ID") への参照
+		Pattern chapterRefPat = Pattern.compile("\"chapter\":\\{\"__ref\":\"Chapter:(\\d+)\"\\}");
+		// 章タイトルパターン (文字列中のエスケープ \" で切らない)
+		Pattern titlePat = Pattern.compile("\"title\":\"((?:[^\"\\\\]|\\\\.)*+)\"");
+		Matcher chMatcher = chapterKeyPat.matcher(json);
+		while (chMatcher.find()) {
+			// 章の項目 {...} の中だけを見る。次の項目までを見ると、最後の章の範囲が JSON の末尾まで伸び、
+			// 後ろの "firstPublicEpisodeUnion" などが指す章外の話 (プロローグ等) まで拾ってしまう
+			String block = findObjectBody(json, chMatcher.end());
+			if (block == null) continue;
+			// 章タイトル抽出 (参照先の "Chapter:ID" エントリから)
+			Matcher chRefM = chapterRefPat.matcher(block);
+			if (!chRefM.find()) continue;
+			String chKey = "\"Chapter:" + chRefM.group(1) + "\":{";
+			int chPos = json.indexOf(chKey);
+			if (chPos < 0) continue;
+			String chBody = findObjectBody(json, chPos + chKey.length());
+			if (chBody == null) continue;
+			Matcher titleM = titlePat.matcher(chBody);
+			if (!titleM.find()) continue;
+			String chTitle = unescapeJsonString(titleM.group(1)).strip();
+			if (chTitle.isEmpty()) continue;
+			// エピソード参照を収集
+			Matcher refM = epRefPat.matcher(block);
+			while (refM.find()) {
+				String epId = refM.group(1);
+				if (!result.containsKey(epId)) result.put(epId, chTitle);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * JSON の文字列の中身のエスケープを 1 回の走査で戻す。Next.js は __NEXT_DATA__ の
+	 * "&amp;" "&lt;" "&gt;" を \\u0026 などで書くので \\uXXXX も戻す。不正な並びはそのまま残す
+	 */
+	static String unescapeJsonString(String s) {
+		if (s.indexOf('\\') < 0) return s;
+		StringBuilder sb = new StringBuilder(s.length());
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			if (c != '\\' || i + 1 >= s.length()) { sb.append(c); continue; }
+			char n = s.charAt(++i);
+			switch (n) {
+			case 'n': sb.append('\n'); break;
+			case 'r': sb.append('\r'); break;
+			case 't': sb.append('\t'); break;
+			case 'b': sb.append('\b'); break;
+			case 'f': sb.append('\f'); break;
+			case 'u':
+				int code = 0;
+				for (int k = 1; k <= 4 && code >= 0; k++) {
+					int d = (i + k < s.length()) ? Character.digit(s.charAt(i + k), 16) : -1;
+					code = (d < 0) ? -1 : (code << 4) | d;
+				}
+				if (code >= 0) { sb.append((char) code); i += 4; }
+				else sb.append('\\').append(n); // 不正な \\u はそのまま残す
+				break;
+			default: sb.append(n); break; // \" \\ \/
+			}
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * JSON のオブジェクトの中身 ("{" の直後から対応する "}" の手前まで) を返す。閉じていなければ null。
+	 * 文字列の中の括弧で止まらないよう、引用符の内側は飛ばして対応する "}" を探す
+	 * @param bodyStart 開き "{" の直後の位置
+	 */
+	private static String findObjectBody(String json, int bodyStart) {
+		int depth = 1;
+		boolean inString = false;
+		for (int i = bodyStart; i < json.length(); i++) {
+			char c = json.charAt(i);
+			if (inString) {
+				if (c == '\\') i++;
+				else if (c == '"') inString = false;
+			} else if (c == '"') {
+				inString = true;
+			} else if (c == '{') {
+				depth++;
+			} else if (c == '}') {
+				if (--depth == 0) return json.substring(bodyStart, i);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * TOCページの話一覧から章-エピソード対応マップを構築する。
+	 * ハーメルンなど、エピソードページに章情報がなく __NEXT_DATA__ も持たないサイト向け。
+	 *
+	 * <p>ハーメルンは 2026-08 頃に話一覧を &lt;table&gt; から
+	 * &lt;ul class="episode-list__items"&gt; へ作り替えた。新旧どちらの構造からも
+	 * 組み立てられるようにしてある (キャッシュ済みの旧 HTML が残っているため)。</p>
+	 *
+	 * リスト構造 (新):
+	 *   &lt;li class="episode-list__chapter"&gt;&lt;div class="episode-list__chapter-title"&gt;章タイトル&lt;/div&gt;&lt;/li&gt;
+	 *   &lt;li class="episode-list__item"&gt;&lt;a href="./N.html" class="episode-list__link"&gt;…&lt;/a&gt;&lt;/li&gt;
+	 *
+	 * テーブル構造 (旧):
+	 *   &lt;tr&gt;&lt;td colspan=2&gt;&lt;strong&gt;章タイトル&lt;/strong&gt;&lt;/td&gt;&lt;/tr&gt;  ← 章区切り行
+	 *   &lt;tr&gt;&lt;td&gt;&lt;a href="/novel/ID/N.html"&gt;話タイトル&lt;/a&gt;&lt;/td&gt;&lt;td&gt;...&lt;/td&gt;&lt;/tr&gt;  ← エピソード行
+	 *
+	 * ページネーションについて:
+	 *   ハーメルンは話数に関わらず全話を1ページのTOCに表示する仕様（なろうのような?p=N分割なし）。
+	 *   narou.rb の syosetu.org.yaml にもページネーション処理がないことで確認済み。
+	 *   extract.txt に PAGE_URL を定義していないため AozoraEpub3 のページネーションループも動作しない。
+	 *
+	 * @param doc TOCページの Document
+	 * @param listBaseUrl 一覧ページのベースURL
+	 * @return episodeFullURL → chapterTitle マップ (章なし作品では空マップ)
+	 */
+	private HashMap<String, String> buildEpisodeChapterMapFromToc(Document doc, String listBaseUrl) {
+		//新構造があるならそちらだけを見る。「新構造だが章なし」で空になったときに
+		//旧構造へ落とすと、#maind 内に別の表があれば偽の章が付いてしまう
+		if (doc.selectFirst("#maind .episode-list__items") != null) {
+			return buildEpisodeChapterMapFromEpisodeList(doc, listBaseUrl);
+		}
+		return buildEpisodeChapterMapFromTocTable(doc, listBaseUrl);
+	}
+
+	/**
+	 * 話一覧 (&lt;ul class="episode-list__items"&gt;) から章-エピソード対応マップを構築する。
+	 *
+	 * <p>章見出しの &lt;li&gt; と各話の &lt;li&gt; が兄弟として並ぶため、上から順に見て
+	 * 直前の章見出しを覚えながらエピソードに割り当てる。章見出しが 1 つも無ければ
+	 * 空マップを返す (章なし作品)。</p>
+	 */
+	private HashMap<String, String> buildEpisodeChapterMapFromEpisodeList(Document doc, String listBaseUrl) {
+		HashMap<String, String> result = new HashMap<String, String>();
+		Elements items = doc.select("#maind .episode-list__items > li");
+		if (items == null || items.isEmpty()) return result;
+		String currentChapter = null;
+		for (Element item : items) {
+			if (item.hasClass("episode-list__chapter")) {
+				Element titleElem = item.selectFirst(".episode-list__chapter-title");
+				//章見出しの li に専用クラスが無い場合は li 自身のテキストを使う
+				String title = (titleElem != null ? titleElem.text() : item.text()).trim();
+				if (!title.isEmpty()) currentChapter = title;
+				continue;
+			}
+			if (currentChapter == null) continue;
+			//各話のリンクだけを見る (li の中に別のリンクが増えても拾わない)
+			for (Element link : item.select("a.episode-list__link[href]")) {
+				String fullUrl = toFullUrl(link.attr("href"), listBaseUrl);
+				if (fullUrl != null) result.put(fullUrl, currentChapter);
+			}
+		}
+		return result;
+	}
+
+	/** 一覧の相対 href をフルURLにする。href が空なら null */
+	private String toFullUrl(String href, String listBaseUrl) {
+		if (href == null || href.isEmpty()) return null;
+		if (href.startsWith("http")) return href;
+		if (href.charAt(0) == '/') return this.baseUri + href;
+		return listBaseUrl + href;
+	}
+
+	private HashMap<String, String> buildEpisodeChapterMapFromTocTable(Document doc, String listBaseUrl) {
+		HashMap<String, String> result = new HashMap<String, String>();
+		Elements rows = doc.select("#maind .ss table tr");
+		if (rows == null || rows.isEmpty()) return result;
+		String currentChapter = null;
+		for (Element row : rows) {
+			// 章区切り行: colspan=2 の td 内に strong がある
+			Elements chapterCells = row.select("td[colspan=2] strong");
+			if (!chapterCells.isEmpty()) {
+				String title = chapterCells.first().text().trim();
+				if (!title.isEmpty()) {
+					currentChapter = title;
+				}
+				continue;
+			}
+			// エピソード行: currentChapter が設定済みで <a> リンクがある行
+			if (currentChapter != null) {
+				Elements links = row.select("a[href]");
+				for (Element link : links) {
+					String href = link.attr("href");
+					if (href == null || href.isEmpty()) continue;
+					// フルURL構築 (一覧取得ロジックと同じ)
+					String fullUrl;
+					if (href.startsWith("http")) {
+						fullUrl = href;
+					} else if (href.charAt(0) == '/') {
+						fullUrl = this.baseUri + href;
+					} else {
+						fullUrl = listBaseUrl + href;
+					}
+					result.put(fullUrl, currentChapter);
+				}
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * __NEXT_DATA__ JSON からエピソード更新日時マップを構築する (Phase 2-2)
+	 * Apollo GraphQL キャッシュの "Episode:ID":{ ... } エントリから publishedAt を抽出する
+	 * @return epId → publishedAt マップ (publishedAt がないエピソードは除外)
+	 */
+	private HashMap<String, String> buildEpisodeDateMapFromNextData(String json) {
+		HashMap<String, String> result = new HashMap<String, String>();
+		// "Episode:ID":{ の実オブジェクトエントリを検索 ("__ref":"Episode:ID" の参照値は : の後が { でないため除外)
+		Pattern epKeyPat = Pattern.compile("\"Episode:(\\d+)\"\\s*:\\s*\\{");
+		Pattern datePat = Pattern.compile("\"publishedAt\":\"([^\"]*+)\"");
+		java.util.List<Integer> positions = new java.util.ArrayList<Integer>();
+		java.util.List<String> epIds = new java.util.ArrayList<String>();
+		Matcher epMatcher = epKeyPat.matcher(json);
+		while (epMatcher.find()) {
+			positions.add(epMatcher.start());
+			epIds.add(epMatcher.group(1));
+		}
+		for (int i = 0; i < positions.size(); i++) {
+			int start = positions.get(i);
+			int end = (i + 1 < positions.size()) ? positions.get(i + 1) : json.length();
+			// 先頭600文字以内に publishedAt があるはずなのでそこだけ走査
+			String block = json.substring(start, Math.min(start + 600, end));
+			Matcher dateM = datePat.matcher(block);
+			if (dateM.find()) {
+				result.put(epIds.get(i), dateM.group(1));
+			}
+		}
+		return result;
+	}
+
+	String replaceHtmlText(String text, ExtractInfo extractInfo) {
+		text = text.replaceAll("[\n|\r]", "").replaceAll("\t", " ");
+		if (extractInfo != null) text = extractInfo.replace(text);
+		return Jsoup.parse(removeTag(text)).text();
+	}
+	
+	String removeTag(String text)
+	{
+		return text.replaceAll("<br ?/?>", " ").replaceAll("<rt>.+?</rt>", "").replaceAll("<[^>]+>", "");
+	}
+	
+	private boolean cacheFile(String urlString, File cacheFile, String referer) throws IOException
+	{
+		//作り直すときは取りに行かない。呼び手は「取れなかった」として扱い、話なら作り直しを止める（数は offlineMisses）
+		if (this.offline) {
+			this.offlineMisses++;
+			throw new IOException("作り直しではサイトへ取りに行きません: " + urlString);
+		}
+		try { if (cacheFile.isDirectory()) cacheFile.delete(); } catch (Exception e) { /* 意図的: 削除失敗時は直後のディレクトリチェックで対処 */ }
+		if (cacheFile.isDirectory()) {
+			LogAppender.println("フォルダがあるためキャッシュできません : "+cacheFile.getAbsolutePath());
+			//従来はこのまま落ちて Files.newOutputStream(ディレクトリ) の
+			//AccessDeniedException になっていた。無駄なダウンロードの前に同じ扱い
+			//(呼び出し元が catch する IOException) で早期に失敗させる
+			throw new IOException("フォルダがあるためキャッシュできません: "+cacheFile.getAbsolutePath());
+		}
+		// 祖先パスにファイルが存在する場合 → index.html にリネームしてディレクトリ化
+		File ancestor = cacheFile.getParentFile();
+		while (ancestor != null && !ancestor.isDirectory()) {
+			if (ancestor.isFile()) {
+				File tmpFile = new File(ancestor.getPath() + ".tmp_rename");
+				Files.move(ancestor.toPath(), tmpFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+				ancestor.mkdirs();
+				Files.move(tmpFile.toPath(), new File(ancestor, "index.html").toPath(), StandardCopyOption.REPLACE_EXISTING);
+			}
+			ancestor = ancestor.getParentFile();
+		}
+		cacheFile.getParentFile().mkdirs();
+
+		//同じ変換の中でこのサイトに止められていたら、送らずに断る（取りに行き続けない）
+		if (this.blockedByChallenge && isSiteHost(urlString)) throw new CloudflareChallengeException(urlString);
+
+		try {
+			HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+				.uri(new URI(urlString))
+				.header("User-Agent", USER_AGENT)
+				.timeout(Duration.ofSeconds(30))
+				.GET();
+			ExtractInfo[] cookie = this.queryMap.get(ExtractId.COOKIE);
+			if (cookie != null && cookie.length > 0) requestBuilder.header("Cookie", cookie[0].query);
+			if (referer != null) requestBuilder.header("Referer", referer);
+
+			HttpResponse<byte[]> response = Http.CLIENT.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray());
+			int responseCode = response.statusCode();
+			LogAppender.println("HTTP Response Code: " + responseCode);
+			if (responseCode >= 400) {
+				//Cloudflare のボット確認画面（Just a moment...）。コードだけでは利用者に理由が分からない
+				//すり抜ける細工はしない（サイトの意思に反する）。止められていると伝えて断る
+				if ("challenge".equalsIgnoreCase(response.headers().firstValue("cf-mitigated").orElse(""))) {
+					CloudflareChallengeException e = new CloudflareChallengeException(responseCode, urlString);
+					//サイトそのものに止められたときだけ、以降を止める（別のホストの表紙・挿絵では止めない）。
+					//転送（リダイレクト）された先で止められたこともあるので、応答の最終的な URL で見る
+					if (isSiteHost(response.uri().toString())) challenged(e);
+					else LogAppender.println(e.getMessage());
+					throw e;
+				}
+				throw new HttpStatusException(responseCode, urlString);
+			}
+
+			try (BufferedOutputStream bos = new BufferedOutputStream(Files.newOutputStream(cacheFile.toPath()))) {
+				bos.write(response.body());
+			}
+		} catch (java.net.URISyntaxException | InterruptedException e) {
+			throw new IOException(e);
+		}
+		return true;
+	}
+}
