@@ -13,6 +13,12 @@ signal.
 
 This app is unofficial and is not affiliated with 小説家になろう, カクヨム or 青空文庫.
 
+## Trying it
+
+Before the app is on Google Play, test builds are published as APKs under
+[Releases](https://github.com/Harusame64/tategaki-cho/releases); how to install one: `docs/install.md`
+(Japanese). How they are made: `docs/release.md`.
+
 ## Build
 
 JDK 21 and the Android SDK (compileSdk 36).
