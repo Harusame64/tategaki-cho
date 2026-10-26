@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>たてがき帖 — Web小説を縦書きで</title>
+<meta name="description" content="小説家になろう・カクヨム・青空文庫の作品を縦書きで読む Android アプリ。開いた話は通信なしでも読めます。">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f8f6f0;
+    --surface: #efebe1;
+    --text: #222;
+    --muted: #5c5a55;
+    --line: #dcd6c8;
+    --accent: #2f4b6e;
+    --on-accent: #f4eedf;
+    --link: #2a5a96;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1c;
+      --surface: #2a2a2a;
+      --text: #e8e6e1;
+      --muted: #b0aca4;
+      --line: #3c3a36;
+      --accent: #f4eedf;
+      --on-accent: #2f4b6e;
+      --link: #9cc0ef;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
+    font-size: 17px;
+    line-height: 1.8;
+  }
+  main, footer { max-width: 40rem; margin: 0 auto; padding: 0 1rem; }
+  a { color: var(--link); }
+  header {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 2.5rem 1rem 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  header img { width: 72px; height: 72px; border-radius: 16px; flex: none; }
+  h1 { font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; font-size: 2rem; line-height: 1.2; margin: 0; }
+  header p { margin: .25rem 0 0; color: var(--muted); }
+  h2 { font-size: 1.25rem; margin: 2.5rem 0 .75rem; padding-bottom: .25rem; border-bottom: 1px solid var(--line); }
+  .lead { font-size: 1.1rem; }
+  .download {
+    margin: 1.5rem 0 2rem;
+    padding: 1.25rem;
+    background: var(--surface);
+    border-radius: 12px;
+    text-align: center;
+  }
+  .button {
+    display: inline-block;
+    min-width: 16rem;
+    padding: 1rem 1.5rem;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-decoration: none;
+    border-radius: 999px;
+  }
+  .button:focus-visible { outline: 3px solid var(--link); outline-offset: 3px; }
+  .download p { margin: .75rem 0 0; color: var(--muted); font-size: .95rem; }
+  .shots {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding: .25rem 0 1rem;
+    margin: 0 -1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .shots figure { margin: 0; flex: 0 0 auto; width: 13rem; scroll-snap-align: start; }
+  .shots img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 12px; display: block; }
+  .shots figcaption { font-size: .9rem; color: var(--muted); margin-top: .4rem; line-height: 1.5; }
+  ul, ol { padding-left: 1.4rem; }
+  li { margin: .35rem 0; }
+  ol > li { margin: .75rem 0; }
+  .note { background: var(--surface); border-radius: 12px; padding: .75rem 1rem; }
+  footer { margin-top: 3rem; padding-top: 1rem; padding-bottom: 3rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
+  footer ul { list-style: none; padding: 0; }
+</style>
+</head>
+<body>
+<header>
+  <img src="icon.svg" alt="" width="72" height="72">
+  <div>
+    <h1>たてがき帖</h1>
+    <p>Web小説を縦書きで</p>
+  </div>
+</header>
+
+<main>
+  <p class="lead">小説家になろう・カクヨム・青空文庫の作品を、縦書きで読むための Android アプリです。一度開いた話は、通信なしでも読めます。</p>
+
+  <div class="download">
+    <a class="button" href="https://github.com/Harusame64/tategaki-cho/releases/latest">アプリをダウンロード（APK）</a>
+    <p>Android 13 以上で使えます。<br>Google Play で公開される前の試用版です。<a href="#install">インストールの手順</a>を見ながら進めてください。</p>
+  </div>
+
+  <h2>画面</h2>
+  <div class="shots">
+    <figure>
+      <img src="images/kinari_page.png" width="540" height="1200" alt="縦書きのページ。アプリに入っている使い方の説明を表示している">
+      <figcaption>縦書きで、1画面ずつページをめくって読みます</figcaption>
+    </figure>
+    <figure>
+      <img src="images/kinari_shelf.png" width="540" height="1200" alt="本棚。「続きを読む」ボタンと、新着の話数が表示された作品">
+      <figcaption>本棚。新しい話が公開された作品には、新着の話数が表示されます</figcaption>
+    </figure>
+    <figure>
+      <img src="images/kinari_aa.png" width="540" height="1200" alt="表示の設定。背景、書体、文字の大きさ、行間、余白など">
+      <figcaption>背景の色・書体・文字の大きさ・行間・余白を選べます</figcaption>
+    </figure>
+    <figure>
+      <img src="images/dark_page.png" width="540" height="1200" alt="暗い背景で表示した縦書きのページ">
+      <figcaption>暗い背景でも読めます</figcaption>
+    </figure>
+    <figure>
+      <img src="images/kinari_toc.png" width="540" height="1200" alt="目次。保存済みの話に印が付いている">
+      <figcaption>目次で、保存済みの話が分かります</figcaption>
+    </figure>
+    <figure>
+      <img src="images/kinari_month.png" width="540" height="1200" alt="読書の記録。読んだ日がカレンダーに色で示され、その月のまとめが表示されている">
+      <figcaption>読書の記録。読んだ日がカレンダーで分かります</figcaption>
+    </figure>
+  </div>
+
+  <h2>できること</h2>
+  <ul>
+    <li>ルビ、傍点、縦中横（2桁の数字を横に並べる表示）を、紙の本に近い形で表示します。</li>
+    <li>画面の左右をタップするか、スワイプすると、1画面ずつページをめくれます。</li>
+    <li>小説家になろうの作品は、作品名や作者名で検索したり、ランキングから探したりできます。カクヨムの作品は、ブラウザで作品を開き、「共有」からたてがき帖を選びます。青空文庫は、公式の作品一覧から探せます。</li>
+    <li>一度開いた話はアプリ内に保存され、通信なしで読めます。読んでいる話の続きを、1話・3話・5話先まであらかじめ保存することもできます。</li>
+    <li>本棚を開くと、新しい話が公開された作品に新着の話数が表示されます。</li>
+  </ul>
+
+  <h2>作品と作者のために</h2>
+  <ul>
+    <li>本文を取得するのは、本棚に入れた作品のうち、読んでいる話とその先の数話だけです。1話ずつ、間隔を空けて取得します。</li>
+    <li>保存した本文は、このアプリ内でのみ読めます。テキストや電子書籍への書き出し機能はありません。</li>
+    <li>作者名と原作サイトへのリンクを、いつでも表示できます。感想や評価は原作サイトからどうぞ。</li>
+    <li>原作サイトで作品が削除されると、保存した本文もアプリから削除されます。</li>
+  </ul>
+
+  <h2 id="install">インストールする</h2>
+  <p>インストールには、アプリを配布するための「APK ファイル」を使います。</p>
+  <ol>
+    <li>スマホで<a href="https://github.com/Harusame64/tategaki-cho/releases">ダウンロードページ（Releases）</a>を開きます。いちばん上にあるバージョンの <code>tategaki-cho-&lt;版&gt;.apk</code> をタップして、ダウンロードします。<code>&lt;版&gt;</code> の部分には、バージョン番号が入っています。</li>
+    <li>ダウンロードした APK ファイルを開きます。「この提供元のアプリはインストールできません」と表示された場合は、次の操作をしてください。
+      <ul>
+        <li><strong>設定</strong>を開きます。</li>
+        <li>APK ファイルを開いたアプリ（Chrome など）の設定で、<strong>この提供元のアプリを許可</strong>をオンにします。</li>
+        <li>元の画面に戻り、APK ファイルをもう一度開きます。</li>
+      </ul>
+    </li>
+    <li><strong>インストール</strong>をタップします。Play プロテクトが「不明なアプリ」と警告することがあります。その場合は、画面の案内に沿ってインストールを続けてください（<strong>詳細</strong>を開くと、続けるためのボタンが出ることがあります）。</li>
+  </ol>
+  <p>インストールが終わったら、手順 2 でオンにした<strong>この提供元のアプリを許可</strong>は、オフに戻してかまいません。</p>
+
+  <h2>アプリを更新する</h2>
+  <p>新しいバージョンの APK ファイルを同じ手順でインストールすると、アプリが更新されます。本棚や読んでいた位置は、そのまま残ります。</p>
+  <p class="note"><strong>更新するときは、アプリをアンインストールしないでください。</strong> アンインストールすると、保存した本文も本棚も消えます。</p>
+
+  <h2>ダウンロードしたファイルを確認したいとき（詳しい方向け）</h2>
+  <p>各バージョンのダウンロードページに、APK ファイルの SHA-256 を載せています。ダウンロードしたファイルから計算した値が同じなら、掲載されたものと同じファイルだと確かめられます。</p>
+
+  <h2>困ったとき・気づいたことがあるとき</h2>
+  <p>このアプリを紹介してくれた人に知らせてください。<a href="https://github.com/Harusame64/tategaki-cho/issues">報告ページ（Issues）</a>に書き込むこともできます。</p>
+</main>
+
+<footer>
+  <p>本アプリは非公式です。小説家になろう、カクヨム、青空文庫とは関係ありません。</p>
+  <ul>
+    <li><a href="https://github.com/Harusame64/tategaki-cho/blob/main/docs/privacy-policy.md">プライバシーポリシー</a></li>
+    <li><a href="https://github.com/Harusame64/tategaki-cho">ソースコード（GPLv3）</a></li>
+    <li><a href="https://github.com/Harusame64/tategaki-cho/issues">報告ページ（Issues）</a></li>
+  </ul>
+</footer>
+</body>
+</html>
