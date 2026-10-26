@@ -201,7 +201,6 @@ A work found gone is marked (`Work.missingSince`) and unmarked when found again.
 
 - applicationId `jp.harusame.tategakicho` (personal: `.personal`); the Java package stays
   `jp.harusame.aozorareader`.
-- Repository `Harusame64/tategaki-cho` (public), GPLv3. Issues may be filed here; private notes
-  live in `Harusame64/tategaki-cho-internal`.
+- Repository `Harusame64/tategaki-cho` (public), GPLv3; issues may be filed here.
 - Icon: 帖 in Noto Serif JP (OFL) on indigo, adaptive with a monochrome layer; the notification
   icon uses the same outline.
