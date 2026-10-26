@@ -86,7 +86,7 @@ What is fetched, and when:
 | なろう API (details of shelf works, one request for up to 500) | opening the shelf (at most hourly), 新着を確認, the background check |
 | なろう API (search, ranking) | when the user searches or opens a ranking |
 | カクヨム work page | adding a work; the new-episode check (one page per work, a second apart); opening an episode not in the kept list (once per episode per run) |
-| episode page (なろう, カクヨム) | opening it, if not kept; read-ahead of the next 1/3/5 episodes (5 s after opening, one at a time, kept ones skipped); 全話を保存 |
+| episode page (なろう, カクヨム) | opening it, if not kept; read-ahead of the next 1/3/5/15/20 episodes (5 s after opening, one at a time, kept ones skipped); 全話を保存 |
 | 青空文庫 list of works (2 MB zip) | first use of the 青空文庫 tab, then when 30 days old |
 | 青空文庫 text zip | first time a work is read |
 
@@ -162,7 +162,7 @@ and the backup limit is 25 MB).
   day (see "Two builds").
 - Long-press a work: 共有, 作品ページを開く, タグ, 全話を保存 / 全話の保存を止める, 保存した話を消す,
   本棚から外す. Taking a work off the shelf deletes its kept text.
-- ⋮: まとめて外す, 保存容量の整理 (per work: read episodes or all), 読書の記録, 新着の確認, ライセンス.
+- ⋮: 選んで本棚から外す, 保存容量の整理 (per work: read episodes or all), 読書の記録, 新着の確認, ライセンス.
 
 ## 全話を保存 (`FullSave`)
 

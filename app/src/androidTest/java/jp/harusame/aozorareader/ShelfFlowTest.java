@@ -168,6 +168,23 @@ public class ShelfFlowTest {
         assertTrue("no request after removal: " + Net.asked, Net.asked.isEmpty());
     }
 
+    /** P2: Aa offers 15 and 20 episodes of read-ahead, and the app honours them; a larger stored value stops at 20. */
+    @Test
+    public void readAheadGoesUpToTwenty() throws Exception {
+        E2E.seedNarou(1, 10);
+        for (int[] c : new int[][]{{15, 15}, {20, 20}, {99, 20}}) {
+            E2E.ctx().getSharedPreferences("reader", 0).edit().putString("display", "{\"ahead\":" + c[0] + ",\"guided\":true}").commit();
+            scenario = ActivityScenario.launch(new Intent(E2E.ctx(), ReaderActivity.class)
+                    .putExtra("url", Shelf.episodeUrl(E2E.NCODE, 1)).putExtra("page", 0));
+            Activity a = resumed(ReaderActivity.class);
+            E2E.waitReady(a);
+            assertEquals("the app reads " + c[0] + " as", c[1], ((ReaderActivity) a).aheadCount());
+            assertEquals("Aa marks " + c[1], String.valueOf(c[1]), E2E.js(a, "document.querySelector('#info .ah.on').dataset.ahead").replace("\"", ""));
+            assertEquals("the five choices", "\"1,3,5,15,20\"", E2E.js(a, "[...document.querySelectorAll('#info .ah')].map(b=>b.dataset.ahead).join()"));
+            scenario.close();
+        }
+    }
+
     /** R8b: after a jump from the 目次 reloads the page, Back closes the reader (nothing is open any more). */
     @Test
     public void backWorksAfterAJumpReloadsThePage() throws Exception {

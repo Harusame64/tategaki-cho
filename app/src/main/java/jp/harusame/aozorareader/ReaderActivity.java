@@ -46,6 +46,8 @@ public class ReaderActivity extends Activity {
     static final String SAMPLE_URL = "https://ncode.syosetu.com/n0000aa/1/";
     /** Waits before reading the next episode ahead, so requests stay one at a time and spaced out. */
     static final int PREFETCH_DELAY_S = 5;
+    /** the most episodes read ahead (Aa: 1, 3, 5, 15, 20) */
+    static final int MAX_AHEAD = 20;
     /** Between the pages of a 目次, which is read only when the user opens it. */
     static final int TOC_PAGE_DELAY_MS = 1000;
     /** A 目次 kept this long is shown without reading it again. */
@@ -739,7 +741,7 @@ public class ReaderActivity extends Activity {
     int aheadCount() {
         try {
             String d = prefs.getString("display", null);
-            if (d != null) return Math.max(1, Math.min(5, new JSONObject(d).optInt("ahead", 1)));
+            if (d != null) return Math.max(1, Math.min(MAX_AHEAD, new JSONObject(d).optInt("ahead", 1)));
         } catch (Exception ignored) {
         }
         return 1;

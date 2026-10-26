@@ -43,6 +43,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | S1 | A shared なろう episode URL adds the work (one API request) and opens that episode; the shelf made again does not add it twice or move the place | aSharedEpisodeIsAddedAndOpened |
 | S4 | Removing a work deletes everything kept for it | removingAWorkDeletesWhatIsKept |
 | P1 | Read-ahead asks for the next episodes only, in order and spaced out; nothing for a work taken off the shelf | readAheadAsksForTheNextEpisodesOnly |
+| P2 | Aa offers 1/3/5/15/20 episodes of read-ahead; the app honours 15 and 20, and a larger stored value stops at 20 | readAheadGoesUpToTwenty |
 | R8b | After a jump from the 目次 reloads the page, Back closes the reader (no overlay left registered) | backWorksAfterAJumpReloadsThePage |
 | R13 | Opening part-way saves no page 0 and logs no page read until one is turned | openingPartWayReadsNothingYet (ReadingTest) |
 | R14 | 字下げ 付ける indents a paragraph written flush, at once and after reopening | theIndentSettingIndentsFlushParagraphs (ReadingTest) |

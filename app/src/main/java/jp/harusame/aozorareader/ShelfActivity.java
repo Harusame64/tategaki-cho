@@ -83,7 +83,7 @@ public class ShelfActivity extends ThemedActivity {
         android.widget.ImageView more = icon(R.drawable.ic_more, "その他");
         more.setOnClickListener(v -> {
             PopupMenu m = new PopupMenu(this, v);
-            m.getMenu().add(0, 1, 0, "まとめて外す");
+            m.getMenu().add(0, 1, 0, "選んで本棚から外す");
             m.getMenu().add(0, 2, 1, "保存容量の整理");
             m.getMenu().add(0, 3, 2, "読書の記録");
             m.getMenu().add(0, 4, 3, "新着の確認…");
@@ -121,7 +121,7 @@ public class ShelfActivity extends ThemedActivity {
         ts.addView(tags);
         root.addView(ts);
         tag = getSharedPreferences("reader", MODE_PRIVATE).getString("shelfTag", null);
-        // まとめて外す: N 作品を選択中 … すべて選ぶ / 外す / やめる
+        // 選んで本棚から外す: N 作品を選択中 … すべて選ぶ / 外す / やめる
         selectBar = new LinearLayout(this);
         selectBar.setGravity(Gravity.CENTER_VERTICAL);
         selectBar.setPadding(dp(12), dp(8), dp(8), dp(8));
