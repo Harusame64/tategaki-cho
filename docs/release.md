@@ -62,6 +62,9 @@ sold in Japan (BCN rankings, 2026: moto g, arrows We, Pixel 10a/11, Galaxy S26 a
 ANDROID_SERIAL=emulator-5554 tools/screen-matrix.sh <out dir>      # kinari; add "kinari,dark" for both
 ```
 
+Install right before running it: a Gradle E2E run uninstalls both apps when it ends, and then every screen is
+reported as never ready (the script captures nothing it cannot vouch for, and exits nonzero).
+
 Profiles: 360dp, 384dp and 411dp wide phones, the two narrow ones again at a 1.3x system font, and a tablet portrait
 (800dp) and landscape (1280dp). Look for text cut off or spilling out of its button, labels breaking mid-word, and
 anything oversized on a tablet. (Shipping 0.1.1 without this: buttons broke at 360dp with a 1.3x font, and the read
