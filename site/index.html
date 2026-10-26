@@ -7,94 +7,7 @@
 <meta name="description" content="小説家になろう・カクヨム・青空文庫の作品を縦書きで読む Android アプリ。開いた話は通信なしでも読めます。">
 <meta name="referrer" content="no-referrer">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<style>
-  :root {
-    color-scheme: light dark;
-    --bg: #f8f6f0;
-    --surface: #efebe1;
-    --text: #222;
-    --muted: #5c5a55;
-    --line: #dcd6c8;
-    --accent: #2f4b6e;
-    --on-accent: #f4eedf;
-    --link: #2a5a96;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #1c1c1c;
-      --surface: #2a2a2a;
-      --text: #e8e6e1;
-      --muted: #b0aca4;
-      --line: #3c3a36;
-      --accent: #f4eedf;
-      --on-accent: #2f4b6e;
-      --link: #9cc0ef;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
-    font-size: 17px;
-    line-height: 1.8;
-  }
-  main, footer { max-width: 40rem; margin: 0 auto; padding: 0 1rem; }
-  a { color: var(--link); }
-  header {
-    max-width: 40rem;
-    margin: 0 auto;
-    padding: 2.5rem 1rem 1rem;
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-  }
-  header img { width: 72px; height: 72px; border-radius: 16px; flex: none; }
-  h1 { font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; font-size: 2rem; line-height: 1.2; margin: 0; }
-  header p { margin: .25rem 0 0; color: var(--muted); }
-  h2 { font-size: 1.25rem; margin: 2.5rem 0 .75rem; padding-bottom: .25rem; border-bottom: 1px solid var(--line); }
-  .lead { font-size: 1.1rem; }
-  .download {
-    margin: 1.5rem 0 2rem;
-    padding: 1.25rem;
-    background: var(--surface);
-    border-radius: 12px;
-    text-align: center;
-  }
-  .button {
-    display: inline-block;
-    min-width: 16rem;
-    padding: 1rem 1.5rem;
-    background: var(--accent);
-    color: var(--on-accent);
-    font-size: 1.2rem;
-    font-weight: bold;
-    text-decoration: none;
-    border-radius: 999px;
-  }
-  .button:focus-visible { outline: 3px solid var(--link); outline-offset: 3px; }
-  .download p { margin: .75rem 0 0; color: var(--muted); font-size: .95rem; }
-  .shots {
-    display: flex;
-    gap: 1rem;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    padding: .25rem 0 1rem;
-    margin: 0 -1rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-  .shots figure { margin: 0; flex: 0 0 auto; width: 13rem; scroll-snap-align: start; }
-  .shots img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 12px; display: block; }
-  .shots figcaption { font-size: .9rem; color: var(--muted); margin-top: .4rem; line-height: 1.5; }
-  ul, ol { padding-left: 1.4rem; }
-  li { margin: .35rem 0; }
-  ol > li { margin: .75rem 0; }
-  .note { background: var(--surface); border-radius: 12px; padding: .75rem 1rem; }
-  footer { margin-top: 3rem; padding-top: 1rem; padding-bottom: 3rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
-  footer ul { list-style: none; padding: 0; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
@@ -195,7 +108,7 @@
 <footer>
   <p>本アプリは非公式です。小説家になろう、カクヨム、青空文庫とは関係ありません。</p>
   <ul>
-    <li><a href="https://github.com/Harusame64/tategaki-cho/blob/main/docs/privacy-policy.md">プライバシーポリシー</a></li>
+    <li><a href="privacy.html">プライバシーポリシー</a></li>
     <li><a href="https://github.com/Harusame64/tategaki-cho">ソースコード（GPLv3）</a></li>
     <li><a href="https://github.com/Harusame64/tategaki-cho/issues">報告ページ（Issues）</a></li>
   </ul>
