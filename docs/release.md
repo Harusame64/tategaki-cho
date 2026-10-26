@@ -12,7 +12,7 @@ and lose their shelf); leaking it lets someone else publish updates as this app.
 - Made once, with `keytool` (JDK), as an RSA 4096-bit key valid for 100 years:
 
   ```
-  keytool -genkeypair -v -keystore <path>\tategaki-cho-release.jks -storetype PKCS12 -alias tategaki-cho -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Harusame64"
+  keytool -genkeypair -v -keystore <path>/tategaki-cho-release.jks -storetype PKCS12 -alias tategaki-cho -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Harusame64"
   ```
 
   keytool asks for the password itself, so it is never typed on the command line or kept in a
@@ -64,5 +64,5 @@ Rename the APK to `tategaki-cho-<versionName>.apk`, then:
 gh release create v0.1.0 tategaki-cho-0.1.0.apk --prerelease --title "たてがき帖 0.1.0" --notes-file <notes>
 ```
 
-The notes give the SHA-256 of the APK (`Get-FileHash` / `shasum -a 256`) and link to
+The notes give the SHA-256 of the APK (`shasum -a 256`) and link to
 `docs/install.md`.
