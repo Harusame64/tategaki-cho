@@ -17,9 +17,6 @@ import com.github.hmdev.converter.AozoraEpub3Converter;
 import com.github.hmdev.info.ImageInfo;
 import com.github.hmdev.info.SectionInfo;
 import com.github.hmdev.util.LogAppender;
-import com.github.junrar.Archive;
-import com.github.junrar.exception.RarException;
-import com.github.junrar.rarfile.FileHeader;
 
 /** ePub3用のファイル一式をZipで固めたファイルを生成.
  * 画像のみのZipの場合こちらで画像専用の処理を行う
@@ -66,7 +63,7 @@ public class Epub3ImageWriter extends Epub3Writer
 	
 	/** 本文を出力する
 	 * setFileNamesで sortedFileNames が設定されている必要がある 
-	 * @throws RarException */
+	 */
 	/**
 	 * 書庫の項目が、画像として書き出す物か（writeArchiveImage が書く物＝id の付いた登録済みの画像）。開く前に見る。
 	 * 項目の名前そのものが画像の拡張子であることも見る（01.jpg と同じ名前の 01.txt を correctExt が 01.jpg に読み替えて開くと、
@@ -81,7 +78,7 @@ public class Epub3ImageWriter extends Epub3Writer
 	}
 
 	@Override
-	void writeSections(AozoraEpub3Converter converter, BufferedReader src, BufferedWriter bw, File srcFile, String srcExt, ZipArchiveOutputStream zos) throws IOException, RarException
+	void writeSections(AozoraEpub3Converter converter, BufferedReader src, BufferedWriter bw, File srcFile, String srcExt, ZipArchiveOutputStream zos) throws IOException
 	{
 		ArrayList<String> vecFileName = new ArrayList<>();
 		//ファイル名取得してImageInfoのIDを設定
@@ -99,27 +96,8 @@ public class Epub3ImageWriter extends Epub3Writer
 		if (this.bookInfo.textEntryName != null) archivePathLength = this.bookInfo.textEntryName.indexOf('/')+1;
 		
 		if ("rar".equals(srcExt)) {
-			Archive archive = new Archive(srcFile);
-			try {
-			for (FileHeader fileHeader : archive.getFileHeaders()) {
-				if (!fileHeader.isDirectory()) {
-					String entryName = fileHeader.getFileName();
-					entryName = entryName.replace('\\', '/');
-					//アーカイブ内のサブフォルダは除外
-					String srcImageFileName = entryName.substring(archivePathLength);
-					//使う画像だけ開く（zip と同じ。壊れたテキストを画像として開かない）
-					if (this.isWrittenImage(srcImageFileName)) {
-						InputStream is = archive.getInputStream(fileHeader);
-						try {
-							this.writeArchiveImage(srcImageFileName, is);
-						} finally {
-							is.close();
-						}
-					}
-				}
-				if (this.canceled) return;
-			}
-			} finally { archive.close(); }
+			//たてがき帖: RAR は読まない（core/ORIGIN.md）
+			throw new IOException("RAR archives are not supported (the UnRAR licence is not GPL-compatible)");
 		} else {
 			//目次から 1 つずつ開く（壊れた項目があっても、ほかの画像を読める。internal #36）
 			final int pathLength = archivePathLength;

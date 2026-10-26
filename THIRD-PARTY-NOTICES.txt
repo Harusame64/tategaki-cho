@@ -14,7 +14,6 @@ Licence texts:
   Apache License 2.0 ........ licenses/Apache-2.0.txt
   MIT (jsoup) ............... licenses/MIT-jsoup.txt
   MIT (SLF4J) ............... licenses/MIT-slf4j.txt
-  UnRAR licence (junrar) .... licenses/UnRAR.txt
   SIL Open Font License 1.1 . app/src/main/assets/fonts/*-OFL.txt
 
 ================================================================================
@@ -64,19 +63,7 @@ Licence texts:
 
 --------------------------------------------------------------------------------
 
-5. junrar
-   - junrar 7.6.1
-
-   Copyright: Alexander Roshal (UnRAR); junrar contributors
-   License: UnRAR licence (licenses/UnRAR.txt)
-   URL: https://github.com/junrar/junrar
-
-   Note: the UnRAR code may not be used to develop a RAR (WinRAR) compatible
-   archiver.
-
---------------------------------------------------------------------------------
-
-6. AndroidX (Android Jetpack)
+5. AndroidX (Android Jetpack)
    - work-runtime 2.9.1
    - and the libraries it brings in: core 1.9.0, annotation 1.3.0,
      annotation-experimental 1.3.0, collection 1.0.0, concurrent-futures 1.0.0,
@@ -91,7 +78,7 @@ Licence texts:
 
 --------------------------------------------------------------------------------
 
-7. Kotlin and kotlinx.coroutines (brought in by AndroidX)
+6. Kotlin and kotlinx.coroutines (brought in by AndroidX)
    - kotlin-stdlib 2.2.10, kotlin-stdlib-jdk7 / -jdk8 1.8.20
    - kotlinx-coroutines-core / -android 1.7.1
    - org.jetbrains:annotations 23.0.0
@@ -102,7 +89,7 @@ Licence texts:
 
 --------------------------------------------------------------------------------
 
-8. Guava ListenableFuture (brought in by AndroidX)
+7. Guava ListenableFuture (brought in by AndroidX)
    - com.google.guava:listenablefuture 1.0
 
    Copyright: The Guava Authors
@@ -111,7 +98,7 @@ Licence texts:
 
 --------------------------------------------------------------------------------
 
-9. Material Icons (the app's toolbar icons, app/src/main/res/drawable/ic_*.xml)
+8. Material Icons (the app's toolbar icons, app/src/main/res/drawable/ic_*.xml)
    - search, refresh, add, more_vert, arrow_back, chevron_left, chevron_right
 
    Copyright: Google LLC
@@ -120,7 +107,7 @@ Licence texts:
 
 --------------------------------------------------------------------------------
 
-10. Fonts (app/src/main/assets/fonts/)
+9. Fonts (app/src/main/assets/fonts/)
    - BIZ UDMincho (BIZUDMincho-Regular.ttf)
      Copyright 2022 The BIZ UDMincho Project Authors
      (https://github.com/googlefonts/morisawa-biz-ud-mincho)

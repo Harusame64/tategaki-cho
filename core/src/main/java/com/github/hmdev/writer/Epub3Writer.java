@@ -53,8 +53,6 @@ import com.github.hmdev.info.SectionInfo;
 import com.github.hmdev.util.CharUtils;
 import com.github.hmdev.util.LogAppender;
 import com.github.hmdev.util.NetUtils;
-import com.github.junrar.Archive;
-import com.github.junrar.rarfile.FileHeader;
 
 /** ePub3用のファイル一式をZipで固めたファイルを生成.
  * 本文は改ページでセクション毎に分割されて xhtml/以下に 0001.xhtml 0002.xhtml の連番ファイル名で格納
@@ -1128,30 +1126,8 @@ public class Epub3Writer
 			}
 		} else if (!bookInfo.imageOnly) {
 			if ("rar".equals(srcExt)) {
-				////////////////////////////////
-				//Rar
-				Archive archive = new Archive(srcFile);
-				try {
-				for (FileHeader fileHeader : archive.getFileHeaders()) {
-					if (!fileHeader.isDirectory()) {
-						String entryName = fileHeader.getFileName();
-						if (entryName.length() == 0) entryName = "";
-						entryName = entryName.replace('\\', '/');
-						//アーカイブ内のサブフォルダは除外してテキストからのパスにする
-						//本文より浅い階層のエントリは対象外（substring の SIOOBE 回避）
-						if (entryName.length() < archivePathLength) continue;
-						String srcImageFileName = entryName.substring(archivePathLength);
-						if (outImageFileNames.contains(srcImageFileName)) {
-							InputStream is = archive.getInputStream(fileHeader);
-							try {
-								this.writeArchiveImage(srcImageFileName, is);
-							} finally {
-								is.close();
-							}
-						}
-					}
-				}
-				} finally { archive.close(); }
+				//たてがき帖: RAR は読まない（core/ORIGIN.md）
+				throw new IOException("RAR archives are not supported (the UnRAR licence is not GPL-compatible)");
 			} else {
 				////////////////////////////////
 				//Zip

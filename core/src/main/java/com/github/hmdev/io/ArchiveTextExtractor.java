@@ -10,7 +10,6 @@ import java.util.Map;
 
 import com.github.hmdev.image.ImageInfoReader;
 import com.github.hmdev.util.LogAppender;
-import com.github.junrar.exception.RarException;
 
 /**
  * Handles archive/txt inputs: counts available txt entries and opens streams for conversion.
@@ -48,7 +47,7 @@ public final class ArchiveTextExtractor {
 	 * Caller must close the returned stream.
 	 */
 	public static InputStream getTextInputStream(File srcFile, String ext, ImageInfoReader imageInfoReader, String[] textEntryName, int txtIdx)
-			throws IOException, RarException {
+			throws IOException {
 		if ("txt".equals(ext)) {
 			return Files.newInputStream(srcFile.toPath());
 		} else if ("zip".equals(ext) || "txtz".equals(ext) || "rar".equals(ext)) {
@@ -85,24 +84,15 @@ public final class ArchiveTextExtractor {
 				LogAppender.println("[WARN] 書庫の中のテキストが読めないので飛ばします : " + s + " (" + srcFile.getName() + ")");
 			}
 			return skipped.size();
-		} catch (IOException | RarException e) {
+		} catch (IOException e) {
 			return 0;
 		}
 	}
 
 	/** Counts txt entries in zip/txtz archives. Uses cache. */
 	public static int countZipText(File zipFile) throws IOException {
-		try {
-			ArchiveCache cache = getCache(zipFile, "zip");
-			return cache.getTextFileCount();
-		} catch (RarException e) {
-			throw new IOException(e);
-		}
-	}
-
-	/** Counts txt entries in rar archives. Uses cache. */
-	public static int countRarText(File rarFile) throws IOException, RarException {
-		ArchiveCache cache = getCache(rarFile, "rar");
+		ArchiveCache cache = getCache(zipFile, "zip");
 		return cache.getTextFileCount();
 	}
+
 }

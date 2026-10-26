@@ -23,9 +23,6 @@ import com.github.hmdev.info.ImageInfo;
 import com.github.hmdev.io.ArchiveCache;
 import com.github.hmdev.util.FileNameComparator;
 import com.github.hmdev.util.LogAppender;
-import com.github.junrar.Archive;
-import com.github.junrar.exception.RarException;
-import com.github.junrar.rarfile.FileHeader;
 
 /**
  * 画像情報を格納するクラス
@@ -243,21 +240,11 @@ public class ImageInfoReader
 	 * @throws IOException */
 	public void loadZipImageInfos(File srcFile, boolean addFileName) throws IOException
 	{
-		try {
-			loadArchiveImageInfosFromCache(srcFile.toPath(), "zip", addFileName);
-		} catch (RarException e) {
-			throw new IOException(e);
-		}
-	}
-
-	/** rar内の画像情報をすべて読み込み（ArchiveCacheを使用） */
-	public void loadRarImageInfos(File srcFile, boolean addFileName) throws IOException, RarException
-	{
-		loadArchiveImageInfosFromCache(srcFile.toPath(), "rar", addFileName);
+		loadArchiveImageInfosFromCache(srcFile.toPath(), "zip", addFileName);
 	}
 
 	/** キャッシュから画像エントリを取得してImageInfoを読み込む */
-	private void loadArchiveImageInfosFromCache(Path srcPath, String ext, boolean addFileName) throws IOException, RarException
+	private void loadArchiveImageInfosFromCache(Path srcPath, String ext, boolean addFileName) throws IOException
 	{
 		ArchiveCache cache = new ArchiveCache(srcPath.toFile(), ext);
 		cache.scan();
@@ -312,7 +299,7 @@ public class ImageInfoReader
 	}
 
 	/** アーカイブ内の特定エントリからImageInfoを読み込む */
-	private ImageInfo readImageInfoFromArchive(Path srcPath, String ext, String entryName) throws IOException, RarException {
+	private ImageInfo readImageInfoFromArchive(Path srcPath, String ext, String entryName) throws IOException {
 		if ("zip".equals(ext) || "txtz".equals(ext)) {
 			//目次から開く（ほかの項目は展開しない。internal #36）
 			final ImageInfo[] found = new ImageInfo[1];
@@ -325,19 +312,8 @@ public class ImageInfoReader
 			});
 			if (found[0] != null) return found[0];
 		} else if ("rar".equals(ext)) {
-			try (Archive archive = new Archive(srcPath.toFile())) {
-				for (FileHeader fileHeader : archive.getFileHeaders()) {
-					String rarEntryName = fileHeader.getFileName().replace('\\', '/');
-					if (rarEntryName.equals(entryName)) {
-						ByteArrayOutputStream baos = new ByteArrayOutputStream();
-						archive.extractFile(fileHeader, baos);
-						baos.close();
-						try (InputStream is = new ByteArrayInputStream(baos.toByteArray())) {
-							return ImageInfo.getImageInfo(is);
-						}
-					}
-				}
-			}
+			//たてがき帖: RAR は読まない（core/ORIGIN.md）
+			throw new IOException("RAR archives are not supported (the UnRAR licence is not GPL-compatible)");
 		}
 		return null;
 	}
@@ -390,8 +366,8 @@ public class ImageInfoReader
 	}
 	
 	/** 指定した順番の画像情報を取得 
-	 * @throws RarException */
-	public BufferedImage getImage(int idx) throws IOException, RarException
+	 */
+	public BufferedImage getImage(int idx) throws IOException
 	{
 		return this.getImage(this.imageFileNames.get(idx));
 	}
@@ -402,8 +378,8 @@ public class ImageInfoReader
 	 * ファイルシステムまたはZipファイルから指定されたファイル名の画像を取得
 	 * @param srcImageFileName ファイル名 Zipならエントリ名
 	 * ※先頭からシークされるので遅い? 
-	 * @throws RarException */
-	public BufferedImage getImage(String srcImageFileName) throws IOException, RarException
+	 */
+	public BufferedImage getImage(String srcImageFileName) throws IOException
 	{
 		if (this.isFile) {
 			Path file = Path.of(this.srcParentPath+srcImageFileName);
@@ -421,26 +397,8 @@ public class ImageInfoReader
 			} finally { bis.close(); }
 		} else {
 			if (this.srcPath.getFileName().toString().endsWith(".rar")) {
-				InputStream is = null;
-				Archive archive = new Archive(this.srcPath.toFile());
-				try {
-				FileHeader fileHeader = archive.nextFileHeader();
-				while (fileHeader != null) {
-					if (!fileHeader.isDirectory()) {
-						String entryName = fileHeader.getFileName();
-						entryName = entryName.replace('\\', '/');
-						if (srcImageFileName.equals(entryName)) {
-							is = archive.getInputStream(fileHeader);
-							return ImageUtils.readImage(srcImageFileName.substring(srcImageFileName.lastIndexOf('.')+1).toLowerCase(), is);
-						}
-					}
-					fileHeader = archive.nextFileHeader();
-				}
-				} finally {
-					if (is != null) is.close();
-					archive.close();
-				}
-
+				//たてがき帖: RAR は読まない（core/ORIGIN.md）
+				throw new IOException("RAR archives are not supported (the UnRAR licence is not GPL-compatible)");
 			} else {
 				//目次から開く（ほかの項目は展開しない。internal #36）。名前の大文字小文字は見ない（前と同じ）
 				boolean[] found = new boolean[1];
@@ -452,6 +410,5 @@ public class ImageInfoReader
 				return readZipImage(corrected, "ZIP 内画像の読み込みに失敗（拡張子訂正後）: {}", found);
 			}
 		}
-		return null;
 	}
 }

@@ -34,3 +34,15 @@ Measured with R8 against android.jar (2026-10-24): only six classes reference AP
    implements it (the progress-bar code moved there from the converter). The reader's
    `jp.harusame.aozorareader.core.XhtmlSections` implements it to receive XHTML per section.
 3. **log** — not cut yet (`util.LogAppender` reaches Swing); to be handled when it fails on a device.
+
+## RAR removed (2026-10-26)
+
+junrar is not a dependency here: the UnRAR licence forbids using its code to build a RAR-compatible
+archiver, a further restriction GPLv3 does not allow (§7, §10). The app never opens an archive, so
+the RAR branches were taken out rather than kept behind a flag. Each now throws an `IOException`
+("RAR archives are not supported …") where it read a RAR file:
+
+- `io.ArchiveCache.scan`, `image.ImageInfoReader.readImageInfoFromArchive` and `getImage`,
+  `writer.Epub3ImageWriter.writeSections`, `writer.Epub3Writer` (the archive image copy);
+- removed outright: `io.ArchiveScanner.scanRar`, `io.ArchiveTextExtractor.countRarText`,
+  `image.ImageInfoReader.loadRarImageInfos`, and `RarException` from every `throws` and `catch`.

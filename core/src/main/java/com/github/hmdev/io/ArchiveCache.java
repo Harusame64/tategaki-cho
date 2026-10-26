@@ -10,7 +10,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.github.junrar.exception.RarException;
 
 /**
  * Caches archive contents to avoid multiple file scans.
@@ -32,7 +31,7 @@ public class ArchiveCache {
 		this.ext = ext;
 	}
 
-	public synchronized void scan() throws IOException, RarException {
+	public synchronized void scan() throws IOException {
 		if (scanned) return;
 
 		textEntries = new ArrayList<>();
@@ -42,19 +41,20 @@ public class ArchiveCache {
 		if ("zip".equals(ext) || "txtz".equals(ext)) {
 			ArchiveScanner.scanZip(archivePath, textEntries, imageEntries, skippedTexts);
 		} else if ("rar".equals(ext)) {
-			ArchiveScanner.scanRar(archivePath, textEntries, imageEntries, skippedTexts);
+			//たてがき帖: RAR は読まない（UnRAR のライセンスは GPL と両立しない。core/ORIGIN.md）
+			throw new IOException("RAR archives are not supported (the UnRAR licence is not GPL-compatible)");
 		}
 		
 		textFileCount = textEntries.size();
 		scanned = true;
 	}
 	
-	public int getTextFileCount() throws IOException, RarException {
+	public int getTextFileCount() throws IOException {
 		if (!scanned) scan();
 		return textFileCount;
 	}
 	
-	public InputStream getTextInputStream(int txtIdx, String[] textEntryNameOut) throws IOException, RarException {
+	public InputStream getTextInputStream(int txtIdx, String[] textEntryNameOut) throws IOException {
 		if (!scanned) scan();
 		
 		if (txtIdx < 0 || txtIdx >= textEntries.size()) {
@@ -69,18 +69,18 @@ public class ArchiveCache {
 		return new ByteArrayInputStream(entry.content);
 	}
 	
-	public List<String> getImageEntries() throws IOException, RarException {
+	public List<String> getImageEntries() throws IOException {
 		if (!scanned) scan();
 		return new ArrayList<>(imageEntries);
 	}
 	
 	/** 読めずに飛ばしたテキストの「名前 (理由)」 */
-	public List<String> getSkippedTexts() throws IOException, RarException {
+	public List<String> getSkippedTexts() throws IOException {
 		if (!scanned) scan();
 		return new ArrayList<>(skippedTexts);
 	}
 
-	public String getTextEntryName(int txtIdx) throws IOException, RarException {
+	public String getTextEntryName(int txtIdx) throws IOException {
 		if (!scanned) scan();
 		if (txtIdx < 0 || txtIdx >= textEntries.size()) return null;
 		return textEntries.get(txtIdx).name;
