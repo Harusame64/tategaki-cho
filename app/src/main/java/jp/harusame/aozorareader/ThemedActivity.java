@@ -83,6 +83,15 @@ abstract class ThemedActivity extends Activity {
         return d;
     }
 
+    /** The widest a screen's content gets: on a tablet, rows the full width of the screen are hard to read. */
+    static final int CONTENT_MAX_DP = 720;
+
+    /** The side padding that keeps content at most CONTENT_MAX_DP wide and centred, and at least `min` dp. */
+    int sidePad(int min) {
+        int w = getResources().getDisplayMetrics().widthPixels;
+        return Math.max(dp(min), (w - dp(CONTENT_MAX_DP)) / 2);
+    }
+
     /** Android's smallest comfortable touch target (A11yTest checks it). */
     static final int TOUCH_DP = 48;
 

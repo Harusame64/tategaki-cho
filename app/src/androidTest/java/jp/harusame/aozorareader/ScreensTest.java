@@ -1,0 +1,89 @@
+package jp.harusame.aozorareader;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.os.SystemClock;
+import androidx.test.core.app.ActivityScenario;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@RunWith(AndroidJUnit4.class)
+/**
+ * Not part of the E2E run: walks every screen in a light and a dark theme, logging "SHOT <theme>_<screen>" when each is
+ * ready, for tools/screen-matrix.sh to capture (docs/release.md, "Screens on many devices"). Runs only when asked for
+ * with -e screens 1.
+ */
+public class ScreensTest {
+    static void mark(String n) { android.util.Log.i("SHOT", n); SystemClock.sleep(3500); }
+
+    String tocPage(int... nos) {
+        StringBuilder b = new StringBuilder("<div class=\"p-eplist\"><div class=\"p-eplist__chapter-title\">第一章</div>");
+        for (int n : nos) b.append("<div class=\"p-eplist__sublist\"><a href=\"/").append(E2E.NCODE).append("/").append(n)
+                .append("/\" class=\"p-eplist__subtitle\">第").append(n).append("話　試験</a></div>");
+        return b.append("</div>").toString();
+    }
+
+    @Test
+    public void shots() throws Exception {
+        org.junit.Assume.assumeTrue("only with -e screens 1",
+                "1".equals(androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("screens")));
+        String only = androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("themes", "kinari,dark");
+        for (String t : only.split(",")) {
+            E2E.reset();
+            E2E.ctx().getSharedPreferences("reader", 0).edit().putString("display", "{\"guided\":true,\"theme\":\"" + t + "\"}").commit();
+            E2E.seedNarou(3, 30);
+            Guide.add(E2E.ctx());
+            Shelf.update(E2E.ctx(), s -> { Shelf.Work w = s.find(E2E.NCODE); w.episodes = 5; w.seen = 3; w.lastEpisode = 2; w.lastRead = System.currentTimeMillis(); w.tags.add("読んでる"); });
+            E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", tocPage(1, 2, 3, 4, 5).getBytes(StandardCharsets.UTF_8));
+            ActivityScenario<ShelfActivity> sh = ActivityScenario.launch(new Intent(E2E.ctx(), ShelfActivity.class));
+            mark(t + "_shelf");
+            sh.close();
+            ActivityScenario<SearchActivity> se = ActivityScenario.launch(new Intent(E2E.ctx(), SearchActivity.class));
+            mark(t + "_search");
+            se.close();
+            ActivityScenario<AozoraActivity> ao = ActivityScenario.launch(new Intent(E2E.ctx(), AozoraActivity.class));
+            mark(t + "_aozora");
+            ao.close();
+            ActivityScenario<ReaderActivity> r = ActivityScenario.launch(new Intent(E2E.ctx(), ReaderActivity.class)
+                    .putExtra("url", Shelf.episodeUrl(Guide.KEY, 5)).putExtra("page", 0));
+            AtomicReference<Activity> a = new AtomicReference<>();
+            r.onActivity(a::set);
+            E2E.waitReady(a.get());
+            mark(t + "_page");
+            r.close();
+            r = ActivityScenario.launch(new Intent(E2E.ctx(), ReaderActivity.class).putExtra("url", Shelf.episodeUrl(E2E.NCODE, 2)).putExtra("page", 0));
+            r.onActivity(a::set);
+            E2E.waitReady(a.get());
+            E2E.tapMiddle(); SystemClock.sleep(600);
+            mark(t + "_bars");
+            E2E.js(a.get(), "document.getElementById('workb').click()");
+            mark(t + "_work");
+            E2E.js(a.get(), "document.getElementById('dispb').click()");
+            mark(t + "_aa");
+            E2E.js(a.get(), "document.querySelector('#info .sheet.d').scrollTop=9999");
+            mark(t + "_aa2");
+            E2E.js(a.get(), "document.getElementById('dispb').click();document.getElementById('tocb').click()");
+            SystemClock.sleep(1500);
+            mark(t + "_toc");
+            r.close();
+            ActivityScenario<LogActivity> l = ActivityScenario.launch(new Intent(E2E.ctx(), LogActivity.class));
+            mark(t + "_log");
+            l.close();
+        }
+        // BIZ UD明朝 on the page (the bundled font)
+        E2E.reset();
+        E2E.ctx().getSharedPreferences("reader", 0).edit().putString("display", "{\"guided\":true,\"font\":\"bizud\"}").commit();
+        Guide.add(E2E.ctx());
+        ActivityScenario<ReaderActivity> r = ActivityScenario.launch(new Intent(E2E.ctx(), ReaderActivity.class)
+                .putExtra("url", Shelf.episodeUrl(Guide.KEY, 5)).putExtra("page", 0));
+        AtomicReference<Activity> a = new AtomicReference<>();
+        r.onActivity(a::set);
+        E2E.waitReady(a.get());
+        android.util.Log.i("SHOT", "font=" + E2E.js(a.get(), "document.fonts.check('16px \"BIZ UDMincho\"')+' '+[...document.fonts].filter(f=>f.family.indexOf('BIZ')>=0).map(f=>f.status).join(',')"));
+        mark("bizud_page");
+        r.close();
+    }
+}

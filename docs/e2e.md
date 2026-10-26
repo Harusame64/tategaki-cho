@@ -76,6 +76,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | Y1 | Google's accessibility checks (touch targets, contrast, labels) find no error on the shelf, read log, 青空文庫, search and licence screens, in a light and a dark theme | nativeScreensPassTheChecks (A11yTest) |
 | Y2 | In the reader's bars, 作品 and Aa sheets, 目次 and end card, every button and link is at least 48 × 48 px (the WebView, which Y1's checks do not see into) | readerTouchTargetsAreFullSize (A11yTest) |
 | Y3 | A pill button (shelf tags; search and 青空文庫 share it) keeps 16dp at each side and 48dp of height | aPillKeepsRoomAtItsSides (A11yTest) |
+| — | ScreensTest: not a check; it walks every screen for tools/screen-matrix.sh and is skipped unless run with `-e screens 1` (docs/release.md) | ScreensTest |
 | T1 | The read log, opened from the shelf's ⋮, has no tabs; its back arrow returns to the shelf | theBackArrowLeavesTheReadLog |
 | T2 | The read log sums up the month (days, works, episodes; the guide book left out), leads on to the year with its months and works, and Back returns to the month | theMonthSummaryLeadsToTheYearAndBack |
 | L1 | Every text the licence screen lists is in the APK: the GPL notice, the GPL, the notices and each licence file they name | everyListedTextIsInTheApk (LicenceTest) |

@@ -45,7 +45,7 @@ public class LogActivity extends ThemedActivity {
         ScrollView sv = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(16), dp(8), dp(16), dp(16));
+        root.setPadding(sidePad(16), dp(8), sidePad(16), dp(16));
         // ← 読書の記録: reached from the shelf's ⋮, so it goes back there rather than showing the tabs.
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
@@ -74,7 +74,9 @@ public class LogActivity extends ThemedActivity {
         root.addView(nav);
         grid = new GridLayout(this);
         grid.setColumnCount(7);
-        root.addView(grid, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        glp.gravity = Gravity.CENTER_HORIZONTAL;                    // the days are capped in size, so a wide screen centres them
+        root.addView(grid, glp);
         legend = legend();
         root.addView(legend, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         summary = new LinearLayout(this);
@@ -144,7 +146,9 @@ public class LogActivity extends ThemedActivity {
     void render(YearMonth m, Map<Integer, Integer> pages, List<ReadLog.Entry> day) {
         grid.removeAllViews();
         grid.setColumnCount(7);                                      // the year view leaves it at 4
-        int cell = (getResources().getDisplayMetrics().widthPixels - dp(32)) / 7;
+        // As wide as the content allows, but a day no larger than a fingertip needs: on a tablet a seventh of the width
+        // made circles 170dp across and pushed the summary off the screen.
+        int cell = Math.min((getResources().getDisplayMetrics().widthPixels - 2 * sidePad(16)) / 7, dp(56));
         String[] names = {"日", "月", "火", "水", "木", "金", "土"};
         for (String n : names) grid.addView(cell(n, sub, 0, cell, false));
         int lead = m.atDay(1).getDayOfWeek().getValue() % 7;          // Sunday first
@@ -207,7 +211,7 @@ public class LogActivity extends ThemedActivity {
     void renderYear(int y, ReadLog.Summary[] months, ReadLog.Summary all) {
         grid.removeAllViews();
         grid.setColumnCount(4);
-        int w = (getResources().getDisplayMetrics().widthPixels - dp(32)) / 4;
+        int w = (getResources().getDisplayMetrics().widthPixels - 2 * sidePad(16)) / 4;
         YearMonth now = YearMonth.now();
         for (int i = 0; i < 12; i++) {
             YearMonth m = YearMonth.of(y, i + 1);

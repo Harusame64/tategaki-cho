@@ -648,16 +648,19 @@ span.sesame{text-emphasis-position:over right}
 #info .note{margin-top:10px;font-size:12px;color:var(--sub)}
 #info .disp{margin:0}
 #info .row{display:flex;align-items:center;gap:10px;margin:6px 0}
-#info .row .k{width:4em;color:var(--sub);font-size:13px}
+/* The label never breaks (上下余白 at a large system font size broke into two lines); the buttons wrap beside it. */
+#info .row .k{flex:0 0 auto;min-width:4.5em;white-space:nowrap;color:var(--sub);font-size:13px}
 /* Buttons are 48px high, Android's smallest comfortable touch target; their edge is 3:1 on the card. */
+/* At least 48px high, and as high as the text needs: a fixed height let a wrapped label spill out of its button. The
+   text itself does not wrap; a row's buttons wrap instead (.opts). */
 #info button{font:15px sans-serif;border:1px solid var(--edge);border-radius:6px;background:transparent;color:var(--fg);
-  min-width:48px;height:48px;padding:0 10px}
+  min-width:48px;min-height:48px;padding:4px 10px;white-space:nowrap}
 #info .topbar button{border-color:transparent}
-#info .sw{flex:0 1 48px;width:48px;height:48px;border-radius:50%;padding:0;min-width:0}
+#info .sw{flex:0 0 48px;width:48px;height:48px;border-radius:50%;padding:0;min-width:0}
 #info .sw.on{outline:3px solid var(--link);outline-offset:2px}
 #info .fsv{min-width:3em;text-align:center}
 #info .lk{border-color:transparent;color:var(--link);padding:0}
-#info .opts{flex:1;display:flex;flex-wrap:wrap;gap:8px}
+#info .opts{flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 #info .bar{margin:0}
 /* The position slider in the theme's colours: the read part in the link colour, the rest a rule. */
 #info .bar input{flex:1;height:48px;margin:0;background:transparent;-webkit-appearance:none;appearance:none}
@@ -827,21 +830,21 @@ span.sesame{text-emphasis-position:over right}
     r.setProperty('--ff',FONTS[prefs.font].f);
   }
   function save(){if(window.Android)Android.savePrefs(JSON.stringify(prefs));}
-  h+='<div class="sheet d"><div class="disp"><div class="row"><span class="k">背景</span>'
+  h+='<div class="sheet d"><div class="disp"><div class="row"><span class="k">背景</span><div class="opts">'
     +THEME_ORDER.map(function(k){return '<button class="sw" data-theme="'+k+'" style="background:'+THEMES[k].bg+'"></button>';}).join('')
-    +'</div><div class="row fonts"><span class="k">書体</span><div class="opts">'
+    +'</div></div><div class="row fonts"><span class="k">書体</span><div class="opts">'
     +FONT_ORDER.map(function(k){return '<button class="ft" data-font="'+k+'" style="font-family:'+FONTS[k].f.replace(/"/g,"&quot;")+'">'+FONTS[k].n+'</button>';}).join('')
-    +'</div></div><div class="row web"><span class="k">空行</span><button class="pk" data-pack="1">詰める</button><button class="pk" data-pack="0">原文のまま</button>'
-    +'</div><div class="row web"><span class="k">字下げ</span><button class="ik" data-indent="1">付ける</button><button class="ik" data-indent="0">原文のまま</button>'
-    +'</div><div class="row"><span class="k">文字</span><button data-fs="-1">A−</button><span class="fsv"></span><button data-fs="1">A＋</button></div>'
-    +'<div class="row"><span class="k">行間</span>'+LHS.map(function(v){return '<button class="lh" data-lh="'+v+'">'+v.toFixed(1)+'</button>';}).join('')+'</div>'
-    +'<div class="row"><span class="k">上下余白</span>'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="my" data-my="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div>'
-    +'<div class="row"><span class="k">左右余白</span>'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="mx" data-mx="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div>'
+    +'</div></div><div class="row web"><span class="k">空行</span><div class="opts"><button class="pk" data-pack="1">詰める</button><button class="pk" data-pack="0">原文のまま</button></div>'
+    +'</div><div class="row web"><span class="k">字下げ</span><div class="opts"><button class="ik" data-indent="1">付ける</button><button class="ik" data-indent="0">原文のまま</button></div>'
+    +'</div><div class="row"><span class="k">文字</span><div class="opts"><button data-fs="-1">A−</button><span class="fsv"></span><button data-fs="1">A＋</button></div></div>'
+    +'<div class="row"><span class="k">行間</span><div class="opts">'+LHS.map(function(v){return '<button class="lh" data-lh="'+v+'">'+v.toFixed(1)+'</button>';}).join('')+'</div></div>'
+    +'<div class="row"><span class="k">上下余白</span><div class="opts">'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="my" data-my="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div></div>'
+    +'<div class="row"><span class="k">左右余白</span><div class="opts">'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="mx" data-mx="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">触る場所</span><button class="lk" data-guide="1">説明を見る</button></div>'
     +'<div class="row"><span class="k">先読み</span><div class="opts">'
     +AHEAD.map(function(n){return '<button class="ah" data-ahead="'+n+'">'+n+'話</button>';}).join('')+'</div></div>'
-    +'<div class="row"><span class="k">時計</span><button class="bk" data-bar="1">時刻・通知を出す</button><button class="bk" data-bar="0">隠す</button></div>'
-    +'<div class="row"><span class="k">音量キー</span><button class="vk" data-vol="1">ページをめくる</button><button class="vk" data-vol="0">使わない</button></div></div></div>';
+    +'<div class="row"><span class="k">時計</span><div class="opts"><button class="bk" data-bar="1">時刻・通知を出す</button><button class="bk" data-bar="0">隠す</button></div></div>'
+    +'<div class="row"><span class="k">音量キー</span><div class="opts"><button class="vk" data-vol="1">ページをめくる</button><button class="vk" data-vol="0">使わない</button></div></div></div></div>';
   // As in Kindle, a tap in the middle shows only the bars: the work and its buttons on top, the page bar
   // below. The settings (Aa) and the work's links each open from their button, never from that tap.
   h='<div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'

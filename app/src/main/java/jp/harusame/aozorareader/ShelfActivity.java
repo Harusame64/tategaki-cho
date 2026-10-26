@@ -57,8 +57,8 @@ public class ShelfActivity extends ThemedActivity {
         sv.setBackgroundColor(bg);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        root.setPadding(pad, dp(20), pad, pad);
+        int pad = sidePad(18);
+        root.setPadding(pad, dp(20), pad, dp(18));
         sort = getSharedPreferences("reader", MODE_PRIVATE).getInt("shelfSort", 0);
         Guide.ensure(this);                                                 // the bundled book, on a new shelf
         // 本棚 ……… ⟳ ＋

@@ -38,7 +38,7 @@ public class LicenceActivity extends ThemedActivity {
         ScrollView sv = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(16), dp(8), dp(16), dp(24));
+        root.setPadding(sidePad(16), dp(8), sidePad(16), dp(24));
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
         android.widget.ImageView back = icon(R.drawable.ic_back, "戻る");

@@ -63,8 +63,8 @@ public class SearchActivity extends ThemedActivity {
         sv.setBackgroundColor(bg);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(16);
-        root.setPadding(pad, dp(16), pad, pad);
+        int pad = sidePad(16);
+        root.setPadding(pad, dp(16), pad, dp(16));
         TextView h = text("作品を探す", 22, fg);
         h.setTypeface(Typeface.DEFAULT_BOLD);
         root.addView(h);

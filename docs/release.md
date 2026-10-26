@@ -51,6 +51,29 @@ apksigner verify --print-certs app-public-release.apk     # signed, with the rel
 aapt2 dump badging app-public-release.apk                 # versionCode / versionName
 ```
 
+## Screens on many devices
+
+Before a release that changes anything on screen, look at every screen at the sizes of the phones and tablets most
+sold in Japan (BCN rankings, 2026: moto g, arrows We, Pixel 10a/11, Galaxy S26 and A25, AQUOS wish/sense; tablets
+1920x1200 such as Galaxy Tab A11+ and LAVIE Tab Lite):
+
+```
+./gradlew :app:installPublicE2e :app:installPublicE2eAndroidTest
+ANDROID_SERIAL=emulator-5554 tools/screen-matrix.sh <out dir>      # kinari; add "kinari,dark" for both
+```
+
+Profiles: 360dp, 384dp and 411dp wide phones, the two narrow ones again at a 1.3x system font, and a tablet portrait
+(800dp) and landscape (1280dp). Look for text cut off or spilling out of its button, labels breaking mid-word, and
+anything oversized on a tablet. (Shipping 0.1.1 without this: buttons broke at 360dp with a 1.3x font, and the read
+log's calendar filled a tablet.)
+
+The emulator has Google's fonts only. A phone maker's own font (a Galaxy's, a changed system font) can be wider and
+show what the emulator hides: 0.1.1's pill buttons had lost their side padding, which only the user's Galaxy A25
+showed. With the user's agreement, install the E2E build on the A25 the same way (`ANDROID_SERIAL=<its serial>`), take
+the screens (`-e themes kinari,dark` runs both), then remove it:
+`adb uninstall jp.harusame.tategakicho.e2e.test; adb uninstall jp.harusame.tategakicho.e2e`. The user's own install
+and shelf are a different app and are not touched.
+
 ## Versions
 
 `versionName` is the release (`0.1.0`), and the tag is `v` + `versionName`. `versionCode` goes up by
