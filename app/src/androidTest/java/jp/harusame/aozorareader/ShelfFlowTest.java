@@ -82,6 +82,45 @@ public class ShelfFlowTest {
         assertEquals(Arrays.asList("https://ncode.syosetu.com/" + E2E.NCODE + "/"), Net.asked);
     }
 
+    /** The 目次's chapters: a band that stays at the top of the list, with only the episodes under a band a step in;
+     * episodes before the first chapter, and a work without chapters, are not indented. */
+    @Test
+    public void theTocIndentsOnlyEpisodesUnderAChapter() throws Exception {
+        E2E.seedNarou(3, 20);
+        String eps = "";
+        for (int n = 1; n <= 4; n++) {
+            if (n == 3) eps += "<div class=\"p-eplist__chapter-title\">第一章</div>";
+            eps += "<div class=\"p-eplist__sublist\"><a href=\"/" + E2E.NCODE + "/" + n + "/\" class=\"p-eplist__subtitle\">第" + n + "話　試験</a></div>";
+        }
+        E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", ("<div class=\"p-eplist\">" + eps + "</div>").getBytes(StandardCharsets.UTF_8));
+        scenario = ActivityScenario.launch(new Intent(E2E.ctx(), ReaderActivity.class)
+                .putExtra("url", Shelf.episodeUrl(E2E.NCODE, 1)).putExtra("page", 0));
+        Activity a = resumed(ReaderActivity.class);
+        E2E.waitReady(a);
+        E2E.js(a, "document.getElementById('tocb').click()");
+        E2E.waitFor(a, "document.querySelectorAll('#toc .ep').length", "4");
+        assertEquals("\"3,4\"", E2E.js(a, "Array.from(document.querySelectorAll('#toc .ep.in')).map(function(e){return e.dataset.n}).join()"));
+        assertEquals("\"sticky\"", E2E.js(a, "getComputedStyle(document.querySelector('#toc .ch')).position"));
+        assertEquals("true", E2E.js(a, "parseFloat(getComputedStyle(document.querySelector('#toc .ep.in')).paddingLeft)"
+                + ">parseFloat(getComputedStyle(document.querySelector('#toc .ep:not(.in)')).paddingLeft)"));
+    }
+
+    @Test
+    public void aTocWithoutChaptersIsNotIndented() throws Exception {
+        E2E.seedNarou(3, 20);
+        String eps = "";
+        for (int n = 1; n <= 3; n++)
+            eps += "<div class=\"p-eplist__sublist\"><a href=\"/" + E2E.NCODE + "/" + n + "/\" class=\"p-eplist__subtitle\">第" + n + "話　試験</a></div>";
+        E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", ("<div class=\"p-eplist\">" + eps + "</div>").getBytes(StandardCharsets.UTF_8));
+        scenario = ActivityScenario.launch(new Intent(E2E.ctx(), ReaderActivity.class)
+                .putExtra("url", Shelf.episodeUrl(E2E.NCODE, 1)).putExtra("page", 0));
+        Activity a = resumed(ReaderActivity.class);
+        E2E.waitReady(a);
+        E2E.js(a, "document.getElementById('tocb').click()");
+        E2E.waitFor(a, "document.querySelectorAll('#toc .ep').length", "3");
+        assertEquals("0", E2E.js(a, "document.querySelectorAll('#toc .ch,#toc .ep.in').length"));
+    }
+
     /** R17: the 目次 marks the episodes kept in the app and counts them. */
     @Test
     public void theTocMarksKeptEpisodes() throws Exception {
