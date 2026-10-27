@@ -40,6 +40,9 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | | Scenario | Test |
 |---|---|---|
 | R10 | The 目次 is read from the work's page once, marks the current episode, and a jump opens that episode | theTocJumpsToAnEpisode |
+| R10b | Chapters are boxes: a band, then its episodes a step in; episodes before the first chapter are not indented; scrolled into a chapter, only its band is at the top | theTocShowsChaptersAsBandsThatStayAtTheTop |
+| R10c | A work without chapters lists its episodes flat | aTocWithoutChaptersIsNotIndented |
+| R10d | A chapter whose heading ends one 目次 page and whose episodes begin the next is one box | aChapterAcrossTwoTocPagesStaysOneBox |
 | S1 | A shared なろう episode URL adds the work (one API request) and opens that episode; the shelf made again does not add it twice or move the place | aSharedEpisodeIsAddedAndOpened |
 | S4 | Removing a work deletes everything kept for it | removingAWorkDeletesWhatIsKept |
 | P1 | Read-ahead asks for the next episodes only, in order and spaced out; nothing for a work taken off the shelf | readAheadAsksForTheNextEpisodesOnly |
@@ -82,6 +85,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | L1 | Every text the licence screen lists is in the APK: the GPL notice, the GPL, the notices and each licence file they name | everyListedTextIsInTheApk (LicenceTest) |
 | L2 | From the shelf's ⋮, ライセンス lists the texts and the source; a text opens in full; Back returns to the list, then to the shelf | theShelfMenuOpensTheLicencesAndBackReturns (LicenceTest) |
 | K1 | カクヨム: an episode inserted before the one read; "next" opens the one after it, and the place follows | nextAfterAnInsertBefore (KakuyomuTest) |
+| K1b | カクヨム: a section with no chapter after 第一章 is not filed under it in the 目次 | aSectionWithNoChapterIsNotUnderTheOneBefore |
 | K2 | カクヨム: the list changes while the 目次 is open; the episode tapped is the one opened | aTocJumpAfterTheListChanged |
 | K3 | カクヨム: the episode read is deleted; "next" opens the one that followed it | nextAfterTheEpisodeReadIsDeleted |
 | K4 | カクヨム: an episode inserted before the place; opened from the shelf, the same episode comes back (第3話 now) | reopenedAfterAnInsertBefore |

@@ -124,6 +124,32 @@ public class KakuyomuTest {
         E2E.waitUntil(() -> Shelf.load(E2E.ctx()).find(KEY).lastEpisode == 4, "the place is episode 4 (C) of the new list");
     }
 
+    /** A work page whose 目次 has 第一章 (A, B), then a section with no chapter (C). */
+    static String sectionedWorkPage() {
+        String p = workPage(A, B, C);
+        return p.replace("\"tableOfContentsV2\":[{\"__ref\":\"TableOfContentsChapter:1\"}]",
+                        "\"tableOfContentsV2\":[{\"__ref\":\"TableOfContentsChapter:1\"},{\"__ref\":\"TableOfContentsChapter:2\"}]")
+                .replace("\"TableOfContentsChapter:1\":{\"episodeUnions\":[{\"__ref\":\"Episode:" + A + "\"},{\"__ref\":\"Episode:" + B + "\"},{\"__ref\":\"Episode:" + C + "\"}]}",
+                        "\"TableOfContentsChapter:1\":{\"chapter\":{\"__ref\":\"Chapter:1\"},\"episodeUnions\":[{\"__ref\":\"Episode:" + A + "\"},{\"__ref\":\"Episode:" + B + "\"}]},"
+                        + "\"Chapter:1\":{\"title\":\"第一章\"},"
+                        + "\"TableOfContentsChapter:2\":{\"chapter\":null,\"episodeUnions\":[{\"__ref\":\"Episode:" + C + "\"}]}");
+    }
+
+    /** K1b: in the 目次, a section with no chapter after 第一章 is not filed under it (not in its box, not indented). */
+    @Test
+    public void aSectionWithNoChapterIsNotUnderTheOneBefore() throws Exception {
+        addAt(A);
+        E2E.net.put(KakuyomuSite.workPage(WORK), sectionedWorkPage().getBytes(StandardCharsets.UTF_8));
+        KakuyomuSite.save(E2E.ctx(), KEY, KakuyomuWork.fromPage(sectionedWorkPage()));
+        Activity a = openFromShelf();
+        showing(a, "A");
+        E2E.js(a, "document.getElementById('tocb').click()");
+        E2E.waitFor(a, "document.querySelectorAll('#toc .ep').length", "3");
+        assertEquals("\"第一章:題A,題B\"", E2E.js(a, "Array.from(document.querySelectorAll('#toc .sec')).map(function(s){"
+                + "return s.querySelector('.ch').textContent+':'+Array.from(s.querySelectorAll('.ep')).map(function(e){return e.textContent}).join()}).join('|')"));
+        assertEquals("\"題C\"", E2E.js(a, "Array.from(document.querySelectorAll('#toc .ls>.ep')).map(function(e){return e.textContent}).join()"));
+    }
+
     /** K2: the list changes while the 目次 is open; the episode tapped is the one opened. */
     @Test
     public void aTocJumpAfterTheListChanged() throws Exception {

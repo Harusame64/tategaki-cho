@@ -898,17 +898,21 @@ public class ReaderActivity extends Activity {
         } catch (Exception e) {
             Log.w(TAG, "toc cache", e);
         }
-        tocPage(gen, ncode, 1, new JSONArray(), f);
+        tocPage(gen, ncode, 1, new JSONArray(), f, null);
     }
 
-    void tocPage(int gen, String ncode, int page, JSONArray entries, File f) {
+    /** carry: a chapter heading left at the end of the page before, which opens this page's first episode */
+    void tocPage(int gen, String ncode, int page, JSONArray entries, File f, String carry) {
         if (gen != tocGen) return;
         try {
             String url = "https://ncode.syosetu.com/" + ncode + "/" + (page > 1 ? "?p=" + page : "");
             Toc t = Toc.fromNarou(fetch(url), url);
+            String pending = carry;
             for (Toc.Entry e : t.entries) {
                 JSONObject o = new JSONObject();
-                if (e.chapter != null) o.put("c", e.chapter);
+                String chapter = e.chapter != null ? e.chapter : pending;
+                pending = null;
+                if (chapter != null) o.put("c", chapter);
                 o.put("n", e.no);
                 o.put("t", e.title);
                 entries.put(o);
@@ -929,7 +933,9 @@ public class ReaderActivity extends Activity {
                 }
             }
             deliverToc(out.toString());
-            if (!done) later(work, () -> tocPage(gen, ncode, page + 1, entries, f), TOC_PAGE_DELAY_MS, TimeUnit.MILLISECONDS);
+            // A page with no episode passes the heading on, along with any left at its own end.
+            String next = t.trailingChapter != null ? t.trailingChapter : pending;
+            if (!done) later(work, () -> tocPage(gen, ncode, page + 1, entries, f, next), TOC_PAGE_DELAY_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             Log.w(TAG, "toc page " + page, e);
             deliverToc("{\"error\":true}");

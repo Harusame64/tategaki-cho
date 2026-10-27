@@ -18,7 +18,8 @@ public final class KakuyomuWork {
 	public static final class Episode {
 		public final String id;
 		public final String title;
-		/** the chapter this episode opens, or null when it continues the one before */
+		/** the chapter this episode opens; "" when it opens a section with no chapter (the one before ends here);
+		 * or null when it continues the one before */
 		public final String chapter;
 
 		Episode(String id, String title, String chapter) {
@@ -76,7 +77,8 @@ public final class KakuyomuWork {
 				JSONObject ch = deref(state, toc.optJSONObject(i));
 				if (ch == null) continue;
 				JSONObject chapter = deref(state, ch.optJSONObject("chapter"));
-				String heading = chapter == null ? null : chapter.optString("title", null);
+				// A section with no chapter still ends the chapter before it: its first episode says so with "".
+				String heading = chapter == null ? "" : chapter.optString("title", "");
 				JSONArray us = ch.optJSONArray("episodeUnions");
 				if (us == null) continue;
 				for (int j = 0; j < us.length(); j++) {

@@ -31,10 +31,13 @@ public final class Toc {
 	public final List<Entry> entries;
 	/** pages of the 目次 (1 when it has no pager) */
 	public final int pages;
+	/** a chapter heading after the page's last episode, which opens the first episode of the next page; or null */
+	public final String trailingChapter;
 
-	private Toc(List<Entry> entries, int pages) {
+	private Toc(List<Entry> entries, int pages, String trailingChapter) {
 		this.entries = Collections.unmodifiableList(entries);
 		this.pages = pages;
+		this.trailingChapter = trailingChapter;
 	}
 
 	private static final Pattern EPISODE = Pattern.compile("/n\\w+/(\\d+)/?$");
@@ -44,8 +47,8 @@ public final class Toc {
 		Document doc = Jsoup.parse(html, url);
 		List<Entry> out = new ArrayList<>();
 		Element list = doc.selectFirst(".p-eplist");
+		String chapter = null;
 		if (list != null) {
-			String chapter = null;
 			for (Element e : list.children()) {
 				if (e.hasClass("p-eplist__chapter-title")) {
 					chapter = e.text().trim();
@@ -64,6 +67,6 @@ public final class Toc {
 			Matcher m = PAGE.matcher(a.attr("href"));
 			if (m.find()) pages = Math.max(pages, Integer.parseInt(m.group(1)));
 		}
-		return new Toc(out, pages);
+		return new Toc(out, pages, chapter);
 	}
 }

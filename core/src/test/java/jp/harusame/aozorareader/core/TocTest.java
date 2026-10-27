@@ -35,6 +35,16 @@ class TocTest {
     }
 
     @Test
+    void aChapterHeadingAfterThePagesLastEpisodeIsHandedOn() {
+        // 目次 pages hold 100 episodes: a chapter can begin right at the end of one, its episodes on the next.
+        Toc t = Toc.fromNarou("<div class=\"p-eplist\">" + sub(100, "第百話")
+                + "<div class=\"p-eplist__chapter-title\">第五章</div>\n</div>", URL);
+        assertEquals(1, t.entries.size());
+        assertEquals("第五章", t.trailingChapter);
+        assertNull(Toc.fromNarou("<div class=\"p-eplist\"><div class=\"p-eplist__chapter-title\">第五章</div>" + sub(101, "第百一話") + "</div>", URL).trailingChapter);
+    }
+
+    @Test
     void aTocWithoutAPagerHasOnePage() {
         Toc t = Toc.fromNarou("<div class=\"p-eplist\">" + sub(1, "第一話") + "</div>", URL);
         assertEquals(1, t.pages);

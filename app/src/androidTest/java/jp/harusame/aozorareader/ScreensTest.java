@@ -75,7 +75,7 @@ public class ScreensTest {
             SystemClock.sleep(1500);
             mark(t + "_toc");
             // Scrolled into the second chapter: its band, not the first one's, stays at the top of the list
-            E2E.js(a.get(), "var l=document.querySelector('#toc .ls');l.scrollTop=l.querySelectorAll('.ch')[1].offsetTop+300");
+            E2E.js(a.get(), "var l=document.querySelector('#toc .ls'),c=l.querySelectorAll('.ch')[1];l.scrollTop+=c.getBoundingClientRect().top-l.getBoundingClientRect().top+300");
             SystemClock.sleep(600);
             mark(t + "_toc2");
             // A work without chapters: a flat list, not indented
