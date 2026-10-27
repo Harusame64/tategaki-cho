@@ -698,7 +698,7 @@ span.sesame{text-emphasis-position:over right}
 /* A chapter is a band in the rule colour, above its episodes, and the band of the chapter scrolled into
    stays at the top of the list, so the reader always sees which chapter they are in. */
 #toc .ch{position:sticky;top:0;z-index:1;padding:10px 18px;font-size:15px;font-weight:bold;color:var(--fg);background:var(--line)}
-#toc .ls.chs .ep{padding-left:30px}
+#toc .ep.in{padding-left:30px}
 #toc .ep{display:block;padding:13px 18px;border-top:1px solid var(--line);color:var(--fg);text-decoration:none}
 #toc .ep.cur{color:var(--link);font-weight:bold}
 /* before the place open now */
@@ -913,8 +913,8 @@ span.sesame{text-emphasis-position:over right}
   function fill(){seek.style.setProperty('--at',(pages()>1?100*(seek.value-1)/(pages()-1):100)+'%');}
   function markSeek(){seek.max=pages();seek.value=cur()+1;seekv.textContent=(cur()+1)+' / '+pages();fill();}
   seek.addEventListener('input',function(){go(Number(seek.value)-1);seekv.textContent=seek.value+' / '+pages();fill();});
-  var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0, tocPast=true;
-  function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocPast=true;tocLs.innerHTML='';tocLs.classList.remove('chs');tocSt.textContent='目次を読み込み中…';
+  var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0, tocPast=true, tocInCh=false;
+  function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocPast=true;tocInCh=false;tocLs.innerHTML='';tocSt.textContent='目次を読み込み中…';
     if(window.Android)Android.toc();}
   function renderToc(d){
     if(!toc.classList.contains('on'))return;
@@ -922,14 +922,12 @@ span.sesame{text-emphasis-position:over right}
     if(d.error){tocSt.textContent='目次を読み込めませんでした';return;}
     var html='';
     for(var i=tocShown;i<d.entries.length;i++){var e=d.entries[i];
-      if(e.c)html+='<div class="ch">'+esc(e.c)+'</div>';
+      if(e.c){html+='<div class="ch">'+esc(e.c)+'</div>';tocInCh=true;}
       var cur=e.id?String(e.id)===curId:e.n===curNo;
       if(cur)tocPast=false;
-      html+='<a class="ep'+(cur?' cur':tocPast?' read':'')+(e.k?' kept':'')+'" data-n="'+e.n+'"'+(e.id?' data-id="'+esc(e.id)+'"':'')+'>'+esc(e.t)+'</a>';}
+      html+='<a class="ep'+(tocInCh?' in':'')+(cur?' cur':tocPast?' read':'')+(e.k?' kept':'')+'" data-n="'+e.n+'"'+(e.id?' data-id="'+esc(e.id)+'"':'')+'>'+esc(e.t)+'</a>';}
     var first=tocShown===0; tocShown=d.entries.length;
     tocLs.insertAdjacentHTML('beforeend',html);
-    // Episodes sit under their chapter's band, a step in; a work without chapters keeps its flat list.
-    if(tocLs.querySelector('.ch'))tocLs.classList.add('chs');
     // The place open now not in the list (an episode gone): nothing is marked as before it.
     if(d.done&&tocPast)tocLs.querySelectorAll('.ep.read').forEach(function(a){a.classList.remove('read');});
     var k=0; d.entries.forEach(function(e){if(e.k)k++;});

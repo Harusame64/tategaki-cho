@@ -19,11 +19,12 @@ import org.junit.runner.RunWith;
 public class ScreensTest {
     static void mark(String n) { android.util.Log.i("SHOT", n); SystemClock.sleep(3500); }
 
-    /** A 目次 of 30 episodes in three chapters, long enough to scroll well into a chapter */
-    String tocPage() {
+    /** A 目次 of 30 episodes: two before any chapter, then three chapters, long enough to scroll well into one.
+     * With chapters false, the same episodes without a chapter. */
+    String tocPage(boolean chapters) {
         StringBuilder b = new StringBuilder("<div class=\"p-eplist\">");
         for (int n = 1; n <= 30; n++) {
-            String ch = n == 1 ? "第一章　はじまり" : n == 6 ? "第二章　旅立ち" : n == 20 ? "第三章　王都" : null;
+            String ch = !chapters ? null : n == 3 ? "第一章　はじまり" : n == 6 ? "第二章　旅立ち" : n == 20 ? "第三章　王都" : null;
             if (ch != null) b.append("<div class=\"p-eplist__chapter-title\">").append(ch).append("</div>");
             b.append("<div class=\"p-eplist__sublist\"><a href=\"/").append(E2E.NCODE).append("/").append(n)
                     .append("/\" class=\"p-eplist__subtitle\">第").append(n).append("話　試験</a></div>");
@@ -42,7 +43,7 @@ public class ScreensTest {
             E2E.seedNarou(3, 30);
             Guide.add(E2E.ctx());
             Shelf.update(E2E.ctx(), s -> { Shelf.Work w = s.find(E2E.NCODE); w.episodes = 5; w.seen = 3; w.lastEpisode = 2; w.lastRead = System.currentTimeMillis(); w.tags.add("読んでる"); });
-            E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", tocPage().getBytes(StandardCharsets.UTF_8));
+            E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", tocPage(true).getBytes(StandardCharsets.UTF_8));
             ActivityScenario<ShelfActivity> sh = ActivityScenario.launch(new Intent(E2E.ctx(), ShelfActivity.class));
             mark(t + "_shelf");
             sh.close();
@@ -77,6 +78,13 @@ public class ScreensTest {
             E2E.js(a.get(), "var l=document.querySelector('#toc .ls');l.scrollTop=l.querySelectorAll('.ch')[1].offsetTop+300");
             SystemClock.sleep(600);
             mark(t + "_toc2");
+            // A work without chapters: a flat list, not indented
+            E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", tocPage(false).getBytes(StandardCharsets.UTF_8));
+            // the 目次 just read is kept for a while; drop it so the flat one is read
+            new java.io.File(E2E.ctx().getFilesDir(), "episodes/" + E2E.NCODE + "/toc.json").delete();
+            E2E.js(a.get(), "document.getElementById('tocx').click();document.getElementById('tocb').click()");
+            SystemClock.sleep(1500);
+            mark(t + "_toc3");
             r.close();
             ActivityScenario<LogActivity> l = ActivityScenario.launch(new Intent(E2E.ctx(), LogActivity.class));
             mark(t + "_log");
