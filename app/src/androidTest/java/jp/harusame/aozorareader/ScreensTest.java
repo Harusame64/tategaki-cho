@@ -19,11 +19,11 @@ import org.junit.runner.RunWith;
 public class ScreensTest {
     static void mark(String n) { android.util.Log.i("SHOT", n); SystemClock.sleep(3500); }
 
-    /** A 目次 of 14 episodes in three chapters, long enough to scroll past a chapter's band */
+    /** A 目次 of 30 episodes in three chapters, long enough to scroll well into a chapter */
     String tocPage() {
         StringBuilder b = new StringBuilder("<div class=\"p-eplist\">");
-        for (int n = 1; n <= 14; n++) {
-            String ch = n == 1 ? "第一章　はじまり" : n == 4 ? "第二章　旅立ち" : n == 9 ? "第三章　王都" : null;
+        for (int n = 1; n <= 30; n++) {
+            String ch = n == 1 ? "第一章　はじまり" : n == 6 ? "第二章　旅立ち" : n == 20 ? "第三章　王都" : null;
             if (ch != null) b.append("<div class=\"p-eplist__chapter-title\">").append(ch).append("</div>");
             b.append("<div class=\"p-eplist__sublist\"><a href=\"/").append(E2E.NCODE).append("/").append(n)
                     .append("/\" class=\"p-eplist__subtitle\">第").append(n).append("話　試験</a></div>");
@@ -73,8 +73,8 @@ public class ScreensTest {
             E2E.js(a.get(), "document.getElementById('dispb').click();document.getElementById('tocb').click()");
             SystemClock.sleep(1500);
             mark(t + "_toc");
-            // Scrolled into the second chapter: its band stays at the top of the list
-            E2E.js(a.get(), "var l=document.querySelector('#toc .ls');l.scrollTop=l.scrollHeight/2");
+            // Scrolled into the second chapter: its band, not the first one's, stays at the top of the list
+            E2E.js(a.get(), "var l=document.querySelector('#toc .ls');l.scrollTop=l.querySelectorAll('.ch')[1].offsetTop+300");
             SystemClock.sleep(600);
             mark(t + "_toc2");
             r.close();
