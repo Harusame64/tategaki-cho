@@ -24,6 +24,21 @@ class KakuyomuWorkTest {
             + "}}},\"query\":{\"workId\":\"100\"}}</script></body></html>";
 
     @Test
+    void aSectionWithNoChapterEndsTheOneBefore() {
+        // After 第二章, a section with no chapter: its first episode says so with "", so a 目次 does not file it
+        // under 第二章. The episodes after it continue that section (null).
+        String page = PAGE.replace("{\"__ref\":\"TableOfContentsChapter:2\"}]}", "{\"__ref\":\"TableOfContentsChapter:2\"},{\"__ref\":\"TableOfContentsChapter:3\"}]}")
+                .replace("\"Chapter:1\":", "\"TableOfContentsChapter:3\":{\"chapter\":null,\"episodeUnions\":[{\"__ref\":\"Episode:14\"},{\"__ref\":\"Episode:15\"}]},"
+                        + "\"Episode:14\":{\"__typename\":\"Episode\",\"id\":\"14\",\"title\":\"余話\"},"
+                        + "\"Episode:15\":{\"__typename\":\"Episode\",\"id\":\"15\",\"title\":\"余話二\"},\"Chapter:1\":");
+        KakuyomuWork w = KakuyomuWork.fromPage(page);
+        assertEquals(5, w.episodes.size());
+        assertEquals("第二章", w.episodes.get(2).chapter);
+        assertEquals("", w.episodes.get(3).chapter);
+        assertNull(w.episodes.get(4).chapter);
+    }
+
+    @Test
     void theWorkAndItsEpisodesAreRead() {
         KakuyomuWork w = KakuyomuWork.fromPage(PAGE);
         assertEquals("100", w.id);

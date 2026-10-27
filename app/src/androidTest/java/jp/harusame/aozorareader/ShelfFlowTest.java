@@ -82,6 +82,75 @@ public class ShelfFlowTest {
         assertEquals(Arrays.asList("https://ncode.syosetu.com/" + E2E.NCODE + "/"), Net.asked);
     }
 
+    /** A なろう 目次 page: each item an episode number, or "＃" + a chapter heading; pager, if > 1, the pages it has */
+    String narouToc(int pager, Object... items) {
+        StringBuilder b = new StringBuilder();
+        if (pager > 1) b.append("<div class=\"c-pager\"><a href=\"/").append(E2E.NCODE).append("/?p=").append(pager).append("\">最後へ</a></div>");
+        b.append("<div class=\"p-eplist\">");
+        for (Object o : items) {
+            if (o instanceof String) b.append("<div class=\"p-eplist__chapter-title\">").append(((String) o).substring(1)).append("</div>");
+            else b.append("<div class=\"p-eplist__sublist\"><a href=\"/").append(E2E.NCODE).append("/").append(o)
+                    .append("/\" class=\"p-eplist__subtitle\">第").append(o).append("話　試験</a></div>");
+        }
+        return b.append("</div>").toString();
+    }
+
+    Activity openTocOn(String page1) throws Exception {
+        E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", page1.getBytes(StandardCharsets.UTF_8));
+        scenario = ActivityScenario.launch(new Intent(E2E.ctx(), ReaderActivity.class)
+                .putExtra("url", Shelf.episodeUrl(E2E.NCODE, 1)).putExtra("page", 0));
+        Activity a = resumed(ReaderActivity.class);
+        E2E.waitReady(a);
+        E2E.js(a, "document.getElementById('tocb').click()");
+        return a;
+    }
+
+    /** R10b: a chapter is a box, its band then its episodes a step in; episodes before the first chapter are not
+     * indented. Scrolled into a chapter, its band, and only its band, stays at the top of the list. */
+    @Test
+    public void theTocShowsChaptersAsBandsThatStayAtTheTop() throws Exception {
+        E2E.seedNarou(3, 20);
+        Object[] items = new Object[33];
+        int k = 0;
+        for (int n = 1; n <= 30; n++) {
+            if (n == 3) items[k++] = "＃第一章"; else if (n == 6) items[k++] = "＃第二章"; else if (n == 20) items[k++] = "＃第三章";
+            items[k++] = n;
+        }
+        Activity a = openTocOn(narouToc(1, items));
+        E2E.waitFor(a, "document.querySelectorAll('#toc .ep').length", "30");
+        assertEquals("3", E2E.js(a, "document.querySelectorAll('#toc .sec').length"));
+        assertEquals("\"1,2\"", E2E.js(a, "Array.from(document.querySelectorAll('#toc .ls>.ep')).map(function(e){return e.dataset.n}).join()"));
+        assertEquals("true", E2E.js(a, "parseFloat(getComputedStyle(document.querySelector('#toc .sec .ep')).paddingLeft)"
+                + ">parseFloat(getComputedStyle(document.querySelector('#toc .ls>.ep')).paddingLeft)"));
+        // Well into 第二章: the bands at the list's top edge are 第二章's alone (第一章's box has ended, pushing it off)
+        E2E.js(a, "var l=document.querySelector('#toc .ls'),c=l.querySelectorAll('.ch')[1];"
+                + "l.scrollTop+=c.getBoundingClientRect().top-l.getBoundingClientRect().top+300");
+        SystemClock.sleep(300);
+        assertEquals("\"第二章\"", E2E.js(a, "var l=document.querySelector('#toc .ls'),t=l.getBoundingClientRect().top;"
+                + "Array.from(l.querySelectorAll('.ch')).filter(function(c){var r=c.getBoundingClientRect();return r.top<=t+1&&r.bottom>t+1})"
+                + ".map(function(c){return c.textContent}).join('|')"));
+    }
+
+    /** R10c: a work without chapters lists its episodes flat, not indented */
+    @Test
+    public void aTocWithoutChaptersIsNotIndented() throws Exception {
+        E2E.seedNarou(3, 20);
+        Activity a = openTocOn(narouToc(1, 1, 2, 3));
+        E2E.waitFor(a, "document.querySelectorAll('#toc .ep').length", "3");
+        assertEquals("0", E2E.js(a, "document.querySelectorAll('#toc .ch,#toc .sec').length"));
+    }
+
+    /** R10d: a chapter whose heading ends one 目次 page and whose episodes begin the next is one box, under its band */
+    @Test
+    public void aChapterAcrossTwoTocPagesStaysOneBox() throws Exception {
+        E2E.seedNarou(3, 20);
+        E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/?p=2", narouToc(2, 3, 4, "＃第三章", 5).getBytes(StandardCharsets.UTF_8));
+        Activity a = openTocOn(narouToc(2, "＃第一章", 1, 2, "＃第二章"));
+        E2E.waitFor(a, "document.querySelectorAll('#toc .ep').length", "5");
+        assertEquals("\"第一章:1,2|第二章:3,4|第三章:5\"", E2E.js(a, "Array.from(document.querySelectorAll('#toc .sec')).map(function(s){"
+                + "return s.querySelector('.ch').textContent+':'+Array.from(s.querySelectorAll('.ep')).map(function(e){return e.dataset.n}).join()}).join('|')"));
+    }
+
     /** R17: the 目次 marks the episodes kept in the app and counts them. */
     @Test
     public void theTocMarksKeptEpisodes() throws Exception {

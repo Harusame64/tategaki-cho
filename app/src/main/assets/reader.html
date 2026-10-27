@@ -695,7 +695,12 @@ span.sesame{text-emphasis-position:over right}
 #toc .st{padding:6px 18px;font-size:12px;color:var(--sub)}
 #toc .st:empty{display:none}
 #toc .ls{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 24px}
-#toc .ch{padding:14px 18px 6px;font-size:13px;color:var(--sub);font-weight:bold}
+/* A chapter is a box: a band in the rule colour, then its episodes a step in. The band of the chapter scrolled
+   into stays at the top of the list, and the box's end pushes it off, so only that chapter's band is ever stuck.
+   The band sticks 1px high: the list can start at a fractional height (112.4px at 3x), and a band at top 0 was then
+   drawn from the next device pixel, with one row of the episode behind it showing above it. */
+#toc .ch{position:sticky;top:-1px;z-index:1;padding:10px 18px;font-size:15px;font-weight:bold;color:var(--fg);background:var(--line)}
+#toc .sec .ep{padding-left:30px}
 #toc .ep{display:block;padding:13px 18px;border-top:1px solid var(--line);color:var(--fg);text-decoration:none}
 #toc .ep.cur{color:var(--link);font-weight:bold}
 /* before the place open now */
@@ -910,21 +915,26 @@ span.sesame{text-emphasis-position:over right}
   function fill(){seek.style.setProperty('--at',(pages()>1?100*(seek.value-1)/(pages()-1):100)+'%');}
   function markSeek(){seek.max=pages();seek.value=cur()+1;seekv.textContent=(cur()+1)+' / '+pages();fill();}
   seek.addEventListener('input',function(){go(Number(seek.value)-1);seekv.textContent=seek.value+' / '+pages();fill();});
-  var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0, tocPast=true;
-  function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocPast=true;tocLs.innerHTML='';tocSt.textContent='目次を読み込み中…';
+  var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0, tocPast=true, tocSec=null;
+  function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocPast=true;tocSec=null;tocLs.innerHTML='';tocSt.textContent='目次を読み込み中…';
     if(window.Android)Android.toc();}
   function renderToc(d){
     if(!toc.classList.contains('on'))return;
     if(!d){tocSt.textContent='この作品には目次がありません';return;}
     if(d.error){tocSt.textContent='目次を読み込めませんでした';return;}
+    // Episodes go into the open chapter's box (one that began in an earlier delivery too), or into the list itself
+    // before any chapter. "c" opens a chapter; "" opens a section with none, which closes the box.
     var html='';
+    function flush(){(tocSec||tocLs).insertAdjacentHTML('beforeend',html);html='';}
     for(var i=tocShown;i<d.entries.length;i++){var e=d.entries[i];
-      if(e.c)html+='<div class="ch">'+esc(e.c)+'</div>';
+      if(typeof e.c==='string'){flush();
+        if(e.c){tocSec=document.createElement('div');tocSec.className='sec';tocSec.innerHTML='<div class="ch">'+esc(e.c)+'</div>';tocLs.appendChild(tocSec);}
+        else tocSec=null;}
       var cur=e.id?String(e.id)===curId:e.n===curNo;
       if(cur)tocPast=false;
       html+='<a class="ep'+(cur?' cur':tocPast?' read':'')+(e.k?' kept':'')+'" data-n="'+e.n+'"'+(e.id?' data-id="'+esc(e.id)+'"':'')+'>'+esc(e.t)+'</a>';}
-    var first=tocShown===0; tocShown=d.entries.length;
-    tocLs.insertAdjacentHTML('beforeend',html);
+    flush();
+    tocShown=d.entries.length;
     // The place open now not in the list (an episode gone): nothing is marked as before it.
     if(d.done&&tocPast)tocLs.querySelectorAll('.ep.read').forEach(function(a){a.classList.remove('read');});
     var k=0; d.entries.forEach(function(e){if(e.k)k++;});
