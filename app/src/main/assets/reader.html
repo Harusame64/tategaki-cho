@@ -695,7 +695,10 @@ span.sesame{text-emphasis-position:over right}
 #toc .st{padding:6px 18px;font-size:12px;color:var(--sub)}
 #toc .st:empty{display:none}
 #toc .ls{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 24px}
-#toc .ch{padding:14px 18px 6px;font-size:13px;color:var(--sub);font-weight:bold}
+/* A chapter is a band in the rule colour, above its episodes, and the band of the chapter scrolled into
+   stays at the top of the list, so the reader always sees which chapter they are in. */
+#toc .ch{position:sticky;top:0;z-index:1;padding:10px 18px;font-size:15px;font-weight:bold;color:var(--fg);background:var(--line)}
+#toc .ls.chs .ep{padding-left:30px}
 #toc .ep{display:block;padding:13px 18px;border-top:1px solid var(--line);color:var(--fg);text-decoration:none}
 #toc .ep.cur{color:var(--link);font-weight:bold}
 /* before the place open now */
@@ -911,7 +914,7 @@ span.sesame{text-emphasis-position:over right}
   function markSeek(){seek.max=pages();seek.value=cur()+1;seekv.textContent=(cur()+1)+' / '+pages();fill();}
   seek.addEventListener('input',function(){go(Number(seek.value)-1);seekv.textContent=seek.value+' / '+pages();fill();});
   var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0, tocPast=true;
-  function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocPast=true;tocLs.innerHTML='';tocSt.textContent='目次を読み込み中…';
+  function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocPast=true;tocLs.innerHTML='';tocLs.classList.remove('chs');tocSt.textContent='目次を読み込み中…';
     if(window.Android)Android.toc();}
   function renderToc(d){
     if(!toc.classList.contains('on'))return;
@@ -925,6 +928,8 @@ span.sesame{text-emphasis-position:over right}
       html+='<a class="ep'+(cur?' cur':tocPast?' read':'')+(e.k?' kept':'')+'" data-n="'+e.n+'"'+(e.id?' data-id="'+esc(e.id)+'"':'')+'>'+esc(e.t)+'</a>';}
     var first=tocShown===0; tocShown=d.entries.length;
     tocLs.insertAdjacentHTML('beforeend',html);
+    // Episodes sit under their chapter's band, a step in; a work without chapters keeps its flat list.
+    if(tocLs.querySelector('.ch'))tocLs.classList.add('chs');
     // The place open now not in the list (an episode gone): nothing is marked as before it.
     if(d.done&&tocPast)tocLs.querySelectorAll('.ep.read').forEach(function(a){a.classList.remove('read');});
     var k=0; d.entries.forEach(function(e){if(e.k)k++;});

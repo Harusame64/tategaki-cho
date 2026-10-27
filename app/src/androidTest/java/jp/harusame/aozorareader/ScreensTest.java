@@ -19,10 +19,15 @@ import org.junit.runner.RunWith;
 public class ScreensTest {
     static void mark(String n) { android.util.Log.i("SHOT", n); SystemClock.sleep(3500); }
 
-    String tocPage(int... nos) {
-        StringBuilder b = new StringBuilder("<div class=\"p-eplist\"><div class=\"p-eplist__chapter-title\">第一章</div>");
-        for (int n : nos) b.append("<div class=\"p-eplist__sublist\"><a href=\"/").append(E2E.NCODE).append("/").append(n)
-                .append("/\" class=\"p-eplist__subtitle\">第").append(n).append("話　試験</a></div>");
+    /** A 目次 of 14 episodes in three chapters, long enough to scroll past a chapter's band */
+    String tocPage() {
+        StringBuilder b = new StringBuilder("<div class=\"p-eplist\">");
+        for (int n = 1; n <= 14; n++) {
+            String ch = n == 1 ? "第一章　はじまり" : n == 4 ? "第二章　旅立ち" : n == 9 ? "第三章　王都" : null;
+            if (ch != null) b.append("<div class=\"p-eplist__chapter-title\">").append(ch).append("</div>");
+            b.append("<div class=\"p-eplist__sublist\"><a href=\"/").append(E2E.NCODE).append("/").append(n)
+                    .append("/\" class=\"p-eplist__subtitle\">第").append(n).append("話　試験</a></div>");
+        }
         return b.append("</div>").toString();
     }
 
@@ -37,7 +42,7 @@ public class ScreensTest {
             E2E.seedNarou(3, 30);
             Guide.add(E2E.ctx());
             Shelf.update(E2E.ctx(), s -> { Shelf.Work w = s.find(E2E.NCODE); w.episodes = 5; w.seen = 3; w.lastEpisode = 2; w.lastRead = System.currentTimeMillis(); w.tags.add("読んでる"); });
-            E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", tocPage(1, 2, 3, 4, 5).getBytes(StandardCharsets.UTF_8));
+            E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", tocPage().getBytes(StandardCharsets.UTF_8));
             ActivityScenario<ShelfActivity> sh = ActivityScenario.launch(new Intent(E2E.ctx(), ShelfActivity.class));
             mark(t + "_shelf");
             sh.close();
@@ -68,6 +73,10 @@ public class ScreensTest {
             E2E.js(a.get(), "document.getElementById('dispb').click();document.getElementById('tocb').click()");
             SystemClock.sleep(1500);
             mark(t + "_toc");
+            // Scrolled into the second chapter: its band stays at the top of the list
+            E2E.js(a.get(), "var l=document.querySelector('#toc .ls');l.scrollTop=l.scrollHeight/2");
+            SystemClock.sleep(600);
+            mark(t + "_toc2");
             r.close();
             ActivityScenario<LogActivity> l = ActivityScenario.launch(new Intent(E2E.ctx(), LogActivity.class));
             mark(t + "_log");
