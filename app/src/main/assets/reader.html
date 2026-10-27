@@ -934,7 +934,7 @@ span.sesame{text-emphasis-position:over right}
       if(cur)tocPast=false;
       html+='<a class="ep'+(cur?' cur':tocPast?' read':'')+(e.k?' kept':'')+'" data-n="'+e.n+'"'+(e.id?' data-id="'+esc(e.id)+'"':'')+'>'+esc(e.t)+'</a>';}
     flush();
-    var first=tocShown===0; tocShown=d.entries.length;
+    tocShown=d.entries.length;
     // The place open now not in the list (an episode gone): nothing is marked as before it.
     if(d.done&&tocPast)tocLs.querySelectorAll('.ep.read').forEach(function(a){a.classList.remove('read');});
     var k=0; d.entries.forEach(function(e){if(e.k)k++;});

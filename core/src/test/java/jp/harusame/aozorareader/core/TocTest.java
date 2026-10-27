@@ -45,6 +45,24 @@ class TocTest {
     }
 
     @Test
+    void aCarriedHeadingOpensThePagesFirstEpisodeAndAPageWithNoneHandsItOn() {
+        Toc t = Toc.fromNarou("<div class=\"p-eplist\">" + sub(101, "第百一話") + sub(102, "第百二話") + "</div>", URL, "第五章");
+        assertEquals("第五章", t.entries.get(0).chapter);
+        assertNull(t.entries.get(1).chapter);
+        assertNull(t.trailingChapter);
+        // the page's own heading comes after the carried one
+        assertEquals("第六章", Toc.fromNarou("<div class=\"p-eplist\"><div class=\"p-eplist__chapter-title\">第六章</div>" + sub(101, "第百一話") + "</div>", URL, "第五章").entries.get(0).chapter);
+        assertEquals("第五章", Toc.fromNarou("<div class=\"p-eplist\"></div>", URL, "第五章").trailingChapter);
+    }
+
+    @Test
+    void aHeadingWithNoTextIsNotAChapter() {
+        Toc t = Toc.fromNarou("<div class=\"p-eplist\"><div class=\"p-eplist__chapter-title\">第一章</div>" + sub(1, "一")
+                + "<div class=\"p-eplist__chapter-title\"> </div>" + sub(2, "二") + "</div>", URL);
+        assertNull(t.entries.get(1).chapter);
+    }
+
+    @Test
     void aTocWithoutAPagerHasOnePage() {
         Toc t = Toc.fromNarou("<div class=\"p-eplist\">" + sub(1, "第一話") + "</div>", URL);
         assertEquals(1, t.pages);

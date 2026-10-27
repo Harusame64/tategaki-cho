@@ -81,7 +81,8 @@ public class ScreensTest {
             // A work without chapters: a flat list, not indented
             E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", tocPage(false).getBytes(StandardCharsets.UTF_8));
             // the 目次 just read is kept for a while; drop it so the flat one is read
-            new java.io.File(E2E.ctx().getFilesDir(), "episodes/" + E2E.NCODE + "/toc.json").delete();
+            org.junit.Assert.assertTrue("the kept 目次 to drop is not where ReaderActivity.loadToc keeps it",
+                    new java.io.File(E2E.ctx().getFilesDir(), "episodes/" + E2E.NCODE + "/toc.json").delete());
             E2E.js(a.get(), "document.getElementById('tocx').click();document.getElementById('tocb').click()");
             SystemClock.sleep(1500);
             mark(t + "_toc3");

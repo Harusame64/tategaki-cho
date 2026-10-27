@@ -31,7 +31,8 @@ public final class Toc {
 	public final List<Entry> entries;
 	/** pages of the 目次 (1 when it has no pager) */
 	public final int pages;
-	/** a chapter heading after the page's last episode, which opens the first episode of the next page; or null */
+	/** a chapter heading no episode of this page took (after its last one, or carried over a page with none),
+	 * which opens the first episode of the next page; or null */
 	public final String trailingChapter;
 
 	private Toc(List<Entry> entries, int pages, String trailingChapter) {
@@ -44,14 +45,24 @@ public final class Toc {
 	private static final Pattern PAGE = Pattern.compile("[?&]p=(\\d+)");
 
 	public static Toc fromNarou(String html, String url) {
+		return fromNarou(html, url, null);
+	}
+
+	/**
+	 * @param carry the page before's {@link #trailingChapter}: a heading that opens this page's first episode (unless
+	 *     the page has a heading of its own before it), and is handed on again by a page with no episode
+	 */
+	public static Toc fromNarou(String html, String url, String carry) {
 		Document doc = Jsoup.parse(html, url);
 		List<Entry> out = new ArrayList<>();
 		Element list = doc.selectFirst(".p-eplist");
-		String chapter = null;
+		String chapter = carry;
 		if (list != null) {
 			for (Element e : list.children()) {
 				if (e.hasClass("p-eplist__chapter-title")) {
-					chapter = e.text().trim();
+					// A heading with no text is not one: "" would end the chapter before it in the 目次.
+					String t = e.text().trim();
+					if (!t.isEmpty()) chapter = t;
 				} else if (e.hasClass("p-eplist__sublist")) {
 					Element a = e.selectFirst("a.p-eplist__subtitle[href]");
 					if (a == null) continue;

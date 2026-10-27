@@ -906,13 +906,10 @@ public class ReaderActivity extends Activity {
         if (gen != tocGen) return;
         try {
             String url = "https://ncode.syosetu.com/" + ncode + "/" + (page > 1 ? "?p=" + page : "");
-            Toc t = Toc.fromNarou(fetch(url), url);
-            String pending = carry;
+            Toc t = Toc.fromNarou(fetch(url), url, carry);
             for (Toc.Entry e : t.entries) {
                 JSONObject o = new JSONObject();
-                String chapter = e.chapter != null ? e.chapter : pending;
-                pending = null;
-                if (chapter != null) o.put("c", chapter);
+                if (e.chapter != null) o.put("c", e.chapter);
                 o.put("n", e.no);
                 o.put("t", e.title);
                 entries.put(o);
@@ -933,9 +930,7 @@ public class ReaderActivity extends Activity {
                 }
             }
             deliverToc(out.toString());
-            // A page with no episode passes the heading on, along with any left at its own end.
-            String next = t.trailingChapter != null ? t.trailingChapter : pending;
-            if (!done) later(work, () -> tocPage(gen, ncode, page + 1, entries, f, next), TOC_PAGE_DELAY_MS, TimeUnit.MILLISECONDS);
+            if (!done) later(work, () -> tocPage(gen, ncode, page + 1, entries, f, t.trailingChapter), TOC_PAGE_DELAY_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             Log.w(TAG, "toc page " + page, e);
             deliverToc("{\"error\":true}");
