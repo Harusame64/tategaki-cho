@@ -692,12 +692,16 @@ span.sesame{text-emphasis-position:over right}
 #toc .hd{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
 #toc .tt{flex:1;font-weight:bold;font-size:17px}
 #toc button{font:15px sans-serif;border:1px solid var(--edge);border-radius:6px;background:transparent;color:var(--fg);height:48px;padding:0 14px}
+/* The list can start at a fractional height (112.4px at 3x): a band stuck at top 0 then begins a device pixel
+   below it, and one row of the episode behind shows. So the band sticks 1px higher, and the header above, opaque
+   and in front, covers that pixel. */
+#toc .hd,#toc .st{position:relative;z-index:2;background:var(--card)}
 #toc .st{padding:6px 18px;font-size:12px;color:var(--sub)}
 #toc .st:empty{display:none}
 #toc .ls{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 24px}
 /* A chapter is a band in the rule colour, above its episodes, and the band of the chapter scrolled into
    stays at the top of the list, so the reader always sees which chapter they are in. */
-#toc .ch{position:sticky;top:0;z-index:1;padding:10px 18px;font-size:15px;font-weight:bold;color:var(--fg);background:var(--line)}
+#toc .ch{position:sticky;top:-1px;z-index:1;padding:10px 18px;font-size:15px;font-weight:bold;color:var(--fg);background:var(--line)}
 #toc .ep.in{padding-left:30px}
 #toc .ep{display:block;padding:13px 18px;border-top:1px solid var(--line);color:var(--fg);text-decoration:none}
 #toc .ep.cur{color:var(--link);font-weight:bold}
