@@ -2,7 +2,7 @@
 Copyright (C) 2026 Harusame64
 
 The formatter and web extraction in core/ are copied from AozoraEpub3-JDK21
-(https://github.com/Harusame64/AozoraEpub3-JDK21), itself based on AozoraEpub3
+(https://github.com/AozoraEpub3-JDK21/AozoraEpub3-JDK21), itself based on AozoraEpub3
 Copyright (C) 2015 https://github.com/hmdev/AozoraEpub3. See core/ORIGIN.md.
 
 This program is free software: you can redistribute it and/or modify
