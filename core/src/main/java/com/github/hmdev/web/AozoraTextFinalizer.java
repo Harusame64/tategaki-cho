@@ -57,8 +57,7 @@ public class AozoraTextFinalizer {
 	private static final int ENGLISH_SENTENCES_MIN_LENGTH = 8;
 
 	/** 英文候補の正規表現 (narou.rb: ENGLISH_SENTENCES_CHARACTERS) */
-	private static final Pattern ENGLISH_SENTENCES_PATTERN = Pattern.compile(
-		"[\\w.,!?'\" &:;-]+");
+	private static final Pattern ENGLISH_SENTENCES_PATTERN = WebAozoraConverter.ENGLISH_RUN;
 
 	/** 漢数字テーブル */
 	private static final char[] KANJI_NUM = "〇一二三四五六七八九".toCharArray();

@@ -35,6 +35,19 @@ Measured with R8 against android.jar (2026-10-24): only six classes reference AP
    `jp.harusame.aozorareader.core.XhtmlSections` implements it to receive XHTML per section.
 3. **log** — not cut yet (`util.LogAppender` reaches Swing); to be handled when it fails on a device.
 
+## Letters all upright (2026-10-28)
+
+`web.WebAozoraConverter.protectEnglishSentences` now honours `NarouFormatSettings`'
+`enableAlphabetForceZenkaku` (narou.rb's `enable_alphabet_force_zenkaku`, which only
+`AozoraTextFinalizer` read before): every half-width letter becomes full-width, outside tags,
+annotations, the converter's placeholders and URLs, as the finalizer does. Off by default;
+`EpisodeFormatter` sets it from the reader's 英字 setting on its own converter.
+
+The English-run pattern is one constant, `WebAozoraConverter.ENGLISH_RUN` (also
+`AozoraTextFinalizer`'s `ENGLISH_SENTENCES_PATTERN`), spelling out `[A-Za-z0-9_…]` instead of `\w`: on Android (ICU) `\w` also
+matches kanji and kana, so a whole paragraph was taken as English and no letter became full-width.
+The same fix belongs upstream in AozoraEpub3-JDK21 only if it ever runs on Android.
+
 ## RAR removed (2026-10-26)
 
 junrar is not a dependency here: the UnRAR licence forbids using its code to build a RAR-compatible
