@@ -254,4 +254,19 @@ public class ReadingTest {
         E2E.waitReady(b);
         assertEquals("\"flex,flex\"", E2E.js(b, shown));
     }
+
+    /** R18: the page slider runs right to left, as the pages turn: its right end is page 1, its left end the last page. */
+    @Test
+    public void theSliderRunsRightToLeft() throws Exception {
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        int last = E2E.num(a, "__reader.pages()-1");
+        assertTrue(last > 1);
+        E2E.tapMiddle();
+        E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "true");
+        E2E.tapSliderEnd(a, true);
+        E2E.waitFor(a, "__reader.cur()", String.valueOf(last));
+        E2E.tapSliderEnd(a, false);
+        E2E.waitFor(a, "__reader.cur()", "0");
+    }
 }

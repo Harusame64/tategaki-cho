@@ -662,10 +662,11 @@ span.sesame{text-emphasis-position:over right}
 #info .lk{border-color:transparent;color:var(--link);padding:0}
 #info .opts{flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 #info .bar{margin:0}
-/* The position slider in the theme's colours: the read part in the link colour, the rest a rule. */
-#info .bar input{flex:1;height:48px;margin:0;background:transparent;-webkit-appearance:none;appearance:none}
+/* The position slider in the theme's colours: the read part in the link colour, the rest a rule.
+   Right to left, as the pages turn: page 1 at the right end, the read part filling leftwards. */
+#info .bar input{flex:1;height:48px;margin:0;background:transparent;-webkit-appearance:none;appearance:none;direction:rtl}
 #info .bar input::-webkit-slider-runnable-track{height:4px;border-radius:2px;
-  background:linear-gradient(to right,var(--link) var(--at,0%),var(--edge) var(--at,0%))}
+  background:linear-gradient(to left,var(--link) var(--at,0%),var(--edge) var(--at,0%))}
 #info .bar input::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-8px;border-radius:50%;background:var(--link);border:0}
 #info .bar span{font-size:13px;color:var(--sub);min-width:4.5em;text-align:right}
 /* The first-time guide: where a tap turns or opens the menu (the zones of the touchend handler). */

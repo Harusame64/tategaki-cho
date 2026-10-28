@@ -53,6 +53,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | R15 | 行間, 上下余白 and 左右余白 change the layout at once, keep the share read, and stay after reopening | lineHeightAndMarginsChangeTheLayout (ReadingTest) |
 | R16 | A 青空文庫 book hides 空行 and 字下げ; a なろう episode shows them | aozoraBooksHideTheWebFormattingRows (ReadingTest) |
 | R17 | The 目次 marks the episodes kept in the app and counts them | theTocMarksKeptEpisodes (ShelfFlowTest) |
+| R18 | The page slider runs right to left: its right end is page 1, its left end the last page | theSliderRunsRightToLeft (ReadingTest) |
 | G1 | The first book opens under the tap guide; a tap closes it without turning, and it is not shown again | shownOnceAndATapClosesItWithoutTurning (GuideTest) |
 | G2 | Aa's 触る場所 shows the guide again; Back closes it before the reader | aaShowsItAgainAndBackClosesIt (GuideTest) |
 | F1 | 全話を保存 fetches each episode not kept, once; kept ones are not asked for | savesEachEpisodeNotKeptOnce (FullSaveTest) |
