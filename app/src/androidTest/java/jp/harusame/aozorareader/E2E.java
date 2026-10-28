@@ -183,6 +183,7 @@ final class E2E {
         String r = js(a, "(function(){var r=document.getElementById('seek').getBoundingClientRect();"
                 + "return [" + (left ? "r.left+4" : "r.right-4") + ",(r.top+r.bottom)/2,devicePixelRatio].join()})()");
         String[] v = r.replace("\"", "").split(",");
+        if (v.length != 3) throw new AssertionError("the slider's place was not read: " + r);
         int[] at = new int[2];
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> ((ReaderActivity) a).web.getLocationOnScreen(at));
         double dpr = Double.parseDouble(v[2]);
