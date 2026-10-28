@@ -768,8 +768,9 @@ span.sesame{text-emphasis-position:over right}
   // A turn past an end asks the app once; more taps before it answers are not passed on.
   var edgeAt=0;
   function edge(d){
-    var now=Date.now(); if(now-edgeAt<1500)return; edgeAt=now;
+    var now=Date.now(); if(now-edgeAt<1500)return false; edgeAt=now;
     if(window.Android){if(d>0)Android.next();else Android.prev();}
+    return true;
   }
   // Pages turn leftwards: the next page comes in from the left, the previous one from the right.
   var W=0, busy=false;
@@ -794,10 +795,10 @@ span.sesame{text-emphasis-position:over right}
     if(busy||toc.classList.contains('on'))return;
     var n=cur()+d;
     // めくりの振動 (off by default): a tick when a tap or a volume key turns the page, into the next episode too, not a
-    // swipe, which the finger already feels (the user's choice).
-    if(!from)buzz();
-    if(n>=pages()||n<0){if(from)slide(0,d,150,settle);edge(d);return;}
-    if(!from){go(n);return;}                                         // a tap turns at once
+    // swipe, which the finger already feels (the user's choice). At either end of the episode only a tap that reaches
+    // the app ticks, not one dropped while the next episode is on its way (review on 0.1.5).
+    if(n>=pages()||n<0){if(from)slide(0,d,150,settle);if(edge(d)&&!from)buzz();return;}
+    if(!from){buzz();go(n);return;}                                  // a tap turns at once
     busy=true;
     slide(d*W,d,180,function(){book.scrollTop=n*STEP;show();settle();});
   }
@@ -1072,7 +1073,7 @@ span.sesame{text-emphasis-position:over right}
     sh.addEventListener('touchmove',function(e){
       if(y0===null)return;
       var y=e.touches[0].clientY;
-      if(sh.scrollTop>0){y0=y;dy=0;sh.style.transform='';return;}  // scrolled: the pull counts from where the top is reached again
+      if(sh.scrollTop>0){y0=null;dy=0;sh.style.transform='';return;}  // scrolled: no pull for the rest of this touch (review on 0.1.5)
       dy=Math.max(0,y-y0-10);                                        // 10 px of give, so a tap's drift does not move the sheet
       sh.style.transform=dy>0?'translateY('+dy+'px)':'';},{passive:true});
     function end(){

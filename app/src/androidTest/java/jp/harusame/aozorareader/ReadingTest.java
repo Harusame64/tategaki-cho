@@ -556,6 +556,16 @@ public class ReadingTest {
                 + "ev('touchstart',[a2,b],[b]);ev('touchend',[b],[a2]);ev('touchend',[],[b]);0");
         E2E.waitFor(a, "document.querySelector('#info .sheet.d').style.transform", "\"\"");
         assertEquals("true", E2E.js(a, bars));
+        // A touch that starts at the top, scrolls the sheet and comes back past the top a long way: a scroll, not a
+        // pull, so the sheet stays open (review on 0.1.5).
+        assertEquals("a scroll back past the top", "\"open\"", E2E.js(a, "var sh=document.querySelector('#info .sheet.d'),r=sh.getBoundingClientRect(),"
+                + "x=r.left+r.width/2,y=r.top+200;function t(type,yy,list){var o=new Touch({identifier:1,target:sh,clientX:x,clientY:yy});"
+                + "sh.dispatchEvent(new TouchEvent(type,{touches:list?[o]:[],changedTouches:[o],bubbles:true}));}"
+                + "t('touchstart',y,1);sh.scrollTop=40;var s=sh.scrollTop;t('touchmove',y-40,1);sh.scrollTop=0;"
+                + "t('touchmove',y+sh.offsetHeight*0.3,1);t('touchmove',y+sh.offsetHeight*0.6,1);var m=sh.style.transform;t('touchend',y+sh.offsetHeight*0.6,0);"
+                + "s>0&&!m?'open':'scrolled '+s+' moved '+m"));
+        SystemClock.sleep(300);
+        assertEquals("true", E2E.js(a, bars));
         E2E.js(a, "document.getElementById('dispb').click()");
         E2E.tapMiddle();
         E2E.waitFor(a, bars, "false");
@@ -583,6 +593,13 @@ public class ReadingTest {
         d.swipe(d.getDisplayWidth() * 3 / 10, d.getDisplayHeight() / 2, d.getDisplayWidth() * 8 / 10, d.getDisplayHeight() / 2, 12);
         E2E.waitFor(a, "__reader.cur()", String.valueOf(before + 2));
         assertEquals("a swipe turn does not tick", "1", E2E.js(a, "__reader.ticks()"));
+        // At the first page of the first episode a tap reaches the app once ("これが最初の話です") and ticks once; a second
+        // tap while that is on its way is dropped, and does not tick (review on 0.1.5).
+        E2E.js(a, "__reader.go(0)");
+        E2E.waitFor(a, "__reader.cur()", "0");
+        SystemClock.sleep(1600);                                     // past the last edge's 1.5 s
+        E2E.js(a, "__reader.turn(-1);__reader.turn(-1);0");
+        assertEquals("one tick for the tap that reached the app", "2", E2E.js(a, "__reader.ticks()"));
     }
 
     /** R19b: a 青空文庫 book's sections are its episodes on the page bar, all kept, named as in its 目次. */
