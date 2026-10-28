@@ -133,7 +133,8 @@ and the backup limit is 25 MB).
   finger; volume keys turn when chosen.
 - **目次:** chapters and episodes; episodes kept in the app are marked 保存済み, with a count
   (looked up as the 目次 is delivered).
-- **Bars:** 本棚, 目次, 作品 (title, author, links to the original), Aa (settings), a position slider.
+- **Bars:** 本棚, 目次, 作品 (title, author, links to the original), Aa (settings), a position slider
+  that runs right to left, as the pages turn (page 1 at its right end).
 - **Aa settings:** background (5), typeface (4, two bundled OFL fonts), 空行, 字下げ (web novels
   only), text size, 行間, 上下余白, 左右余白, 触る場所, read-ahead, clock, volume keys.
   空行 and 字下げ change the formatting, so the episode is formatted again at the same share read.
