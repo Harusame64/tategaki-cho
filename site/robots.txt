@@ -1,3 +1,2 @@
-# Not listed in search engines while the app is a family pre-release; each page also says noindex.
 User-agent: *
 Allow: /
