@@ -282,4 +282,20 @@ public class KakuyomuTest {
         E2E.waitReady(r);
         showing(r, "X");
     }
+
+    /** K10: the page bar across the episodes follows the kept list by id: its titles, and letting go on 題C opens C. */
+    @Test
+    public void theEpisodeSliderOpensByIdFromTheKeptList() throws Exception {
+        addAt(B);
+        Activity a = openFromShelf();
+        showing(a, "B");
+        E2E.tapMiddle();
+        E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "true");
+        E2E.holdSeekCount(a);
+        E2E.waitFor(a, "document.getElementById('seekv').textContent", "\"2 / 3 話\"");
+        E2E.js(a, "var s=document.getElementById('seek');s.value=3;s.dispatchEvent(new Event('input'))");
+        assertEquals("\"題C\"", E2E.js(a, "document.querySelector('#info .epp.on .tt').textContent"));
+        E2E.js(a, "document.getElementById('seek').dispatchEvent(new Event('change'))");
+        showing(a, "C");
+    }
 }

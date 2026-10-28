@@ -293,4 +293,124 @@ public class ReadingTest {
         E2E.tapSliderEnd(a, false);
         E2E.waitFor(a, "__reader.cur()", "0");
     }
+
+    /**
+     * R19: a long press on the bar's count switches the slider to the work's episodes. Moving it shows each episode's
+     * number and title (from the kept 目次) and fetches nothing; letting go on an episode not kept fetches that one
+     * episode and opens it at its first page. The bars shown again span the pages.
+     */
+    @Test
+    public void holdingTheCountMovesThroughEpisodes() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(5, 40);
+        java.io.File dir = new java.io.File(E2E.ctx().getFilesDir(), "episodes/" + E2E.NCODE);
+        assertTrue(new java.io.File(dir, "5.html").delete());
+        E2E.net.put(Shelf.episodeUrl(E2E.NCODE, 5),
+                E2E.narouEpisode(5, 5, "第5話　試験", 40, "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        StringBuilder toc = new StringBuilder("{\"done\":true,\"at\":1,\"pages\":1,\"read\":1,\"entries\":[");
+        for (int n = 1; n <= 5; n++) toc.append(n > 1 ? "," : "").append("{\"n\":").append(n).append(",\"t\":\"題").append(n).append("\"}");
+        java.nio.file.Files.write(new java.io.File(dir, "toc.json").toPath(), toc.append("]}").toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        E2E.tapMiddle();
+        E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "true");
+        E2E.holdSeekCount(a);
+        E2E.waitFor(a, "document.getElementById('seekv').textContent", "\"1 / 5 話\"");
+        String st = "document.querySelector('#info .epp.on .st').textContent";
+        E2E.js(a, "var s=document.getElementById('seek');s.value=4;s.dispatchEvent(new Event('input'))");
+        assertEquals("\"題4\"", E2E.js(a, "document.querySelector('#info .epp.on .tt').textContent"));
+        assertEquals("\"保存済み\"", E2E.js(a, st));
+        E2E.js(a, "var s=document.getElementById('seek');s.value=5;s.dispatchEvent(new Event('input'))");
+        assertEquals("\"未保存　離すと読み込みます\"", E2E.js(a, st));
+        assertTrue("nothing fetched while moving: " + Net.asked, Net.asked.isEmpty());
+        // Moved away and back, then let go: a range sends no change for its starting value, and the release
+        // alone puts the page back (codex on #12).
+        E2E.js(a, "var s=document.getElementById('seek');s.value=1;s.dispatchEvent(new Event('input'));s.dispatchEvent(new Event('touchend'))");
+        E2E.waitFor(a, "document.querySelector('#info .epp').classList.contains('on')", "false");
+        assertEquals("\"1 / 5 話\"", E2E.js(a, "document.getElementById('seekv').textContent"));
+        // Aa while the slider spans episodes: back to pages, so the sheet's changes show on the text (review on #12).
+        E2E.js(a, "var s=document.getElementById('seek');s.value=4;s.dispatchEvent(new Event('input'))");
+        E2E.js(a, "document.getElementById('dispb').click()");
+        assertEquals("false", E2E.js(a, "document.querySelector('#info .epp').classList.contains('on')"));
+        assertEquals("\"1 / " + E2E.num(a, "__reader.pages()") + "\"", E2E.js(a, "document.getElementById('seekv').textContent"));
+        E2E.js(a, "document.getElementById('dispb').click()");
+        E2E.holdSeekCount(a);
+        E2E.waitFor(a, "document.getElementById('seekv').textContent", "\"1 / 5 話\"");
+        E2E.js(a, "var s=document.getElementById('seek');s.value=5;s.dispatchEvent(new Event('input'))");
+        // Let go on the one being read: the page comes back, nothing opens.
+        E2E.js(a, "var s=document.getElementById('seek');s.value=1;s.dispatchEvent(new Event('input'));s.dispatchEvent(new Event('change'))");
+        assertEquals("false", E2E.js(a, "document.querySelector('#info .epp').classList.contains('on')"));
+        assertEquals("1", E2E.js(a, "INFO.no"));
+        // A real tap at the slider's left end: the last episode, not kept, fetched once.
+        E2E.tapSliderEnd(a, true);
+        E2E.waitFor(a, "INFO.no", "5");
+        E2E.waitFor(a, "__reader.cur()", "0");
+        assertEquals(java.util.Collections.singletonList(Shelf.episodeUrl(E2E.NCODE, 5)), new java.util.ArrayList<>(Net.asked));
+        E2E.tapMiddle();
+        E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "true");
+        assertEquals("\"1 / " + E2E.num(a, "__reader.pages()") + "\"", E2E.js(a, "document.getElementById('seekv').textContent"));
+    }
+
+    /**
+     * R19c: until the count has been held once, the bars show a hint above it, at most 3 times; a hold stops it,
+     * and a tap on the episode title page goes back to the page being read (the user on the A25 read it as frozen).
+     */
+    @Test
+    public void theCountsHintShowsUntilItIsHeld() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(3, 40);
+        String hint = "document.querySelector('#info .ephint').classList.contains('on')";
+        String bars = "document.getElementById('info').classList.contains('on')";
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        for (int n = 1; n <= 4; n++) {
+            E2E.tapMiddle();
+            E2E.waitFor(a, bars, "true");
+            assertEquals("opening " + n, n <= 3 ? "true" : "false", E2E.js(a, hint));
+            SystemClock.sleep(600);
+            E2E.tapMiddle();
+            E2E.waitFor(a, bars, "false");
+        }
+        // Saved, so the next launch does not show it either.
+        assertTrue(E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"ephint\":3"));
+
+        // A fresh start: shown once, then a hold stops it for good.
+        reader.close();
+        E2E.ctx().getSharedPreferences("reader", 0).edit().putString("display", "{\"guided\":true}").commit();
+        a = open(1, 0);
+        E2E.waitReady(a);
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        assertEquals("true", E2E.js(a, hint));
+        E2E.holdSeekCount(a);
+        E2E.waitFor(a, "document.querySelector('#info .epp').classList.contains('on')", "true");
+        assertEquals("false", E2E.js(a, hint));
+        // A tap on the title page closes the bars, back on the page being read.
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "false");
+        assertEquals("1", E2E.js(a, "INFO.no"));
+        assertEquals("0", E2E.js(a, "__reader.cur()"));
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        assertEquals("false", E2E.js(a, hint));
+        assertTrue(E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"ephint\":3"));
+    }
+
+    /** R19b: a 青空文庫 book's sections are its episodes on the page bar, all kept, named as in its 目次. */
+    @Test
+    public void aBooksSectionsAreItsEpisodesOnTheSlider() throws Exception {
+        Guide.add(E2E.ctx());
+        reader = ActivityScenario.launch(new Intent(E2E.ctx(), ReaderActivity.class).putExtra("url", Shelf.episodeUrl(Guide.KEY, 2)).putExtra("page", 0));
+        AtomicReference<Activity> r = new AtomicReference<>();
+        reader.onActivity(r::set);
+        Activity a = r.get();
+        E2E.waitReady(a);
+        E2E.tapMiddle();
+        E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "true");
+        E2E.holdSeekCount(a);
+        E2E.waitFor(a, "/^2 \\/ \\d+ 話$/.test(document.getElementById('seekv').textContent)", "true");
+        assertEquals("\"いま読んでいる話\"", E2E.js(a, "document.querySelector('#info .epp.on .st').textContent"));
+        assertEquals("true", E2E.js(a, "document.querySelector('#info .epp.on .tt').textContent.indexOf('この本について')===0"));
+        assertEquals(0, Net.asked.size());
+    }
 }

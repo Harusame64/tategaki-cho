@@ -281,6 +281,25 @@ public class ReaderActivity extends Activity {
             else run(work, () -> loadToc(gen, ncode));
         }
 
+        /** The work's episodes for the page bar's 話 range, as JSON (see {@link #episodeList}); "null" when there are none. */
+        @JavascriptInterface
+        public String episodes() {
+            EpisodeInfo c = current;
+            if (c == null || SAMPLE_URL.equals(c.url)) return "null";
+            try {
+                return episodeList(c);
+            } catch (Exception e) {
+                Log.w(TAG, "episode list", e);
+                return "null";
+            }
+        }
+
+        /** A light tick, as Android gives a long press (the page bar changing between pages and episodes). */
+        @JavascriptInterface
+        public void haptic() {
+            runOnUiThread(() -> web.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS));
+        }
+
         /** Opens an episode of this work picked in the 目次: its number, or for カクヨム its id. */
         @JavascriptInterface
         public void open(String ref) {
@@ -800,17 +819,20 @@ public class ReaderActivity extends Activity {
         return new Prepared(info.url, info, "<section class=\"ep\">" + sections.get(no - 1) + "</section>", infoJson(info));
     }
 
+    /** A 青空文庫 section named by its first heading or words (its number when it has none). */
+    static String sectionTitle(List<String> sections, int i) {
+        String t = android.text.Html.fromHtml(sections.get(i).replaceAll("(?s)<rt>.*?</rt>", ""), 0).toString()
+                .replaceAll("\\s+", " ").trim();
+        if (t.length() > 28) t = t.substring(0, 28) + "…";
+        return t.isEmpty() ? "（" + (i + 1) + "）" : t;
+    }
+
     /** The 目次 of a 青空文庫 work: its sections, by their first heading or words. */
     void aozoraToc(String key) {
         try {
             List<String> sections = AozoraSite.loadSections(this, key);
             JSONArray entries = new JSONArray();
-            for (int i = 0; i < sections.size(); i++) {
-                String t = android.text.Html.fromHtml(sections.get(i).replaceAll("(?s)<rt>.*?</rt>", ""), 0).toString()
-                        .replaceAll("\\s+", " ").trim();
-                if (t.length() > 28) t = t.substring(0, 28) + "…";
-                entries.put(new JSONObject().put("n", i + 1).put("t", t.isEmpty() ? "（" + (i + 1) + "）" : t));
-            }
+            for (int i = 0; i < sections.size(); i++) entries.put(new JSONObject().put("n", i + 1).put("t", sectionTitle(sections, i)));
             deliverToc(new JSONObject().put("pages", 1).put("read", 1).put("done", true).put("entries", entries).toString());
         } catch (Exception e) {
             Log.w(TAG, "aozora toc", e);
@@ -888,6 +910,56 @@ public class ReaderActivity extends Activity {
         o.put("number", i.number);
         // Inside a <script>, "</" would end it.
         return o.toString().replace("</", "<\\/");
+    }
+
+    /**
+     * The work's episodes, {"eps":[{"n","id"?,"t"?,"k"?}]}, from what is kept only: nothing is fetched, so a drag
+     * of the page bar costs no request. Titles ("t") come from the kept 目次 (any age; none until it was opened
+     * once, for なろう); "k" marks an episode kept in the app. なろう's count is the larger of the shelf's, the kept
+     * 目次's and the episode's own "2/5".
+     */
+    String episodeList(EpisodeInfo c) throws Exception {
+        String key = Shelf.ncodeOf(c.url);
+        if (key == null || (Shelf.episodeOf(c.url) == null && Shelf.kkEpisodeOf(c.url) == null)) return "null";
+        JSONArray eps = new JSONArray();
+        if (Shelf.isKakuyomu(key)) {
+            JSONObject list = KakuyomuSite.load(this, key);
+            JSONArray kept = list == null ? new JSONArray() : list.getJSONArray("eps");
+            for (int i = 0; i < kept.length(); i++) {
+                JSONObject e = kept.getJSONObject(i);
+                // An entry without an id (a list kept before ids were checked) cannot be opened by id, and its
+                // position is not an id: no episode slider for that work (review on #12).
+                if (!e.optString("id").matches("\\d{1,30}")) return "null";
+                JSONObject o = new JSONObject().put("n", i + 1).put("id", e.optString("id")).put("t", e.optString("t"));
+                if (Episodes.cacheFile(this, Shelf.kkEpisodeUrl(key, e.optString("id"))).isFile()) o.put("k", 1);
+                eps.put(o);
+            }
+        } else if (Shelf.isAozora(key)) {
+            List<String> sections = AozoraSite.loadSections(this, key);
+            for (int i = 0; i < sections.size(); i++)
+                eps.put(new JSONObject().put("n", i + 1).put("t", sectionTitle(sections, i)).put("k", 1));   // the whole text, kept at once
+        } else {
+            java.util.Map<Integer, String> titles = new java.util.HashMap<>();
+            File f = new File(getFilesDir(), "episodes/" + key + "/toc.json");
+            if (f.isFile()) {
+                JSONArray es = new JSONObject(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)).optJSONArray("entries");
+                for (int i = 0; es != null && i < es.length(); i++) titles.put(es.getJSONObject(i).optInt("n"), es.getJSONObject(i).optString("t"));
+            }
+            Shelf.Work w = Shelf.load(this).find(key);
+            int n = Math.max(w == null ? 0 : w.episodes, titles.size());
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^\\s*(\\d+)\\s*/\\s*(\\d+)\\s*$").matcher(c.number == null ? "" : c.number);
+            if (m.find()) n = Math.max(n, Integer.parseInt(m.group(2)));
+            Object[] ep = Shelf.episodeOf(c.url);
+            if (ep != null) n = Math.max(n, (Integer) ep[1]);
+            for (int i = 1; i <= n; i++) {
+                JSONObject o = new JSONObject().put("n", i);
+                String t = titles.get(i);
+                if (t != null && !t.isEmpty()) o.put("t", t);
+                if (Episodes.cacheFile(this, Shelf.episodeUrl(key, i)).isFile()) o.put("k", 1);
+                eps.put(o);
+            }
+        }
+        return eps.length() == 0 ? "null" : new JSONObject().put("eps", eps).toString();
     }
 
     volatile int tocGen;

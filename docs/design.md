@@ -138,7 +138,13 @@ and the backup limit is 25 MB).
 - **目次:** chapters and episodes; episodes kept in the app are marked 保存済み, with a count
   (looked up as the 目次 is delivered).
 - **Bars:** 本棚, 目次, 作品 (title, author, links to the original), Aa (settings), a position slider
-  that runs right to left, as the pages turn (page 1 at its right end).
+  that runs right to left, as the pages turn (page 1 at its right end). A long press on its count
+  ("3 / 12") switches it to episodes ("12 / 30 話"): moving it shows a title page per episode and
+  fetches nothing; letting go opens that episode's first page, fetching it once if it is not kept. The
+  list comes only from what is kept (なろう's toc.json, カクヨム's kept list, a book's sections).
+  A tap on the title page goes back to the page being read. Until the count has been held once, the
+  bars show a hint above it ("数字を長押しすると、話を選べます"), at most 3 times (`ephint` in the
+  settings; settings from a version without it show it too).
 - **Aa settings:** background (5), typeface (4, two bundled OFL fonts), 空行, 字下げ, 英字 (web
   novels only), text size, 行間, 上下余白, 左右余白, 触る場所, read-ahead, clock, volume keys.
   空行, 字下げ and 英字 change the formatting, so the episode is formatted again at the same share read.
