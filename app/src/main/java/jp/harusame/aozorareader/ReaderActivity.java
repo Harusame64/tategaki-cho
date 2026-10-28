@@ -294,7 +294,11 @@ public class ReaderActivity extends Activity {
             }
         }
 
-        /** A light tick, as Android gives a long press (the page bar changing between pages and episodes). */
+        /**
+         * A light tick, as Android gives a long press: the page bar changing between pages and episodes, and
+         * めくりの振動 as a tap turns a page. On the user's Galaxy A25 it was the only one of six feedback constants
+         * that vibrated (VIRTUAL_KEY, KEYBOARD_TAP, CONTEXT_CLICK, CONFIRM and CLOCK_TICK did nothing).
+         */
         @JavascriptInterface
         public void haptic() {
             runOnUiThread(() -> web.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS));

@@ -727,7 +727,7 @@ span.sesame{text-emphasis-position:over right}
 #toc .ep.read{color:var(--sub)}
 /* kept in the app: readable without a signal */
 #toc .ep.kept::after{content:"保存済み";float:right;margin-left:10px;font-size:11px;font-weight:normal;color:var(--sub)}
-#info .vk.on,#info .ek.on,#info .ah.on,#info .bk.on,#info .ft.on,#info .pk.on,#info .ik.on,#info .uk.on,#info .lh.on,#info .mx.on,#info .my.on{border-color:var(--link);color:var(--link);font-weight:bold}
+#info .vk.on,#info .ek.on,#info .zk.on,#info .ah.on,#info .bk.on,#info .ft.on,#info .pk.on,#info .ik.on,#info .uk.on,#info .lh.on,#info .mx.on,#info .my.on{border-color:var(--link);color:var(--link);font-weight:bold}
 </style></head><body>
 <div id="book" class="pagebox">%%BOOK%%</div><div id="credit"></div><div id="pg"></div>
 <div id="info"></div>
@@ -788,9 +788,14 @@ span.sesame{text-emphasis-position:over right}
     [book,peer].forEach(function(el){el.style.transition='';place(el,0);});
     peer.style.visibility='hidden'; busy=false;
   }
+  var ticks=0;                                                       // めくりの振動's ticks, counted for the tests
+  function buzz(){if(prefs.buzz){ticks++;if(window.Android)Android.haptic();}}
   function turn(d,from){
     if(busy||toc.classList.contains('on'))return;
     var n=cur()+d;
+    // めくりの振動 (off by default): a tick when a tap or a volume key turns the page, into the next episode too, not a
+    // swipe, which the finger already feels (the user's choice).
+    if(!from)buzz();
     if(n>=pages()||n<0){if(from)slide(0,d,150,settle);edge(d);return;}
     if(!from){go(n);return;}                                         // a tap turns at once
     busy=true;
@@ -843,12 +848,12 @@ span.sesame{text-emphasis-position:over right}
   var FONTS={serif:{n:'明朝',f:'"Noto Serif CJK JP","Noto Serif JP",serif'},sans:{n:'ゴシック',f:'"Noto Sans CJK JP","Noto Sans JP",sans-serif'},
     bizud:{n:'BIZ UD明朝',f:'"BIZ UDMincho",serif'},shippori:{n:'しっぽり明朝',f:'"Shippori Mincho",serif'}};
   var FONT_ORDER=['serif','sans','bizud','shippori'];
-  var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,upright:false,lh:2,mx:'m',my:'m',guided:false,ephint:0,edge:true};
+  var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,upright:false,lh:2,mx:'m',my:'m',guided:false,ephint:0,edge:true,buzz:false};
   if(PREFS){if(THEMES[PREFS.theme])prefs.theme=PREFS.theme;if(SIZES.indexOf(PREFS.fs)>=0)prefs.fs=PREFS.fs;
     if(AHEAD.indexOf(PREFS.ahead)>=0)prefs.ahead=PREFS.ahead;else if(PREFS.ahead>20)prefs.ahead=20;if(PREFS.vol===true)prefs.vol=true;if(PREFS.bar===true)prefs.bar=true;if(FONTS[PREFS.font])prefs.font=PREFS.font;if(PREFS.pack===false)prefs.pack=false;if(PREFS.indent===true)prefs.indent=true;if(PREFS.upright===true)prefs.upright=true;
     if(LHS.indexOf(PREFS.lh)>=0)prefs.lh=PREFS.lh;if(MX[PREFS.mx])prefs.mx=PREFS.mx;if(MY[PREFS.my])prefs.my=PREFS.my;if(PREFS.guided===true)prefs.guided=true;
     if(typeof PREFS.ephint==='number'&&PREFS.ephint>0)prefs.ephint=Math.min(3,Math.floor(PREFS.ephint));
-    if(PREFS.edge===false)prefs.edge=false;}
+    if(PREFS.edge===false)prefs.edge=false;if(PREFS.buzz===true)prefs.buzz=true;}
   function applyTheme(){
     var t=THEMES[prefs.theme], r=document.documentElement.style;
     for(var k in t)r.setProperty('--'+k,t[k]);
@@ -873,7 +878,8 @@ span.sesame{text-emphasis-position:over right}
     +'<div class="row"><span class="k">先読み</span><div class="opts">'
     +AHEAD.map(function(n){return '<button class="ah" data-ahead="'+n+'">'+n+'話</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">時計</span><div class="opts"><button class="bk" data-bar="1">時刻・通知を出す</button><button class="bk" data-bar="0">隠す</button></div></div>'
-    +'<div class="row"><span class="k">音量キー</span><div class="opts"><button class="vk" data-vol="1">ページをめくる</button><button class="vk" data-vol="0">使わない</button></div></div></div></div>';
+    +'<div class="row"><span class="k">音量キー</span><div class="opts"><button class="vk" data-vol="1">ページをめくる</button><button class="vk" data-vol="0">使わない</button></div></div>'
+    +'<div class="row"><span class="k">めくりの振動</span><div class="opts"><button class="zk" data-buzz="1">震わせる</button><button class="zk" data-buzz="0">震わせない</button></div></div></div></div>';
   // As in Kindle, a tap in the middle shows only the bars: the work and its buttons on top, the page bar
   // below. The settings (Aa) and the work's links each open from their button, never from that tap.
   h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
@@ -887,6 +893,7 @@ span.sesame{text-emphasis-position:over right}
     info.querySelectorAll('.ah').forEach(function(b){b.classList.toggle('on',Number(b.dataset.ahead)===prefs.ahead);});
     info.querySelectorAll('.vk').forEach(function(b){b.classList.toggle('on',(b.dataset.vol==='1')===prefs.vol);});
     info.querySelectorAll('.ek').forEach(function(b){b.classList.toggle('on',(b.dataset.edge==='1')===prefs.edge);});
+    info.querySelectorAll('.zk').forEach(function(b){b.classList.toggle('on',(b.dataset.buzz==='1')===prefs.buzz);});
     info.querySelectorAll('.ft').forEach(function(b){b.classList.toggle('on',b.dataset.font===prefs.font);});
     info.querySelectorAll('.pk').forEach(function(b){b.classList.toggle('on',(b.dataset.pack==='1')===prefs.pack);});
     info.querySelectorAll('.lh').forEach(function(b){b.classList.toggle('on',Number(b.dataset.lh)===prefs.lh);});
@@ -907,6 +914,7 @@ span.sesame{text-emphasis-position:over right}
     if(b.dataset.ahead){prefs.ahead=Number(b.dataset.ahead);}
     if(b.dataset.vol){prefs.vol=b.dataset.vol==='1';}
     if(b.dataset.edge){prefs.edge=b.dataset.edge==='1';}
+    if(b.dataset.buzz){prefs.buzz=b.dataset.buzz==='1';if(prefs.buzz&&window.Android)Android.haptic();}   // felt once as it is chosen
     if(b.dataset.bar){prefs.bar=b.dataset.bar==='1';}
     if(b.dataset.pack&&(b.dataset.pack==='1')!==prefs.pack){
       // The blank lines are the formatter's, so the app formats the episode again, at the same share read.
@@ -927,7 +935,7 @@ span.sesame{text-emphasis-position:over right}
     if(b.id==='homeb'){if(window.Android)Android.shelf();return;}
     if(b.id==='workb'||b.id==='dispb'){var k=b.id==='workb'?'work':'disp';var o=info.classList.contains(k);
       if(eps){eps=null;markSeek();}                                    // the title page would cover the sheet's effect on the text (review on #12)
-      info.classList.remove('work','disp');if(!o)info.classList.add(k);return;}
+      unpull(); info.classList.remove('work','disp');if(!o)info.classList.add(k);return;}
     if(b.dataset.guide){info.classList.remove('on','work','disp');guide.classList.add('on');return;}
     if(b.dataset.lh||b.dataset.mx||b.dataset.my){
       // As for a new size: the same share of the episode read, after the relayout.
@@ -1043,11 +1051,38 @@ span.sesame{text-emphasis-position:over right}
   tocLs.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('.ep');if(!a)return;
     if(a.dataset.id?a.dataset.id===curId:Number(a.dataset.n)===curNo){toc.classList.remove('on');go(0);return;}
     tocSt.textContent='開いています…'; if(window.Android)Android.open(String(a.dataset.id||a.dataset.n));});
-  function toggleInfo(on){info.classList.toggle('on',on);info.classList.remove('work','disp');eps=null;unhint();unhold();
+  // A sheet closed some other way in the middle of a pull (Back, the next episode, its button) opens again in place.
+  function unpull(){info.querySelectorAll('.sheet').forEach(function(sh){sh.style.transition='';sh.style.transform='';});}
+  function toggleInfo(on){info.classList.toggle('on',on);info.classList.remove('work','disp');eps=null;unhint();unhold();unpull();
     if(on){openedAt=Date.now();markSeek();setTimeout(maybeHint,0);}}             // the check after the bars are drawn
   // The tap that opens the card is followed by its own click, which lands on the backdrop just shown.
   // That click can also land on a link or button of the card, now that it reaches the middle of the
   // screen: nothing in the card takes a click until the tap that opened it is over.
+  // Aa's and 作品's sheet: from its top, pulled down it follows the finger, and let go past a third of its height
+  // (at least 120 px) it closes with the bars, back to the page; let go short of that, it slides back. The user found
+  // pressing Aa again to close it tiresome, and a close at a fixed 80 px of movement fired by mistake. A gesture that
+  // reaches the top on its way does not pull, so a scroll never ends in a close.
+  info.querySelectorAll('.sheet').forEach(function(sh){
+    var y0=null, dy=0;
+    function back(){sh.style.transition='transform 150ms ease-out';sh.style.transform='';}
+    sh.addEventListener('touchstart',function(e){
+      // A second finger abandons a pull: the sheet slides back rather than stay where it was left (codex on #16).
+      if(e.touches.length!==1){if(y0!==null||sh.style.transform)back();y0=null;dy=0;return;}
+      y0=sh.scrollTop<=0?e.touches[0].clientY:null; dy=0; sh.style.transition='';},{passive:true});
+    sh.addEventListener('touchmove',function(e){
+      if(y0===null)return;
+      var y=e.touches[0].clientY;
+      if(sh.scrollTop>0){y0=y;dy=0;sh.style.transform='';return;}  // scrolled: the pull counts from where the top is reached again
+      dy=Math.max(0,y-y0-10);                                        // 10 px of give, so a tap's drift does not move the sheet
+      sh.style.transform=dy>0?'translateY('+dy+'px)':'';},{passive:true});
+    function end(){
+      if(y0===null)return; y0=null;
+      if(dy>Math.max(120,sh.offsetHeight/3)){sh.style.transition='';sh.style.transform='';toggleInfo(false);}
+      else back();
+      dy=0;}
+    sh.addEventListener('touchend',end,{passive:true});
+    sh.addEventListener('touchcancel',function(){y0=null;dy=0;back();},{passive:true});
+  });
   info.addEventListener('click',function(e){if(Date.now()-openedAt<500){e.preventDefault();e.stopImmediatePropagation();}},true);
   // A tap outside the bars closes them; so does a tap on the episode title page (it covers the text while the
   // slider spans episodes, and a tap there meant to go back to reading: the user on the A25 read it as frozen).
@@ -1128,7 +1163,7 @@ span.sesame{text-emphasis-position:over right}
   function swap(body,i,start){
     settle(); book.innerHTML=body; peer.innerHTML=body; setInfo(i); edgeAt=0;
     if(toc.classList.contains('on')&&window.Android)Android.tocClosed();
-    toc.classList.remove('on'); delete toc.dataset.scrolled; info.classList.remove('on'); endEl.classList.remove('on');
+    toc.classList.remove('on'); delete toc.dataset.scrolled; info.classList.remove('on'); endEl.classList.remove('on'); unpull();
     book.scrollTop=0; layout(); go(start<0?pages()-1:start);
   }
   // The end of a work: finished, or the newest episode so far.
@@ -1157,13 +1192,13 @@ span.sesame{text-emphasis-position:over right}
   function anyOverlay(){return guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on');}
   function closeOverlays(){
     if(toc.classList.contains('on')){toc.classList.remove('on');delete toc.dataset.scrolled;if(window.Android)Android.tocClosed();}
-    info.classList.remove('on','work','disp');endEl.classList.remove('on');closeGuide();tellOverlay();
+    info.classList.remove('on','work','disp');endEl.classList.remove('on');closeGuide();tellOverlay();unpull();
   }
   var overlayWas=false;
   function tellOverlay(){var o=anyOverlay();if(o!==overlayWas){overlayWas=o;if(window.Android)Android.overlay(o);}}
   new MutationObserver(tellOverlay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
   function key(d){if(guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on'))return;turn(d);}
-  window.__reader={swap:swap,end:end,key:key,closeOverlays:closeOverlays,go:go,cur:cur,pages:pages,turn:turn,vol:function(){return prefs.vol&&!info.classList.contains('on')&&!guide.classList.contains('on');},toc:renderToc};
+  window.__reader={swap:swap,end:end,key:key,closeOverlays:closeOverlays,go:go,cur:cur,pages:pages,turn:turn,ticks:function(){return ticks;},vol:function(){return prefs.vol&&!info.classList.contains('on')&&!guide.classList.contains('on');},toc:renderToc};
   function start(){if(window.Android)Android.overlay(false);layout();starting=false;if(!prefs.guided)guide.classList.add('on');go(SHARE>=0?Math.round(SHARE*(pages()-1)):START<0?pages()-1:START);}
   document.fonts&&document.fonts.ready?document.fonts.ready.then(start):start();
 })();

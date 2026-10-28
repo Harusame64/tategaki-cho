@@ -514,6 +514,77 @@ public class ReadingTest {
         E2E.waitFor(a, "__reader.cur()", "10");
     }
 
+    /**
+     * R21: Aa's sheet pulled down from its top follows the finger; let go past a third of its height it closes with the
+     * bars, short of that it slides back. 作品's sheet does the same. めくりの振動 is off until chosen, and saved.
+     */
+    @Test
+    public void aSheetPulledDownCloses() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(3, 40);
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        String bars = "document.getElementById('info').classList.contains('on')";
+        E2E.js(a, "window.__pull=function(sel,dy){var sh=document.querySelector(sel),r=sh.getBoundingClientRect(),"
+                + "x=r.left+r.width/2,y=r.top+20;function t(type,yy,list){var o=new Touch({identifier:1,target:sh,clientX:x,clientY:yy});"
+                + "sh.dispatchEvent(new TouchEvent(type,{touches:list?[o]:[],changedTouches:[o],bubbles:true}));}"
+                + "t('touchstart',y,1);t('touchmove',y+dy/2,1);t('touchmove',y+dy,1);var moved=sh.style.transform;t('touchend',y+dy,0);return moved;};0");
+        for (String b : new String[] {"dispb", "workb"}) {
+            String sheet = b.equals("dispb") ? "#info .sheet.d" : "#info .sheet.w";
+            E2E.tapMiddle();
+            E2E.waitFor(a, bars, "true");
+            SystemClock.sleep(600);                                      // a click in the bars' first 500 ms is dropped
+            E2E.js(a, "document.getElementById('" + b + "').click()");
+            // A short pull: past 10 px of give it followed the finger, and slides back on letting go.
+            assertEquals("\"translateY(30px)\"", E2E.js(a, "__pull('" + sheet + "',40)"));
+            assertEquals("true", E2E.js(a, bars));
+            E2E.waitFor(a, "document.querySelector('" + sheet + "').style.transform", "\"\"");
+            // Past a third of its height: closed, back to the page.
+            E2E.js(a, "__pull('" + sheet + "',document.querySelector('" + sheet + "').offsetHeight*0.6)");
+            E2E.waitFor(a, bars, "false");
+            SystemClock.sleep(400);
+        }
+        // A second finger during a pull: the pull is dropped and the sheet slides back, not left where it was (codex on #16).
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        SystemClock.sleep(600);
+        E2E.js(a, "document.getElementById('dispb').click()");
+        E2E.js(a, "var sh=document.querySelector('#info .sheet.d'),r=sh.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+20;"
+                + "function T(id,yy){return new Touch({identifier:id,target:sh,clientX:x,clientY:yy});}"
+                + "function ev(type,list,ch){sh.dispatchEvent(new TouchEvent(type,{touches:list,changedTouches:ch,bubbles:true}));}"
+                + "var a1=T(1,y),a2=T(1,y+100),b=T(2,y+50);ev('touchstart',[a1],[a1]);ev('touchmove',[a2],[a2]);"
+                + "ev('touchstart',[a2,b],[b]);ev('touchend',[b],[a2]);ev('touchend',[],[b]);0");
+        E2E.waitFor(a, "document.querySelector('#info .sheet.d').style.transform", "\"\"");
+        assertEquals("true", E2E.js(a, bars));
+        E2E.js(a, "document.getElementById('dispb').click()");
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "false");
+        SystemClock.sleep(400);
+        // めくりの振動: off by default, saved when chosen, and a tap still turns.
+        assertTrue(!E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"buzz\":true"));
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        SystemClock.sleep(600);
+        E2E.js(a, "document.getElementById('dispb').click();document.querySelector('.zk[data-buzz=\"1\"]').click()");
+        E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"buzz\":true"),
+                "めくりの振動 震わせる saved");
+        E2E.js(a, "document.getElementById('dispb').click()");
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "false");
+        SystemClock.sleep(600);
+        int before = E2E.num(a, "__reader.cur()");
+        assertEquals("0", E2E.js(a, "__reader.ticks()"));
+        E2E.tapLeft();
+        E2E.waitFor(a, "__reader.cur()", String.valueOf(before + 1));
+        assertEquals("a tap turn ticks", "1", E2E.js(a, "__reader.ticks()"));
+        SystemClock.sleep(400);
+        // A swipe turns without a tick.
+        androidx.test.uiautomator.UiDevice d = androidx.test.uiautomator.UiDevice.getInstance(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation());
+        d.swipe(d.getDisplayWidth() * 3 / 10, d.getDisplayHeight() / 2, d.getDisplayWidth() * 8 / 10, d.getDisplayHeight() / 2, 12);
+        E2E.waitFor(a, "__reader.cur()", String.valueOf(before + 2));
+        assertEquals("a swipe turn does not tick", "1", E2E.js(a, "__reader.ticks()"));
+    }
+
     /** R19b: a 青空文庫 book's sections are its episodes on the page bar, all kept, named as in its 目次. */
     @Test
     public void aBooksSectionsAreItsEpisodesOnTheSlider() throws Exception {
