@@ -137,9 +137,10 @@ and the backup limit is 25 MB).
   finger; volume keys turn when chosen. One finger owns a gesture; a new finger takes it over only from
   one resting still for 0.3 s or more, so a resting palm does not keep the thumb's tap, and a tap or a
   swipe in progress keeps it. 端の誤タッチ (on by default, `edge` in the settings) drops the base of
-  the thumb: a touch within 13 px of the side that is very narrow (radius 0.5 or less) or lands while
-  another finger (not itself a base) is down, and in the bottom 12 % any touch within 16 px of the side
-  (measured on the A25 held in one hand).
+  the thumb: in the bottom 15 % any touch within 16 px of the side, and higher up one within 13 px of the
+  side that lands while another finger (not itself a base) is down on the same half of the screen
+  (measured on the A25: the base lands low; a fingertip at the very side is as narrow as the base, so
+  width does not tell them apart; held in both hands, the other hand's finger is on the other half).
 - **目次:** chapters and episodes; episodes kept in the app are marked 保存済み, with a count
   (looked up as the 目次 is delivered).
 - **Bars:** 本棚, 目次, 作品 (title, author, links to the original), Aa (settings), a position slider

@@ -404,17 +404,17 @@ public class ReadingTest {
     @Test
     public void theBaseOfTheThumbDoesNotTurn() throws Exception {
         E2E.reset();
-        E2E.seedNarou(3, 80);
+        E2E.seedNarou(3, 140);
         Activity a = open(1, 0);
         E2E.waitReady(a);
-        assertTrue("needs pages to turn", E2E.num(a, "__reader.pages()") >= 8);
+        assertTrue("needs pages to turn", E2E.num(a, "__reader.pages()") >= 10);
         E2E.js(a, "window.__t=function(type,list,changed){function mk(o){return new Touch({identifier:o.id,target:document.body,"
                 + "clientX:o.x,clientY:o.y,radiusX:o.r,radiusY:o.r});}document.body.dispatchEvent(new TouchEvent(type,"
                 + "{touches:list.map(mk),changedTouches:changed.map(mk),bubbles:true,cancelable:true}));};"
                 + "window.__tap=function(o){__t('touchstart',[o],[o]);__t('touchend',[],[o]);};0");
         String h = "innerHeight", w = "innerWidth";
-        // The base, narrow at the left edge, alone: no turn.
-        E2E.js(a, "__tap({id:1,x:6,y:" + h + "*0.5,r:0.3})");
+        // The base, narrow at the left edge, low down (87 to 98 % down where it was measured), alone: no turn.
+        E2E.js(a, "__tap({id:1,x:6,y:" + h + "*0.9,r:0.3})");
         SystemClock.sleep(400);
         assertEquals("0", E2E.js(a, "__reader.cur()"));
         // The base in the bottom corner, wider, 14 px in (it slipped through before the corner rule): no turn.
@@ -473,11 +473,22 @@ public class ReadingTest {
         E2E.js(a, "__tap({id:16,x:30,y:" + h + "*0.5,r:1.2})");
         E2E.waitFor(a, "__reader.cur()", "5");
         SystemClock.sleep(400);
-        // The base narrow at 13 px (the far end of what was measured): no turn.
-        E2E.js(a, "__tap({id:12,x:13,y:" + h + "*0.5,r:0.4})");
+        // A fingertip at the very edge at mid height, its contact cut as narrow as the base's (holding the phone
+        // normally, the user found these ignored when width alone named the base): it turns.
+        E2E.js(a, "__tap({id:12,x:5,y:" + h + "*0.45,r:0.3})");
+        E2E.waitFor(a, "__reader.cur()", "6");
         SystemClock.sleep(400);
-        assertEquals("5", E2E.js(a, "__reader.cur()"));
-        // 防がない: the narrow edge touch turns, as before.
+        // Both hands: the other hand rests a finger on the right side, then the left thumb taps the left side at
+        // mid height. The resting finger is on the other half, so the tap is not a base: it turns.
+        E2E.js(a, "window.Q={id:17,x:" + w + "-8,y:" + h + "*0.5,r:1.5};__t('touchstart',[Q],[Q])");
+        SystemClock.sleep(400);
+        E2E.js(a, "var L={id:18,x:6,y:" + h + "*0.5,r:0.4};__t('touchstart',[Q,L],[L]);__t('touchend',[Q],[L])");
+        E2E.waitFor(a, "__reader.cur()", "7");
+        SystemClock.sleep(400);
+        E2E.js(a, "__t('touchend',[],[Q])");
+        SystemClock.sleep(600);
+        assertEquals("7", E2E.js(a, "__reader.cur()"));
+        // 防がない: a touch in the bottom corner turns, as before.
         E2E.tapMiddle();
         E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "true");
         SystemClock.sleep(600);                                          // a click in the bars' first 500 ms is dropped
@@ -488,8 +499,8 @@ public class ReadingTest {
         E2E.tapMiddle();
         E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "false");
         SystemClock.sleep(600);
-        E2E.js(a, "__tap({id:9,x:6,y:" + h + "*0.5,r:0.3})");
-        E2E.waitFor(a, "__reader.cur()", "6");
+        E2E.js(a, "__tap({id:9,x:6,y:" + h + "*0.9,r:0.3})");
+        E2E.waitFor(a, "__reader.cur()", "8");
     }
 
     /** R19b: a 青空文庫 book's sections are its episodes on the page bar, all kept, named as in its 目次. */
