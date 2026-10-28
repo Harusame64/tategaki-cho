@@ -971,6 +971,10 @@ span.sesame{text-emphasis-position:over right}
     epp.querySelector('.st').textContent='開いています…';
     if(window.Android)Android.open(String(e.id||e.n));
   });
+  // Let go back on the one being read after moving away: the range sends no change (the value is where it
+  // started), so the release itself puts the page back (codex on #12).
+  ['touchend','touchcancel','pointerup'].forEach(function(t){seek.addEventListener(t,function(){
+    setTimeout(function(){if(eps&&Number(seek.value)-1===Math.max(0,epAt()))markSeek();},0);},{passive:true});});
   // A long press on the count switches the range; the slider itself only drags.
   var holdT=null;
   // The hint: shown when the bars open on a work of two or more episodes, until the count has been held

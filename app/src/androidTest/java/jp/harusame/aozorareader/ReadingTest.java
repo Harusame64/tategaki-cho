@@ -323,6 +323,12 @@ public class ReadingTest {
         E2E.js(a, "var s=document.getElementById('seek');s.value=5;s.dispatchEvent(new Event('input'))");
         assertEquals("\"未保存　離すと読み込みます\"", E2E.js(a, st));
         assertTrue("nothing fetched while moving: " + Net.asked, Net.asked.isEmpty());
+        // Moved away and back, then let go: a range sends no change for its starting value, and the release
+        // alone puts the page back (codex on #12).
+        E2E.js(a, "var s=document.getElementById('seek');s.value=1;s.dispatchEvent(new Event('input'));s.dispatchEvent(new Event('touchend'))");
+        E2E.waitFor(a, "document.querySelector('#info .epp').classList.contains('on')", "false");
+        assertEquals("\"1 / 5 話\"", E2E.js(a, "document.getElementById('seekv').textContent"));
+        E2E.js(a, "var s=document.getElementById('seek');s.value=5;s.dispatchEvent(new Event('input'))");
         // Let go on the one being read: the page comes back, nothing opens.
         E2E.js(a, "var s=document.getElementById('seek');s.value=1;s.dispatchEvent(new Event('input'));s.dispatchEvent(new Event('change'))");
         assertEquals("false", E2E.js(a, "document.querySelector('#info .epp').classList.contains('on')"));
