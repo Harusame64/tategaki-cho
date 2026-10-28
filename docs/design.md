@@ -134,11 +134,12 @@ and the backup limit is 25 MB).
   Lines are never cut in half. Margins (`PADX`, `PADY`) and line height (`--lh`) come from the
   display settings.
 - **Taps:** left 40 % next page, right 40 % previous, middle 20 % the bars; swipes turn with the
-  finger; volume keys turn when chosen. One finger owns a gesture: the newest one down, unless the one
-  before is already swiping, so a resting palm does not keep the thumb's tap. 端の誤タッチ (on by
-  default, `edge` in the settings) drops the base of the thumb: a touch within 12 px of the side that
-  is very narrow (radius 0.5 or less) or lands while another finger is down, and in the bottom 12 % any
-  touch within 16 px of the side (measured on the A25 held in one hand).
+  finger; volume keys turn when chosen. One finger owns a gesture; a new finger takes it over only from
+  one resting still for 0.3 s or more, so a resting palm does not keep the thumb's tap, and a tap or a
+  swipe in progress keeps it. 端の誤タッチ (on by default, `edge` in the settings) drops the base of
+  the thumb: a touch within 13 px of the side that is very narrow (radius 0.5 or less) or lands while
+  another finger (not itself a base) is down, and in the bottom 12 % any touch within 16 px of the side
+  (measured on the A25 held in one hand).
 - **目次:** chapters and episodes; episodes kept in the app are marked 保存済み, with a count
   (looked up as the 目次 is delivered).
 - **Bars:** 本棚, 目次, 作品 (title, author, links to the original), Aa (settings), a position slider

@@ -1054,33 +1054,37 @@ span.sesame{text-emphasis-position:over right}
   info.addEventListener('click',function(e){if(e.target===info||epp.contains(e.target))toggleInfo(false);});
   // A swipe drags the page with the finger (rightwards = next); let go past a fifth of the width, or
   // flick, and it turns, otherwise it slides back. A tap turns by the side it lands on.
-  // One finger owns a gesture: the newest one down that is not a thumb's base, unless the one before it is
-  // already swiping. A finger resting still (a firm grip's palm, further in than the edge rule sees) does not
-  // keep a tap from the thumb that comes after it: the user on the A25 found the thumb's taps ignored while
-  // gripping firmly when the first finger kept the gesture. Before either, the page followed whichever finger
-  // the browser listed first, so the base of the thumb on the edge, or landing during a tap, turned the page.
-  var x0=null, t0=0, drag=0, dir=0, lastX=0, lastT=0, vx=0, own=null;
-  // With 片手持ちの誤タッチを防ぐ on (prefs.edge, the default): a touch that starts within 12 px of the left or
+  // One finger owns a gesture. A new finger takes it over only from one resting still for 0.3 s or more (a firm
+  // grip's palm, further in than the edge rule sees): the user on the A25 found the thumb's taps ignored while
+  // gripping firmly when the first finger always kept the gesture. A finger swiping, or one in the middle of a
+  // tap, keeps it. Before either, the page followed whichever finger the browser listed first, so the base of
+  // the thumb on the edge, or landing during a tap, turned the page.
+  var x0=null, t0=0, drag=0, dir=0, lastX=0, lastT=0, vx=0, own=null, based={};
+  // With 端の誤タッチ on (prefs.edge, the default): a touch that starts within 13 px of the left or
   // right edge and is either very narrow (the edge cuts the contact: radius 0.5 or less) or lands while another
-  // finger is down is the base of the thumb, not a tap. Measured on the A25 held in the left hand: the base
+  // finger is down (not counting one already taken for a base) is the base of the thumb, not a tap. Measured on the A25 held in the left hand: the base
   // landed 5 to 13 px from the edge with radius 0.3 to 0.5, often during a tap; fingertip taps landed 14 px or
   // more from it with radius 0.8 to 2.1. Held 0.5 s or more, no touch is a tap anyway. In the bottom 12 % of
   // the screen, where the base landed every time (90 to 97 % down), a touch within 16 px of the side is the base
   // whatever its width: two slipped through there at 12 to 14 px with radius 0.8 to 1.1. Fingertip taps landed
   // in the middle of the screen's height. Only the page's own taps and swipes ask this: the bars, the 目次 and
-  // the other overlays have their own handlers and are not affected.
+  // the other overlays have their own handlers and are not affected. Accepted: a swipe started in a bottom
+  // corner is dropped too, and the radius is the A25's scale (a device reporting none, 0, skips that test).
   function thumbBase(t,others){
     if(!prefs.edge)return false;
     var x=t.clientX, w=window.innerWidth, side=Math.min(x,w-x);
     if(t.clientY>=window.innerHeight*0.88&&side<=16)return true;
-    return side<=12&&((t.radiusX>0&&t.radiusX<=0.5)||others>0);
+    return side<=13&&((t.radiusX>0&&t.radiusX<=0.5)||others>0);
   }
   function owned(list){for(var i=0;i<list.length;i++)if(list[i].identifier===own)return list[i];return null;}
   document.addEventListener('touchstart',function(e){
-    if(busy||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||document.getElementById('end').classList.contains('on')){x0=null;own=null;return;}
-    if(x0!==null&&dir)return;                                        // a finger already swiping keeps the gesture
+    if(busy||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on')){x0=null;own=null;return;}
+    var others=0; for(var j=0;j<e.touches.length;j++)if(!based[e.touches[j].identifier])others++;
+    if(x0!==null&&owned(e.touches)){
+      if(dir||Date.now()-t0<300)return;                              // swiping, or in the middle of a tap: it keeps the gesture
+    } else if(x0!==null&&dir){settle();}                             // its release never came (the page was swapped under it): let it go
     for(var i=0;i<e.changedTouches.length;i++){var t=e.changedTouches[i];
-      if(thumbBase(t,e.touches.length-1))continue;
+      if(thumbBase(t,others-1)){based[t.identifier]=1;continue;}
       own=t.identifier; x0=lastX=t.clientX; t0=lastT=Date.now(); drag=0; dir=0; vx=0; return;}
   },{passive:true});
   document.addEventListener('touchmove',function(e){
@@ -1096,6 +1100,7 @@ span.sesame{text-emphasis-position:over right}
     slide(drag,dir,0);
   },{passive:true});
   document.addEventListener('touchend',function(e){
+    for(var k=0;k<e.changedTouches.length;k++)delete based[e.changedTouches[k].identifier];
     if(x0===null)return;
     var t=owned(e.changedTouches); if(!t)return;                    // another finger let go: not the gesture's
     if(info.classList.contains('on')||guide.classList.contains('on')){x0=null;own=null;return;}
@@ -1108,7 +1113,8 @@ span.sesame{text-emphasis-position:over right}
     }
     x0=null; own=null;
   });
-  document.addEventListener('touchcancel',function(e){if(x0===null||!owned(e.changedTouches))return;
+  document.addEventListener('touchcancel',function(e){for(var k=0;k<e.changedTouches.length;k++)delete based[e.changedTouches[k].identifier];
+    if(x0===null||!owned(e.changedTouches))return;
     if(dir&&!busy){busy=true;slide(0,dir,150,settle);}x0=null;own=null;});
   window.addEventListener('resize',function(){var c=cur();layout();go(c);});
     // The next episode, formatted ahead by the app, replaces this one in place: no page load between them.
