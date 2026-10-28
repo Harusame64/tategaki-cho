@@ -133,7 +133,11 @@ and the backup limit is 25 MB).
 - **Pages:** one page = one column of a vertical-rl multicol box; a page turn scrolls one column.
   Lines are never cut in half. Margins (`PADX`, `PADY`) and line height (`--lh`) come from the
   display settings.
-- **Taps:** left 40 % next page, right 40 % previous, middle 20 % the bars; swipes turn with the
+- **Taps:** by the tap zones, the screen in 3 x 3 (`zones` in the settings, 9 letters row by row: n next page,
+  p previous, m the bars, 0 nothing; at least one m). The middle column is 10, 20 or 34 % wide (`zw`), the
+  middle row 20, 34 or 50 % high (`zh`). The default is the layout before zones: left 40 % next page, right 40 %
+  previous, middle 20 % the bars. Presets 標準, 左右反転, 片手 (all next, the bars in the middle, the bottom
+  corners nothing) and 上下 (the top row previous); a zone tapped in Aa's small screen cycles. Swipes turn with the
   finger; volume keys turn when chosen. One finger owns a gesture; a new finger takes it over only from
   one resting still for 0.3 s or more, so a resting palm does not keep the thumb's tap, and a tap or a
   swipe in progress keeps it. 端の誤タッチ (on by default, `edge` in the settings) drops the base of
@@ -159,7 +163,8 @@ and the backup limit is 25 MB).
   third of their height (at least 120 px) they close with the bars, back to the page, else slide back. A
   second finger, or any other close, puts the sheet back in place. A touch that scrolls the sheet does not pull,
   even back past its top.
-- **First-time guide:** the tap zones, shown once (`guided` in the settings), again from Aa.
+- **First-time guide:** the tap zones as set, neighbouring zones that do the same drawn as one block; shown once
+  (`guided` in the settings), again from Aa.
 - **Across episodes:** the next and previous episodes are formatted ahead and swapped in place.
   At the end of a work, an end card.
 - **Places:** the episode and page are saved to the shelf as pages turn and on pause; カクヨム

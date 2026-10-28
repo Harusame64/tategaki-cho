@@ -690,13 +690,28 @@ span.sesame{text-emphasis-position:over right}
 #info .epp .st{font:13px sans-serif;color:var(--sub);writing-mode:horizontal-tb;position:absolute;left:0;right:0;bottom:120px;text-align:center}
 /* The first-time guide: where a tap turns or opens the menu (the zones of the touchend handler). */
 #guide{display:none;position:fixed;inset:0;z-index:12;writing-mode:horizontal-tb;font:15px/1.5 sans-serif;color:#fff}
-#guide.on{display:flex}
-#guide .z{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;box-sizing:border-box;padding:0 6px}
+#guide.on{display:grid}
+#guide .z{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;box-sizing:border-box;padding:0 6px;
+  overflow:hidden;outline:1px solid rgba(255,255,255,.35)}
 #guide .z b{font-size:19px}
-#guide .n{width:40%;background:rgba(26,95,180,.93)}
-#guide .m{width:20%;background:rgba(50,50,50,.93);font-size:13px}
+#guide .n{background:rgba(26,95,180,.93)}
+#guide .m{background:rgba(50,50,50,.93);font-size:13px}
 #guide .m b{font-size:15px}
-#guide .p{width:40%;background:rgba(190,110,30,.93)}
+#guide .p{background:rgba(190,110,30,.93)}
+#guide .o{background:rgba(0,0,0,.6);color:#ccc}
+/* The editor of the tap zones in Aa: the screen drawn small, a tap on a zone changes what it does. */
+#info .zrow{align-items:flex-start}
+#info .zg{display:grid;flex:0 0 auto;width:168px;border:1px solid var(--edge);border-radius:6px;overflow:hidden}
+#info .zg .zc{min-width:0;min-height:0;padding:0;border:0;border-radius:0;outline:1px solid rgba(255,255,255,.5);color:#fff;
+  font-size:12px;writing-mode:vertical-rl;white-space:nowrap;overflow:hidden}
+#info .zg .n{background:rgb(26,95,180)}
+#info .zg .p{background:rgb(190,110,30)}
+#info .zg .m{background:rgb(50,50,50)}
+#info .zg .o{background:transparent;color:var(--sub)}
+#info .zbox{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+#info .zside{display:flex;flex-direction:column;align-items:flex-start;gap:8px;font-size:12px;color:var(--sub)}
+#info .zmsg{color:var(--link)}
+#info .zmsg:empty{display:none}
 #guide .foot{position:absolute;left:0;right:0;bottom:28px;text-align:center;font-size:13px;padding:0 16px}
 #end{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);writing-mode:horizontal-tb;z-index:11;align-items:center;justify-content:center;font:15px/1.6 sans-serif}
 #end.on{display:flex}
@@ -727,11 +742,11 @@ span.sesame{text-emphasis-position:over right}
 #toc .ep.read{color:var(--sub)}
 /* kept in the app: readable without a signal */
 #toc .ep.kept::after{content:"保存済み";float:right;margin-left:10px;font-size:11px;font-weight:normal;color:var(--sub)}
-#info .vk.on,#info .ek.on,#info .zk.on,#info .ah.on,#info .bk.on,#info .ft.on,#info .pk.on,#info .ik.on,#info .uk.on,#info .lh.on,#info .mx.on,#info .my.on{border-color:var(--link);color:var(--link);font-weight:bold}
+#info .vk.on,#info .ek.on,#info .zp.on,#info .zw.on,#info .zh.on,#info .zk.on,#info .ah.on,#info .bk.on,#info .ft.on,#info .pk.on,#info .ik.on,#info .uk.on,#info .lh.on,#info .mx.on,#info .my.on{border-color:var(--link);color:var(--link);font-weight:bold}
 </style></head><body>
 <div id="book" class="pagebox">%%BOOK%%</div><div id="credit"></div><div id="pg"></div>
 <div id="info"></div>
-<div id="guide"><div class="z n"><b>次のページ</b><span>ここをタップ<br>または右へスワイプ</span></div><div class="z m"><b>メニュー</b><span>目次<br>設定<br>作品</span></div><div class="z p"><b>前のページ</b><span>ここをタップ<br>または左へスワイプ</span></div><div class="foot">どこかをタップすると閉じます<br>Aa の「触る場所」でいつでも見直せます</div></div>
+<div id="guide"></div>
 <div id="end"><div class="card"><div class="t"></div><div class="a"></div><div class="btns"></div></div></div>
 <div id="toc"><div class="hd"><span class="tt">目次</span><button id="tocx">閉じる</button></div><div class="st"></div><div class="ls"></div></div>
 <script>var INFO=%%INFO%%, START=%%START%%, SHARE=%%SHARE%%, PREFS=%%PREFS%%;</script><script>
@@ -849,12 +864,31 @@ span.sesame{text-emphasis-position:over right}
   var FONTS={serif:{n:'明朝',f:'"Noto Serif CJK JP","Noto Serif JP",serif'},sans:{n:'ゴシック',f:'"Noto Sans CJK JP","Noto Sans JP",sans-serif'},
     bizud:{n:'BIZ UD明朝',f:'"BIZ UDMincho",serif'},shippori:{n:'しっぽり明朝',f:'"Shippori Mincho",serif'}};
   var FONT_ORDER=['serif','sans','bizud','shippori'];
-  var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,upright:false,lh:2,mx:'m',my:'m',guided:false,ephint:0,edge:true,buzz:false};
+  // The tap zones: the screen in 3 x 3, read row by row from the top left, each n (next page), p (previous page),
+  // m (the menu: the bars) or 0 (nothing). The middle column's width and the middle row's height are a share of the
+  // screen. The default is the layout before zones could be changed: 40 % next on the left, 20 % menu, 40 % previous.
+  // At least one zone is the menu, or the bars could not be shown.
+  var ZW={s:10,m:20,l:34}, ZH={s:20,m:34,l:50};
+  var ZPRESETS=[['std','標準','nmpnmpnmp'],['flip','左右反転','pmnpmnpmn'],['one','片手','nnnnmn0n0'],['ud','上下','pppnmnnnn']];
+  var ZNAMES={n:'次のページ',p:'前のページ',m:'メニュー','0':'なし'};
+  var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,upright:false,lh:2,mx:'m',my:'m',guided:false,ephint:0,edge:true,buzz:false,
+    zones:'nmpnmpnmp',zw:'m',zh:'m'};
   if(PREFS){if(THEMES[PREFS.theme])prefs.theme=PREFS.theme;if(SIZES.indexOf(PREFS.fs)>=0)prefs.fs=PREFS.fs;
     if(AHEAD.indexOf(PREFS.ahead)>=0)prefs.ahead=PREFS.ahead;else if(PREFS.ahead>20)prefs.ahead=20;if(PREFS.vol===true)prefs.vol=true;if(PREFS.bar===true)prefs.bar=true;if(FONTS[PREFS.font])prefs.font=PREFS.font;if(PREFS.pack===false)prefs.pack=false;if(PREFS.indent===true)prefs.indent=true;if(PREFS.upright===true)prefs.upright=true;
     if(LHS.indexOf(PREFS.lh)>=0)prefs.lh=PREFS.lh;if(MX[PREFS.mx])prefs.mx=PREFS.mx;if(MY[PREFS.my])prefs.my=PREFS.my;if(PREFS.guided===true)prefs.guided=true;
     if(typeof PREFS.ephint==='number'&&PREFS.ephint>0)prefs.ephint=Math.min(3,Math.floor(PREFS.ephint));
-    if(PREFS.edge===false)prefs.edge=false;if(PREFS.buzz===true)prefs.buzz=true;}
+    if(PREFS.edge===false)prefs.edge=false;if(PREFS.buzz===true)prefs.buzz=true;
+    if(typeof PREFS.zones==='string'&&/^[npm0]{9}$/.test(PREFS.zones)&&PREFS.zones.indexOf('m')>=0)prefs.zones=PREFS.zones;
+    if(ZW[PREFS.zw])prefs.zw=PREFS.zw;if(ZH[PREFS.zh])prefs.zh=PREFS.zh;}
+  // What a tap at (x, y) does: n, p, m or 0.
+  function zoneAt(x,y){
+    var a=(100-ZW[prefs.zw])/200, b=(100-ZH[prefs.zh])/200, w=window.innerWidth, hh=window.innerHeight;
+    var c=x<w*a?0:x>w*(1-a)?2:1, r=y<hh*b?0:y>hh*(1-b)?2:1;
+    return prefs.zones.charAt(r*3+c);
+  }
+  function zoneTracks(min){var a=(100-ZW[prefs.zw])/2, b=(100-ZH[prefs.zh])/2;
+    function t(v){return min?'minmax('+min+'px,'+v+'fr)':v+'fr';}
+    return {cols:t(a)+' '+t(ZW[prefs.zw])+' '+t(a), rows:t(b)+' '+t(ZH[prefs.zh])+' '+t(b)};}
   function applyTheme(){
     var t=THEMES[prefs.theme], r=document.documentElement.style;
     for(var k in t)r.setProperty('--'+k,t[k]);
@@ -874,7 +908,13 @@ span.sesame{text-emphasis-position:over right}
     +'<div class="row"><span class="k">行間</span><div class="opts">'+LHS.map(function(v){return '<button class="lh" data-lh="'+v+'">'+v.toFixed(1)+'</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">上下余白</span><div class="opts">'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="my" data-my="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">左右余白</span><div class="opts">'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="mx" data-mx="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div></div>'
-    +'<div class="row"><span class="k">触る場所</span><button class="lk" data-guide="1">説明を見る</button></div>'
+    +'<div class="row zrow"><span class="k">触る場所</span><div class="zbox"><div class="zg">'
+    +[0,1,2,3,4,5,6,7,8].map(function(i){return '<button class="zc" data-zc="'+i+'"></button>';}).join('')
+    +'</div><div class="zside"><span>区画をタップすると、次のページ → 前のページ → メニュー → なし の順に変わります。</span>'
+    +'<span class="zmsg"></span><button class="lk" data-guide="1">説明を見る</button></div></div></div>'
+    +'<div class="row"><span class="k">ひな形</span><div class="opts">'+ZPRESETS.map(function(z){return '<button class="zp" data-zp="'+z[2]+'">'+z[1]+'</button>';}).join('')+'</div></div>'
+    +'<div class="row"><span class="k">真ん中の幅</span><div class="opts">'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="zw" data-zw="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div></div>'
+    +'<div class="row"><span class="k">真ん中の高さ</span><div class="opts">'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="zh" data-zh="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">端の誤タッチ</span><div class="opts"><button class="ek" data-edge="1">防ぐ</button><button class="ek" data-edge="0">防がない</button></div></div>'
     +'<div class="row"><span class="k">先読み</span><div class="opts">'
     +AHEAD.map(function(n){return '<button class="ah" data-ahead="'+n+'">'+n+'話</button>';}).join('')+'</div></div>'
@@ -903,6 +943,15 @@ span.sesame{text-emphasis-position:over right}
     info.querySelectorAll('.ik').forEach(function(b){b.classList.toggle('on',(b.dataset.indent==='1')===prefs.indent);});
     info.querySelectorAll('.uk').forEach(function(b){b.classList.toggle('on',(b.dataset.upright==='1')===prefs.upright);});
     info.querySelectorAll('.bk').forEach(function(b){b.classList.toggle('on',(b.dataset.bar==='1')===prefs.bar);});
+    info.querySelectorAll('.zp').forEach(function(b){b.classList.toggle('on',b.dataset.zp===prefs.zones);});
+    info.querySelectorAll('.zw').forEach(function(b){b.classList.toggle('on',b.dataset.zw===prefs.zw);});
+    info.querySelectorAll('.zh').forEach(function(b){b.classList.toggle('on',b.dataset.zh===prefs.zh);});
+    // The small screen: as tall for its width as this one, the narrowest zone still big enough to tap.
+    var zg=info.querySelector('.zg'), tr=zoneTracks(28);
+    zg.style.gridTemplateColumns=tr.cols; zg.style.gridTemplateRows=tr.rows;
+    zg.style.height=Math.max(150,Math.min(320,Math.round(168*window.innerHeight/Math.max(1,window.innerWidth))))+'px';
+    zg.querySelectorAll('.zc').forEach(function(c){var z=prefs.zones.charAt(Number(c.dataset.zc));
+      c.className='zc '+(z==='0'?'o':z); c.textContent=ZNAMES[z];});
   }
   info.addEventListener('click',function(e){
     var b=e.target.closest&&e.target.closest('button'); if(!b)return;
@@ -937,7 +986,16 @@ span.sesame{text-emphasis-position:over right}
     if(b.id==='workb'||b.id==='dispb'){var k=b.id==='workb'?'work':'disp';var o=info.classList.contains(k);
       if(eps){eps=null;markSeek();}                                    // the title page would cover the sheet's effect on the text (review on #12)
       unpull(); info.classList.remove('work','disp');if(!o)info.classList.add(k);return;}
-    if(b.dataset.guide){info.classList.remove('on','work','disp');guide.classList.add('on');return;}
+    if(b.dataset.guide){info.classList.remove('on','work','disp');showGuide();return;}
+    if(b.dataset.zc){
+      var zi=Number(b.dataset.zc), z0=prefs.zones.charAt(zi), z1={n:'p',p:'m',m:'0','0':'n'}[z0];
+      var zs=prefs.zones.slice(0,zi)+z1+prefs.zones.slice(zi+1), msg=info.querySelector('.zmsg');
+      if(zs.indexOf('m')<0){msg.textContent='メニューの区画は、1 つは残してください。';return;}
+      msg.textContent=''; prefs.zones=zs;
+    }
+    if(b.dataset.zp){prefs.zones=b.dataset.zp;info.querySelector('.zmsg').textContent='';}
+    if(b.dataset.zw)prefs.zw=b.dataset.zw;
+    if(b.dataset.zh)prefs.zh=b.dataset.zh;
     if(b.dataset.lh||b.dataset.mx||b.dataset.my){
       // As for a new size: the same share of the episode read, after the relayout.
       var f1=cur()/Math.max(1,pages()-1);
@@ -1152,7 +1210,7 @@ span.sesame{text-emphasis-position:over right}
       var go2=Math.abs(drag)>window.innerWidth*0.2||(dir*vx>0.5&&Math.abs(drag)>20);
       if(go2)turn(dir,true); else{busy=true;slide(0,dir,150,settle);}
     } else if(Date.now()-t0<500){
-      var w=window.innerWidth; if(x<w*0.4)turn(1); else if(x>w*0.6)turn(-1); else toggleInfo(true);
+      var z=zoneAt(x,t.clientY); if(z==='n')turn(1); else if(z==='p')turn(-1); else if(z==='m')toggleInfo(true);
     }
     x0=null; own=null;
   });
@@ -1171,6 +1229,20 @@ span.sesame{text-emphasis-position:over right}
   var endEl=document.getElementById('end');
   // Shown once, the first time a book opens; closed by any tap (which turns nothing).
   var guide=document.getElementById('guide');
+  // Drawn from the zones as they are set: neighbouring zones that do the same are one block, with one label.
+  function showGuide(){
+    var z=prefs.zones, done={}, tr=zoneTracks(0), out='';
+    guide.style.gridTemplateColumns=tr.cols; guide.style.gridTemplateRows=tr.rows;
+    for(var i=0;i<9;i++){if(done[i])continue;
+      var r=Math.floor(i/3), c=i%3, w=1, hgt=1, k=z.charAt(i);
+      while(c+w<3&&!done[i+w]&&z.charAt(i+w)===k)w++;
+      for(;r+hgt<3;hgt++){var ok=true;for(var j=0;j<w;j++){var q=(r+hgt)*3+c+j;if(done[q]||z.charAt(q)!==k)ok=false;}if(!ok)break;}
+      for(var y=0;y<hgt;y++)for(var x=0;x<w;x++)done[(r+y)*3+c+x]=1;
+      out+='<div class="z '+(k==='0'?'o':k)+'" style="grid-area:'+(r+1)+'/'+(c+1)+'/span '+hgt+'/span '+w+'"><b>'+ZNAMES[k]+'</b>'
+        +(k==='m'?'<span>目次<br>設定<br>作品</span>':k==='0'?'':'<span>ここをタップ</span>')+'</div>';}
+    guide.innerHTML=out+'<div class="foot">右へスワイプで次のページ、左へスワイプで前のページ<br>どこかをタップすると閉じます<br>Aa の「触る場所」で変えられます</div>';
+    guide.classList.add('on');
+  }
   function closeGuide(){if(!guide.classList.contains('on'))return;guide.classList.remove('on');if(!prefs.guided){prefs.guided=true;save();}}
   guide.addEventListener('click',closeGuide);
   function end(done,page,aozora){
@@ -1200,7 +1272,7 @@ span.sesame{text-emphasis-position:over right}
   new MutationObserver(tellOverlay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
   function key(d){if(guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on'))return;turn(d);}
   window.__reader={swap:swap,end:end,key:key,closeOverlays:closeOverlays,go:go,cur:cur,pages:pages,turn:turn,ticks:function(){return ticks;},vol:function(){return prefs.vol&&!info.classList.contains('on')&&!guide.classList.contains('on');},toc:renderToc};
-  function start(){if(window.Android)Android.overlay(false);layout();starting=false;if(!prefs.guided)guide.classList.add('on');go(SHARE>=0?Math.round(SHARE*(pages()-1)):START<0?pages()-1:START);}
+  function start(){if(window.Android)Android.overlay(false);layout();starting=false;if(!prefs.guided)showGuide();go(SHARE>=0?Math.round(SHARE*(pages()-1)):START<0?pages()-1:START);}
   document.fonts&&document.fonts.ready?document.fonts.ready.then(start):start();
 })();
 </script></body></html>

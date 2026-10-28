@@ -602,6 +602,83 @@ public class ReadingTest {
         assertEquals("one tick for the tap that reached the app", "2", E2E.js(a, "__reader.ticks()"));
     }
 
+    /**
+     * R22: the tap zones. By default a tap at the left turns to the next page, the middle shows the bars; 左右反転
+     * swaps the sides; a zone tapped in Aa goes next, previous, menu, nothing, but the last menu zone stays; a zone set
+     * to nothing does nothing; 真ん中の幅 moves where the middle starts; the guide is drawn from the zones; all saved.
+     */
+    @Test
+    public void theTapZonesCanBeChanged() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(3, 40);
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        String bars = "document.getElementById('info').classList.contains('on')";
+        E2E.js(a, "__reader.go(2)");
+        E2E.waitFor(a, "__reader.cur()", "2");
+        // 左右反転: the left now goes back, the right forward.
+        openAa(a, bars);
+        E2E.js(a, "document.querySelector('.zp[data-zp=\"pmnpmnpmn\"]').click()");
+        assertEquals("true", E2E.js(a, "document.querySelector('.zp[data-zp=\"pmnpmnpmn\"]').classList.contains('on')"));
+        assertEquals("\"前のページ\"", E2E.js(a, "document.querySelector('.zc[data-zc=\"0\"]').textContent"));
+        closeAa(a, bars);
+        E2E.tapLeft();
+        E2E.waitFor(a, "__reader.cur()", "1");
+        E2E.tapRight();
+        E2E.waitFor(a, "__reader.cur()", "2");
+        // Back to 標準, then the middle column tapped: menu becomes nothing, twice; the last menu zone stays.
+        openAa(a, bars);
+        E2E.js(a, "document.querySelector('.zp[data-zp=\"nmpnmpnmp\"]').click()");
+        E2E.js(a, "document.querySelector('.zc[data-zc=\"1\"]').click();document.querySelector('.zc[data-zc=\"4\"]').click();"
+                + "document.querySelector('.zc[data-zc=\"7\"]').click()");
+        assertEquals("\"メニュー\"", E2E.js(a, "document.querySelector('.zc[data-zc=\"7\"]').textContent"));
+        assertTrue(E2E.js(a, "document.querySelector('.zmsg').textContent").contains("1 つは残して"));
+        E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"zones\":\"n0pn0pnmp\""),
+                "zones saved");
+        // The guide is drawn from them: one block per run of the same zone, the middle at the top two rows nothing.
+        E2E.js(a, "document.querySelector('#info button[data-guide]').click()");
+        E2E.waitFor(a, "document.getElementById('guide').classList.contains('on')", "true");
+        assertEquals("\"n o p m\"", E2E.js(a, "Array.prototype.map.call(document.querySelectorAll('#guide .z'),function(z){return z.classList[1];}).join(' ')"));
+        E2E.tapMiddle();
+        E2E.waitFor(a, "document.getElementById('guide').classList.contains('on')", "false");
+        SystemClock.sleep(400);
+        // The middle of the screen does nothing now: neither the bars nor a turn.
+        E2E.tapMiddle();
+        SystemClock.sleep(700);
+        assertEquals("false", E2E.js(a, bars));
+        assertEquals("2", E2E.js(a, "__reader.cur()"));
+        // At 35 % across and low down, the menu row: with 真ん中の幅 普通 that is the left column (next page); 広い
+        // starts the middle at 33 %, the menu.
+        androidx.test.uiautomator.UiDevice d = androidx.test.uiautomator.UiDevice.getInstance(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation());
+        d.click(d.getDisplayWidth() * 35 / 100, d.getDisplayHeight() * 80 / 100);
+        E2E.waitFor(a, "__reader.cur()", "3");
+        SystemClock.sleep(400);
+        // The bars from the menu zone at the bottom middle.
+        d.click(d.getDisplayWidth() / 2, d.getDisplayHeight() * 80 / 100);
+        E2E.waitFor(a, bars, "true");
+        SystemClock.sleep(600);
+        E2E.js(a, "document.getElementById('dispb').click();document.querySelector('.zw[data-zw=\"l\"]').click()");
+        E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"zw\":\"l\""), "zw saved");
+        closeAa(a, bars);
+        d.click(d.getDisplayWidth() * 35 / 100, d.getDisplayHeight() * 80 / 100);
+        E2E.waitFor(a, bars, "true");
+        assertEquals("3", E2E.js(a, "__reader.cur()"));
+    }
+
+    private static void openAa(Activity a, String bars) throws Exception {
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        SystemClock.sleep(600);                                      // a click in the bars' first 500 ms is dropped
+        E2E.js(a, "document.getElementById('dispb').click()");
+    }
+
+    private static void closeAa(Activity a, String bars) throws Exception {
+        E2E.js(a, "document.getElementById('dispb').click()");
+        E2E.js(a, "document.getElementById('info').click()");
+        E2E.waitFor(a, bars, "false");
+        SystemClock.sleep(400);
+    }
+
     /** R19b: a 青空文庫 book's sections are its episodes on the page bar, all kept, named as in its 目次. */
     @Test
     public void aBooksSectionsAreItsEpisodesOnTheSlider() throws Exception {
