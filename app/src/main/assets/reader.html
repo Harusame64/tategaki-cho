@@ -672,6 +672,12 @@ span.sesame{text-emphasis-position:over right}
   padding-left:8px;-webkit-touch-callout:none}
 /* Held, the count switches the slider between the episode's pages and the work's episodes (話). */
 #info .bar.ep span{color:var(--link);font-weight:bold}
+/* Until the count has been held once, a hint above it when the bars open, at most 3 times
+   (prefs.ephint counts them; holding the count sets it to 3). It does not take taps. */
+#info .ephint{display:none;position:absolute;right:12px;bottom:calc(100% + 10px);background:var(--fg);color:var(--bg);
+  font:13px sans-serif;padding:8px 12px;border-radius:8px;white-space:nowrap;pointer-events:none}
+#info .ephint::after{content:'';position:absolute;right:28px;top:100%;border:6px solid transparent;border-top-color:var(--fg)}
+#info .ephint.on{display:block}
 /* While the slider moves through episodes: a page with the episode's number and title in the middle,
    under the bars, as a title page; nothing is fetched until the finger lets go. */
 #info .epp{display:none;position:absolute;inset:0;background:var(--bg);color:var(--fg);writing-mode:vertical-rl;
@@ -837,10 +843,11 @@ span.sesame{text-emphasis-position:over right}
   var FONTS={serif:{n:'明朝',f:'"Noto Serif CJK JP","Noto Serif JP",serif'},sans:{n:'ゴシック',f:'"Noto Sans CJK JP","Noto Sans JP",sans-serif'},
     bizud:{n:'BIZ UD明朝',f:'"BIZ UDMincho",serif'},shippori:{n:'しっぽり明朝',f:'"Shippori Mincho",serif'}};
   var FONT_ORDER=['serif','sans','bizud','shippori'];
-  var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,upright:false,lh:2,mx:'m',my:'m',guided:false};
+  var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,upright:false,lh:2,mx:'m',my:'m',guided:false,ephint:0};
   if(PREFS){if(THEMES[PREFS.theme])prefs.theme=PREFS.theme;if(SIZES.indexOf(PREFS.fs)>=0)prefs.fs=PREFS.fs;
     if(AHEAD.indexOf(PREFS.ahead)>=0)prefs.ahead=PREFS.ahead;else if(PREFS.ahead>20)prefs.ahead=20;if(PREFS.vol===true)prefs.vol=true;if(PREFS.bar===true)prefs.bar=true;if(FONTS[PREFS.font])prefs.font=PREFS.font;if(PREFS.pack===false)prefs.pack=false;if(PREFS.indent===true)prefs.indent=true;if(PREFS.upright===true)prefs.upright=true;
-    if(LHS.indexOf(PREFS.lh)>=0)prefs.lh=PREFS.lh;if(MX[PREFS.mx])prefs.mx=PREFS.mx;if(MY[PREFS.my])prefs.my=PREFS.my;if(PREFS.guided===true)prefs.guided=true;}
+    if(LHS.indexOf(PREFS.lh)>=0)prefs.lh=PREFS.lh;if(MX[PREFS.mx])prefs.mx=PREFS.mx;if(MY[PREFS.my])prefs.my=PREFS.my;if(PREFS.guided===true)prefs.guided=true;
+    if(typeof PREFS.ephint==='number'&&PREFS.ephint>0)prefs.ephint=Math.min(3,Math.floor(PREFS.ephint));}
   function applyTheme(){
     var t=THEMES[prefs.theme], r=document.documentElement.style;
     for(var k in t)r.setProperty('--'+k,t[k]);
@@ -868,7 +875,7 @@ span.sesame{text-emphasis-position:over right}
   // As in Kindle, a tap in the middle shows only the bars: the work and its buttons on top, the page bar
   // below. The settings (Aa) and the work's links each open from their button, never from that tap.
   h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
-    +'<div class="botbar"><div class="row bar"><input id="seek" type="range" min="1" value="1"><span id="seekv"></span></div></div>'
+    +'<div class="botbar"><div class="ephint">数字を長押しすると、話を選べます</div><div class="row bar"><input id="seek" type="range" min="1" value="1"><span id="seekv"></span></div></div>'
     +'<div class="sheet w"><div class="head"></div></div>'+h;
   info.innerHTML=h;
   setInfo(INFO);
@@ -966,9 +973,20 @@ span.sesame{text-emphasis-position:over right}
   });
   // A long press on the count switches the range; the slider itself only drags.
   var holdT=null;
+  // The hint: shown when the bars open on a work of two or more episodes, until the count has been held
+  // once, at most 3 times. Settings saved by a version without it have no ephint, so it shows there too.
+  var hint=info.querySelector('.ephint'), hintT=null;
+  function unhint(){clearTimeout(hintT);hintT=null;hint.classList.remove('on');}
+  function maybeHint(){
+    if(prefs.ephint>=3)return; var d=null;try{d=window.Android?JSON.parse(Android.episodes()):null;}catch(x){}
+    if(!d||!d.eps||d.eps.length<2)return;
+    prefs.ephint++; save(); hint.classList.add('on'); hintT=setTimeout(unhint,4000);
+  }
+  info.addEventListener('touchstart',unhint,{passive:true,capture:true});
   function epMode(on){
     if(on){var d=null;try{d=window.Android?JSON.parse(Android.episodes()):null;}catch(x){}
-      if(!d||!d.eps||d.eps.length<2)return; eps=d.eps;}
+      if(!d||!d.eps||d.eps.length<2)return; eps=d.eps;
+      unhint(); if(prefs.ephint<3){prefs.ephint=3;save();}}
     else eps=null;
     if(window.Android)Android.haptic(); markSeek();
     if(eps)showEp(Math.max(0,epAt()));                               // the switch is seen at once, on the episode being read
@@ -1011,12 +1029,14 @@ span.sesame{text-emphasis-position:over right}
   tocLs.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('.ep');if(!a)return;
     if(a.dataset.id?a.dataset.id===curId:Number(a.dataset.n)===curNo){toc.classList.remove('on');go(0);return;}
     tocSt.textContent='開いています…'; if(window.Android)Android.open(String(a.dataset.id||a.dataset.n));});
-  function toggleInfo(on){info.classList.toggle('on',on);info.classList.remove('work','disp');eps=null;if(on){openedAt=Date.now();markSeek();}}
+  function toggleInfo(on){info.classList.toggle('on',on);info.classList.remove('work','disp');eps=null;unhint();if(on){openedAt=Date.now();markSeek();maybeHint();}}
   // The tap that opens the card is followed by its own click, which lands on the backdrop just shown.
   // That click can also land on a link or button of the card, now that it reaches the middle of the
   // screen: nothing in the card takes a click until the tap that opened it is over.
   info.addEventListener('click',function(e){if(Date.now()-openedAt<500){e.preventDefault();e.stopImmediatePropagation();}},true);
-  info.addEventListener('click',function(e){if(e.target===info)toggleInfo(false);});
+  // A tap outside the bars closes them; so does a tap on the episode title page (it covers the text while the
+  // slider spans episodes, and a tap there meant to go back to reading: the user on the A25 read it as frozen).
+  info.addEventListener('click',function(e){if(e.target===info||epp.contains(e.target))toggleInfo(false);});
   // A swipe drags the page with the finger (rightwards = next); let go past a fifth of the width, or
   // flick, and it turns, otherwise it slides back. A tap turns by the side it lands on.
   var x0=null, t0=0, drag=0, dir=0, lastX=0, lastT=0, vx=0;

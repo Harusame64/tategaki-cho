@@ -56,6 +56,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | R17 | The 目次 marks the episodes kept in the app and counts them | theTocMarksKeptEpisodes (ShelfFlowTest) |
 | R18 | The page slider runs right to left: its right end is page 1, its left end the last page | theSliderRunsRightToLeft (ReadingTest) |
 | R19 | A long press on the bar's count switches the slider to episodes: moving it shows number and title and fetches nothing; letting go on an episode not kept fetches that one and opens its first page; the bars shown again span the pages | holdingTheCountMovesThroughEpisodes (ReadingTest) |
+| R19c | Until the count has been held once, the bars show a hint above it, at most 3 times, saved; a hold stops it; a tap on the episode title page closes the bars on the page being read | theCountsHintShowsUntilItIsHeld (ReadingTest) |
 | R19b | A 青空文庫 book's sections are its episodes on the page bar, all kept, named as in its 目次; nothing fetched | aBooksSectionsAreItsEpisodesOnTheSlider (ReadingTest) |
 | G1 | The first book opens under the tap guide; a tap closes it without turning, and it is not shown again | shownOnceAndATapClosesItWithoutTurning (GuideTest) |
 | G2 | Aa's 触る場所 shows the guide again; Back closes it before the reader | aaShowsItAgainAndBackClosesIt (GuideTest) |

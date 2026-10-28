@@ -337,6 +337,51 @@ public class ReadingTest {
         assertEquals("\"1 / " + E2E.num(a, "__reader.pages()") + "\"", E2E.js(a, "document.getElementById('seekv').textContent"));
     }
 
+    /**
+     * R19c: until the count has been held once, the bars show a hint above it, at most 3 times; a hold stops it,
+     * and a tap on the episode title page goes back to the page being read (the user on the A25 read it as frozen).
+     */
+    @Test
+    public void theCountsHintShowsUntilItIsHeld() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(3, 40);
+        String hint = "document.querySelector('#info .ephint').classList.contains('on')";
+        String bars = "document.getElementById('info').classList.contains('on')";
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        for (int n = 1; n <= 4; n++) {
+            E2E.tapMiddle();
+            E2E.waitFor(a, bars, "true");
+            assertEquals("opening " + n, n <= 3 ? "true" : "false", E2E.js(a, hint));
+            SystemClock.sleep(600);
+            E2E.tapMiddle();
+            E2E.waitFor(a, bars, "false");
+        }
+        // Saved, so the next launch does not show it either.
+        assertTrue(E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"ephint\":3"));
+
+        // A fresh start: shown once, then a hold stops it for good.
+        reader.close();
+        E2E.ctx().getSharedPreferences("reader", 0).edit().putString("display", "{\"guided\":true}").commit();
+        a = open(1, 0);
+        E2E.waitReady(a);
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        assertEquals("true", E2E.js(a, hint));
+        E2E.holdSeekCount(a);
+        E2E.waitFor(a, "document.querySelector('#info .epp').classList.contains('on')", "true");
+        assertEquals("false", E2E.js(a, hint));
+        // A tap on the title page closes the bars, back on the page being read.
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "false");
+        assertEquals("1", E2E.js(a, "INFO.no"));
+        assertEquals("0", E2E.js(a, "__reader.cur()"));
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        assertEquals("false", E2E.js(a, hint));
+        assertTrue(E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"ephint\":3"));
+    }
+
     /** R19b: a 青空文庫 book's sections are its episodes on the page bar, all kept, named as in its 目次. */
     @Test
     public void aBooksSectionsAreItsEpisodesOnTheSlider() throws Exception {
