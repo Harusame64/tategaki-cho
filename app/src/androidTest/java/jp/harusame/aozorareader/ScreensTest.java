@@ -86,6 +86,14 @@ public class ScreensTest {
             E2E.js(a.get(), "document.getElementById('tocx').click();document.getElementById('tocb').click()");
             SystemClock.sleep(1500);
             mark(t + "_toc3");
+            // The slider across the episodes (a long press on its count), and the title page while it moves (the 目次
+            // just read gives the titles; episode 4 is not kept)
+            E2E.js(a.get(), "document.getElementById('tocx').click()");
+            E2E.tapMiddle(); SystemClock.sleep(600);
+            E2E.holdSeekCount(a.get());
+            mark(t + "_epbar");
+            E2E.js(a.get(), "var s=document.getElementById('seek');s.value=4;s.dispatchEvent(new Event('input'))");
+            mark(t + "_epp");
             r.close();
             ActivityScenario<LogActivity> l = ActivityScenario.launch(new Intent(E2E.ctx(), LogActivity.class));
             mark(t + "_log");

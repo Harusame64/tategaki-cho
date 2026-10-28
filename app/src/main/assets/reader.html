@@ -668,7 +668,20 @@ span.sesame{text-emphasis-position:over right}
 #info .bar input::-webkit-slider-runnable-track{height:4px;border-radius:2px;
   background:linear-gradient(to left,var(--link) var(--at,0%),var(--edge) var(--at,0%))}
 #info .bar input::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-8px;border-radius:50%;background:var(--link);border:0}
-#info .bar span{font-size:13px;color:var(--sub);min-width:4.5em;text-align:right}
+#info .bar span{font-size:13px;color:var(--sub);min-width:4.5em;min-height:48px;display:flex;align-items:center;justify-content:flex-end;
+  padding-left:8px;-webkit-touch-callout:none}
+/* Held, the count switches the slider between the episode's pages and the work's episodes (話). */
+#info .bar.ep span{color:var(--link);font-weight:bold}
+/* While the slider moves through episodes: a page with the episode's number and title in the middle,
+   under the bars, as a title page; nothing is fetched until the finger lets go. */
+#info .epp{display:none;position:absolute;inset:0;background:var(--bg);color:var(--fg);writing-mode:vertical-rl;
+  align-items:center;justify-content:center;gap:1.2em;font-family:var(--ff)}
+#info .epp.on{display:flex}
+#info .epp .no{font-size:calc(var(--fs) * 1.1);color:var(--sub)}
+#info .epp .tt{font-size:calc(var(--fs) * 1.4);font-weight:bold;max-height:70%;line-height:1.5}
+#info .epp .tcy{text-combine-upright:all}
+#info .epp .up{text-orientation:upright}
+#info .epp .st{font:13px sans-serif;color:var(--sub);writing-mode:horizontal-tb;position:absolute;left:0;right:0;bottom:120px;text-align:center}
 /* The first-time guide: where a tap turns or opens the menu (the zones of the touchend handler). */
 #guide{display:none;position:fixed;inset:0;z-index:12;writing-mode:horizontal-tb;font:15px/1.5 sans-serif;color:#fff}
 #guide.on{display:flex}
@@ -854,7 +867,7 @@ span.sesame{text-emphasis-position:over right}
     +'<div class="row"><span class="k">音量キー</span><div class="opts"><button class="vk" data-vol="1">ページをめくる</button><button class="vk" data-vol="0">使わない</button></div></div></div></div>';
   // As in Kindle, a tap in the middle shows only the bars: the work and its buttons on top, the page bar
   // below. The settings (Aa) and the work's links each open from their button, never from that tap.
-  h='<div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
+  h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
     +'<div class="botbar"><div class="row bar"><input id="seek" type="range" min="1" value="1"><span id="seekv"></span></div></div>'
     +'<div class="sheet w"><div class="head"></div></div>'+h;
   info.innerHTML=h;
@@ -920,9 +933,54 @@ span.sesame{text-emphasis-position:over right}
   applyTheme(); markDisp();
   var openedAt=0;
   var seek=document.getElementById('seek'), seekv=document.getElementById('seekv');
-  function fill(){seek.style.setProperty('--at',(pages()>1?100*(seek.value-1)/(pages()-1):100)+'%');}
-  function markSeek(){seek.max=pages();seek.value=cur()+1;seekv.textContent=(cur()+1)+' / '+pages();fill();}
-  seek.addEventListener('input',function(){go(Number(seek.value)-1);seekv.textContent=seek.value+' / '+pages();fill();});
+  // eps: the work's episodes while the slider spans them (話), null while it spans the pages.
+  var eps=null, epp=info.querySelector('.epp'), bar=info.querySelector('.bar');
+  function fill(){var n=Number(seek.max)||1;seek.style.setProperty('--at',(n>1?100*(seek.value-1)/(n-1):100)+'%');}
+  function epAt(){for(var i=0;i<eps.length;i++)if(eps[i].id?String(eps[i].id)===curId:eps[i].n===curNo)return i;return -1;}
+  function markSeek(){
+    bar.classList.toggle('ep',!!eps); epp.classList.remove('on');
+    if(eps){var i=Math.max(0,epAt());seek.max=eps.length;seek.value=i+1;seekv.textContent=(i+1)+' / '+eps.length+' 話';}
+    else{seek.max=pages();seek.value=cur()+1;seekv.textContent=(cur()+1)+' / '+pages();}
+    fill();
+  }
+  // An episode's number in vertical text: two digits side by side upright in one square, more digits one above another.
+  function vnum(n){n=String(n);return n.length<=2?'<span class="tcy">'+n+'</span>':'<span class="up">'+n+'</span>';}
+  // The number above the title, unless the title already begins with it (なろう's often do) or there is none (no 目次 kept).
+  function showEp(i){var e=eps[i], t=e.t||'';
+    var dup=new RegExp('^第\\s*0*'+e.n+'\\s*話').test(t.replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);}));
+    epp.querySelector('.no').innerHTML=t&&!dup?'第'+vnum(e.n)+'話':'';
+    if(t)epp.querySelector('.tt').textContent=t; else epp.querySelector('.tt').innerHTML='第'+vnum(e.n)+'話';
+    epp.querySelector('.st').textContent=epAt()===i?'いま読んでいる話':e.k?'保存済み':'未保存　離すと読み込みます';
+    epp.classList.add('on');
+  }
+  seek.addEventListener('input',function(){
+    if(eps){var i=Number(seek.value)-1;showEp(i);seekv.textContent=(i+1)+' / '+eps.length+' 話';fill();return;}
+    go(Number(seek.value)-1);seekv.textContent=seek.value+' / '+pages();fill();});
+  // Let go on another episode: it opens at its first page, from the app or fetched once (as from the 目次).
+  // Let go on the one being read: back to where it was.
+  seek.addEventListener('change',function(){
+    if(!eps)return; var e=eps[Number(seek.value)-1], i=epAt();
+    if(!e||Number(seek.value)-1===i){markSeek();return;}
+    epp.querySelector('.st').textContent='開いています…';
+    if(window.Android)Android.open(String(e.id||e.n));
+  });
+  // A long press on the count switches the range; the slider itself only drags.
+  var holdT=null;
+  function epMode(on){
+    if(on){var d=null;try{d=window.Android?JSON.parse(Android.episodes()):null;}catch(x){}
+      if(!d||!d.eps||d.eps.length<2)return; eps=d.eps;}
+    else eps=null;
+    if(window.Android)Android.haptic(); markSeek();
+    if(eps)showEp(Math.max(0,epAt()));                               // the switch is seen at once, on the episode being read
+  }
+  // A finger held still moves a little: only a move of more than 10 px is not a long press.
+  var holdX=0, holdY=0;
+  function unhold(){clearTimeout(holdT);holdT=null;}
+  seekv.addEventListener('touchstart',function(e){unhold();holdX=e.touches[0].clientX;holdY=e.touches[0].clientY;
+    holdT=setTimeout(function(){holdT=null;epMode(!eps);},450);},{passive:true});
+  seekv.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientX-holdX)>10||Math.abs(e.touches[0].clientY-holdY)>10)unhold();},{passive:true});
+  ['touchend','touchcancel'].forEach(function(t){seekv.addEventListener(t,unhold,{passive:true});});
+  seekv.addEventListener('contextmenu',function(e){e.preventDefault();});
   var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0, tocPast=true, tocSec=null;
   function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocPast=true;tocSec=null;tocLs.innerHTML='';tocSt.textContent='目次を読み込み中…';
     if(window.Android)Android.toc();}
@@ -953,7 +1011,7 @@ span.sesame{text-emphasis-position:over right}
   tocLs.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('.ep');if(!a)return;
     if(a.dataset.id?a.dataset.id===curId:Number(a.dataset.n)===curNo){toc.classList.remove('on');go(0);return;}
     tocSt.textContent='開いています…'; if(window.Android)Android.open(String(a.dataset.id||a.dataset.n));});
-  function toggleInfo(on){info.classList.toggle('on',on);info.classList.remove('work','disp');if(on){openedAt=Date.now();markSeek();}}
+  function toggleInfo(on){info.classList.toggle('on',on);info.classList.remove('work','disp');eps=null;if(on){openedAt=Date.now();markSeek();}}
   // The tap that opens the card is followed by its own click, which lands on the backdrop just shown.
   // That click can also land on a link or button of the card, now that it reaches the middle of the
   // screen: nothing in the card takes a click until the tap that opened it is over.

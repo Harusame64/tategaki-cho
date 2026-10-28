@@ -55,6 +55,8 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | R16 | A 青空文庫 book hides 空行, 字下げ and 英字; a なろう episode shows them | aozoraBooksHideTheWebFormattingRows (ReadingTest) |
 | R17 | The 目次 marks the episodes kept in the app and counts them | theTocMarksKeptEpisodes (ShelfFlowTest) |
 | R18 | The page slider runs right to left: its right end is page 1, its left end the last page | theSliderRunsRightToLeft (ReadingTest) |
+| R19 | A long press on the bar's count switches the slider to episodes: moving it shows number and title and fetches nothing; letting go on an episode not kept fetches that one and opens its first page; the bars shown again span the pages | holdingTheCountMovesThroughEpisodes (ReadingTest) |
+| R19b | A 青空文庫 book's sections are its episodes on the page bar, all kept, named as in its 目次; nothing fetched | aBooksSectionsAreItsEpisodesOnTheSlider (ReadingTest) |
 | G1 | The first book opens under the tap guide; a tap closes it without turning, and it is not shown again | shownOnceAndATapClosesItWithoutTurning (GuideTest) |
 | G2 | Aa's 触る場所 shows the guide again; Back closes it before the reader | aaShowsItAgainAndBackClosesIt (GuideTest) |
 | F1 | 全話を保存 fetches each episode not kept, once; kept ones are not asked for | savesEachEpisodeNotKeptOnce (FullSaveTest) |
@@ -98,6 +100,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | K9 | カクヨム: the episode read and the one after it are deleted while it is open; "next" opens the one after where it was | nextAfterTheEpisodeReadAndItsNextAreDeleted |
 | K6b | カクヨム: sharing an episode newer than the kept list, of a work on the shelf, opens that episode | aSharedNewEpisodeOpensIt |
 | K7b | カクヨム: the place's episode deleted and never kept here; "next" from the error page opens the one after where it was | thePlacesEpisodeDeletedAndNeverKept |
+| K10 | カクヨム: the page bar across the episodes follows the kept list by id; letting go on 題C opens C | theEpisodeSliderOpensByIdFromTheKeptList |
 
 ## Background check (CheckWorkerTest) — done
 

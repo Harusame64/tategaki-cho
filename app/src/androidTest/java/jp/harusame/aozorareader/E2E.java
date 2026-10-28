@@ -178,6 +178,19 @@ final class E2E {
     static void tapRight() { UiDevice d = device(); d.click(d.getDisplayWidth() * 7 / 8, d.getDisplayHeight() / 2); }
     static void tapMiddle() { UiDevice d = device(); d.click(d.getDisplayWidth() / 2, d.getDisplayHeight() / 2); }
 
+    /** A real long press (0.8 s) on the page bar's count, which switches the slider between pages and episodes. */
+    static void holdSeekCount(Activity a) throws Exception {
+        String r = js(a, "(function(){var r=document.getElementById('seekv').getBoundingClientRect();"
+                + "return [(r.left+r.right)/2,(r.top+r.bottom)/2,devicePixelRatio].join()})()");
+        String[] v = r.replace("\"", "").split(",");
+        if (v.length != 3) throw new AssertionError("the count's place was not read: " + r);
+        int[] at = new int[2];
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> ((ReaderActivity) a).web.getLocationOnScreen(at));
+        double dpr = Double.parseDouble(v[2]);
+        int x = at[0] + (int) Math.round(Double.parseDouble(v[0]) * dpr), y = at[1] + (int) Math.round(Double.parseDouble(v[1]) * dpr);
+        device().swipe(x, y, x, y, 160);                                  // about 5 ms a step
+    }
+
     /** A real tap on the page slider (the bars shown), 4 px inside its left or right end: within the thumb's half width, so the end value. */
     static void tapSliderEnd(Activity a, boolean left) throws Exception {
         String r = js(a, "(function(){var r=document.getElementById('seek').getBoundingClientRect();"
