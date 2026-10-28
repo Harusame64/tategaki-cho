@@ -37,13 +37,14 @@ Measured with R8 against android.jar (2026-10-24): only six classes reference AP
 
 ## Letters all upright (2026-10-28)
 
-`web.WebAozoraConverter` has a new public field `forceZenkakuAlphabet` (narou.rb's
-`enable_alphabet_force_zenkaku`): when set, `protectEnglishSentences` makes every half-width letter
-full-width instead of keeping English phrases and long words half-width. Off by default, so the
-converter behaves as before; `EpisodeFormatter` sets it from the reader's 英字 setting.
+`web.WebAozoraConverter.protectEnglishSentences` now honours `NarouFormatSettings`'
+`enableAlphabetForceZenkaku` (narou.rb's `enable_alphabet_force_zenkaku`, which only
+`AozoraTextFinalizer` read before): every half-width letter becomes full-width, outside tags,
+annotations, the converter's placeholders and URLs, as the finalizer does. Off by default;
+`EpisodeFormatter` sets it from the reader's 英字 setting on its own converter.
 
-The English-run patterns (`WebAozoraConverter.protectEnglishSentences`, `AozoraTextFinalizer`'s
-`ENGLISH_SENTENCES_PATTERN`) spell out `[A-Za-z0-9_…]` instead of `\w`: on Android (ICU) `\w` also
+The English-run pattern is one constant, `WebAozoraConverter.ENGLISH_RUN` (also
+`AozoraTextFinalizer`'s `ENGLISH_SENTENCES_PATTERN`), spelling out `[A-Za-z0-9_…]` instead of `\w`: on Android (ICU) `\w` also
 matches kanji and kana, so a whole paragraph was taken as English and no letter became full-width.
 The same fix belongs upstream in AozoraEpub3-JDK21 only if it ever runs on Android.
 

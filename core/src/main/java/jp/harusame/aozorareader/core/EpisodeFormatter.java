@@ -48,7 +48,7 @@ public final class EpisodeFormatter {
 		if (conv == null) throw new IOException("no site definition for " + url);
 		// 挿絵 are not taken: the converter would fetch them itself, outside the app's network door.
 		conv.skipImages = true;
-		conv.forceZenkakuAlphabet = uprightLetters;
+		conv.getFormatSettings().setEnableAlphabetForceZenkaku(uprightLetters);
 		Document doc = Jsoup.parse(html, url);
 		StringWriter text = new StringWriter();
 		conv.episodeToAozoraText(text, doc);

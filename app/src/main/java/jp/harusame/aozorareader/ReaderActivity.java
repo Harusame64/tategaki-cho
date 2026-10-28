@@ -259,7 +259,7 @@ public class ReaderActivity extends Activity {
             applyWindowBackground(json);
         }
 
-        /** Formats the episode shown again (after the blank-line or indent setting changed), at the same share read. */
+        /** Formats the episode shown again (after the 空行, 字下げ or 英字 setting changed), at the same share read. */
         @JavascriptInterface
         public void reformat(double share) {
             Prepared p = shown;

@@ -168,8 +168,6 @@ public class WebAozoraConverter
 	float modifiedExpire = 24;
 	/** 本文内挿絵のダウンロードをスキップする（表紙は除く） */
 	public boolean skipImages = false;
-	/** 英文も含めて半角英字をすべて全角にする（narou.rb の enable_alphabet_force_zenkaku。たてがき帖の設定「英字」） */
-	public boolean forceZenkakuAlphabet = false;
 	/** Cloudflare の確認画面で止められた。以降はこのサイトに取りに行かない（変換ごとに戻す） */
 	boolean blockedByChallenge = false;
 	
@@ -2466,11 +2464,10 @@ public class WebAozoraConverter
 	 * 3. それ以外 → アルファベットを全角化
 	 */
 	private String protectEnglishSentences(String text) {
-		if (this.forceZenkakuAlphabet) return alphabetToZenkaku(text);
-		//\w は Android（ICU）では漢字やかなにも当たり、段落ごと「英文」と見なして英字を全角にしなくなる。
-		//narou.rb（Ruby の \w は ASCII）と同じく半角英数字と _ だけにする
-		Pattern pattern = Pattern.compile("[A-Za-z0-9_.,!?'\" &:;-]+");
-		java.util.regex.Matcher matcher = pattern.matcher(text);
+		//英字強制全角（narou.rb の enable_alphabet_force_zenkaku。たてがき帖の設定「英字」）: 英文も全角にする。
+		//タグ・注記・URL の中は変えない（AozoraTextFinalizer#alphabetToZenkaku と同じ。[jump:url] のリンクが壊れる）
+		if (formatSettings.isEnableAlphabetForceZenkaku()) return alphabetToZenkakuOutside(text);
+		java.util.regex.Matcher matcher = ENGLISH_RUN.matcher(text);
 		StringBuffer result = new StringBuffer();
 
 		while (matcher.find()) {
@@ -2493,6 +2490,26 @@ public class WebAozoraConverter
 		}
 		matcher.appendTail(result);
 		return result.toString();
+	}
+
+	/**
+	 * 英文候補の並び（narou.rb の ENGLISH_SENTENCES_CHARACTERS）。\w と書かない: Android（ICU）の \w は漢字やかなにも当たり、
+	 * 段落ごと「英文」と見なして英字を全角にしなくなる。Ruby の \w と同じく半角英数字と _ だけ（AozoraTextFinalizer も使う）
+	 */
+	public static final Pattern ENGLISH_RUN = Pattern.compile("[A-Za-z0-9_.,!?'\" &:;-]+");
+
+	/** 英字強制全角で変えない所: タグ、注記、変換の目印、URL */
+	private static final Pattern NOT_TEXT = Pattern.compile("<[^>]*>|［＃[^］]*］|\uE000[^\uE001]*\uE001|https?://[!-~]+");
+
+	private String alphabetToZenkakuOutside(String text) {
+		java.util.regex.Matcher m = NOT_TEXT.matcher(text);
+		StringBuilder sb = new StringBuilder();
+		int at = 0;
+		while (m.find()) {
+			sb.append(alphabetToZenkaku(text.substring(at, m.start()))).append(m.group());
+			at = m.end();
+		}
+		return sb.append(alphabetToZenkaku(text.substring(at))).toString();
 	}
 
 	/** 半角アルファベットを全角に変換 */

@@ -33,9 +33,10 @@ docs/   this file, e2e.md
 - **EpisodeFormatter**: an episode page's HTML → aozora's web extraction
   (`web/<site>/extract.txt`) → Aozora text → **AozoraFormatter** → XHTML sections.
   Illustrations are skipped: the converter would fetch them itself, outside the app's network door.
-  The extraction applies narou.rb's letter rule: a short word becomes full-width (upright), an English
-  phrase or a word of 8+ letters stays half-width (sideways); `uprightLetters` (英字 すべて縦向き)
-  makes every letter full-width.
+  The extraction applies narou.rb's letter rule: a run of letters, digits and `.,!?'" &:;_-` becomes
+  full-width (upright) unless it is English, that is two or more space-separated words, or 8+ characters
+  with a letter, which stays half-width (sideways). `uprightLetters` (英字 すべて縦向き) makes every
+  letter full-width, outside tags, annotations and URLs.
 - **AozoraFormatter**: Aozora text → vertical XHTML. Options: `removeEmptyLines` (空行),
   `forceIndent` (強制字下げ).
 - **SafeXhtml**: cuts the formatter's output down to text structure, ruby and the formatter's
