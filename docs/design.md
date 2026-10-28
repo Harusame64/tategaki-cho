@@ -155,8 +155,9 @@ and the backup limit is 25 MB).
   novels only), text size, 行間, 上下余白, 左右余白, 触る場所, 端の誤タッチ, read-ahead, clock, volume keys, めくりの振動 (a tick when a tap turns the page, off by default; the long press
   feedback, the only one that vibrated on the user's Galaxy A25).
   空行, 字下げ and 英字 change the formatting, so the episode is formatted again at the same share read.
-- **Sheets (作品, Aa):** pulled down from their top they follow the finger; let go past a third of their
-  height (at least 120 px) they close with the bars, back to the page, else slide back.
+- **Sheets (作品, Aa):** pulled down from their top they follow the finger after 10 px of give; let go past a
+  third of their height (at least 120 px) they close with the bars, back to the page, else slide back. A
+  second finger, or any other close, puts the sheet back in place.
 - **First-time guide:** the tap zones, shown once (`guided` in the settings), again from Aa.
 - **Across episodes:** the next and previous episodes are formatted ahead and swapped in place.
   At the end of a work, an end card.

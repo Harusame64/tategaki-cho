@@ -295,17 +295,10 @@ public class ReaderActivity extends Activity {
         }
 
         /**
-         * めくりの振動 (the user's request, off by default): a tick as a tap turns a page. The long press's feedback:
-         * on the user's Galaxy A25 it was the only one of six that vibrated (VIRTUAL_KEY, KEYBOARD_TAP,
-         * CONTEXT_CLICK, CONFIRM and CLOCK_TICK did nothing), and the user chose it over adding the vibrate
-         * permission for a lighter one.
+         * A light tick, as Android gives a long press: the page bar changing between pages and episodes, and
+         * めくりの振動 as a tap turns a page. On the user's Galaxy A25 it was the only one of six feedback constants
+         * that vibrated (VIRTUAL_KEY, KEYBOARD_TAP, CONTEXT_CLICK, CONFIRM and CLOCK_TICK did nothing).
          */
-        @JavascriptInterface
-        public void tick() {
-            runOnUiThread(() -> web.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS));
-        }
-
-        /** A light tick, as Android gives a long press (the page bar changing between pages and episodes). */
         @JavascriptInterface
         public void haptic() {
             runOnUiThread(() -> web.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS));
