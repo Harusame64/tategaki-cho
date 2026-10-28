@@ -396,6 +396,68 @@ public class ReadingTest {
         assertTrue(E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"ephint\":3"));
     }
 
+    /**
+     * R20: the base of the thumb does not turn the page, a resting finger does not keep the thumb's tap, and a
+     * fingertip near the edge still turns (端の誤タッチ, on by default). Touches are sent with a contact width
+     * (radiusX), as measured on the A25 held in one hand.
+     */
+    @Test
+    public void theBaseOfTheThumbDoesNotTurn() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(3, 80);
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        assertTrue("needs pages to turn", E2E.num(a, "__reader.pages()") >= 6);
+        E2E.js(a, "window.__t=function(type,list,changed){function mk(o){return new Touch({identifier:o.id,target:document.body,"
+                + "clientX:o.x,clientY:o.y,radiusX:o.r,radiusY:o.r});}document.body.dispatchEvent(new TouchEvent(type,"
+                + "{touches:list.map(mk),changedTouches:changed.map(mk),bubbles:true,cancelable:true}));};"
+                + "window.__tap=function(o){__t('touchstart',[o],[o]);__t('touchend',[],[o]);};0");
+        String h = "innerHeight", w = "innerWidth";
+        // The base, narrow at the left edge, alone: no turn.
+        E2E.js(a, "__tap({id:1,x:6,y:" + h + "*0.5,r:0.3})");
+        SystemClock.sleep(400);
+        assertEquals("0", E2E.js(a, "__reader.cur()"));
+        // The base in the bottom corner, wider, 14 px in (it slipped through before the corner rule): no turn.
+        // (Each on its own: a left tap and a right tap that both got through would cancel out.)
+        E2E.js(a, "__tap({id:2,x:14,y:" + h + "*0.93,r:1.1})");
+        SystemClock.sleep(400);
+        assertEquals("left corner", "0", E2E.js(a, "__reader.cur()"));
+        E2E.js(a, "__tap({id:3,x:" + w + "-10,y:" + h + "*0.95,r:1.3})");
+        SystemClock.sleep(400);
+        assertEquals("right corner", "0", E2E.js(a, "__reader.cur()"));
+        // A fingertip 14 px from the edge at mid height: it turns.
+        E2E.js(a, "__tap({id:4,x:14,y:" + h + "*0.6,r:1.1})");
+        E2E.waitFor(a, "__reader.cur()", "1");
+        SystemClock.sleep(400);
+        // A palm resting further in, then the thumb taps: the thumb turns, the palm lifting does not.
+        E2E.js(a, "var R={id:5,x:40,y:" + h + "*0.7,r:2},T={id:6,x:30,y:" + h + "*0.5,r:1.2};"
+                + "__t('touchstart',[R],[R]);__t('touchstart',[R,T],[T]);__t('touchend',[R],[T])");
+        E2E.waitFor(a, "__reader.cur()", "2");
+        SystemClock.sleep(400);
+        E2E.js(a, "__t('touchend',[],[{id:5,x:40,y:" + h + "*0.7,r:2}])");
+        SystemClock.sleep(400);
+        assertEquals("2", E2E.js(a, "__reader.cur()"));
+        // The base landing at the edge during a tap: only the tap turns, once.
+        E2E.js(a, "var T={id:7,x:30,y:" + h + "*0.5,r:1.2},B={id:8,x:6,y:" + h + "*0.8,r:1.5};"
+                + "__t('touchstart',[T],[T]);__t('touchstart',[T,B],[B]);__t('touchend',[T],[B]);__t('touchend',[],[T])");
+        E2E.waitFor(a, "__reader.cur()", "3");
+        SystemClock.sleep(400);
+        assertEquals("3", E2E.js(a, "__reader.cur()"));
+        // 防がない: the narrow edge touch turns, as before.
+        E2E.tapMiddle();
+        E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "true");
+        SystemClock.sleep(600);                                          // a click in the bars' first 500 ms is dropped
+        E2E.js(a, "document.getElementById('dispb').click();document.querySelector('.ek[data-edge=\"0\"]').click()");
+        E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"edge\":false"),
+                "端の誤タッチ 防がない saved");
+        E2E.js(a, "document.getElementById('dispb').click()");
+        E2E.tapMiddle();
+        E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "false");
+        SystemClock.sleep(600);
+        E2E.js(a, "__tap({id:9,x:6,y:" + h + "*0.5,r:0.3})");
+        E2E.waitFor(a, "__reader.cur()", "4");
+    }
+
     /** R19b: a 青空文庫 book's sections are its episodes on the page bar, all kept, named as in its 目次. */
     @Test
     public void aBooksSectionsAreItsEpisodesOnTheSlider() throws Exception {

@@ -134,7 +134,11 @@ and the backup limit is 25 MB).
   Lines are never cut in half. Margins (`PADX`, `PADY`) and line height (`--lh`) come from the
   display settings.
 - **Taps:** left 40 % next page, right 40 % previous, middle 20 % the bars; swipes turn with the
-  finger; volume keys turn when chosen.
+  finger; volume keys turn when chosen. One finger owns a gesture: the newest one down, unless the one
+  before is already swiping, so a resting palm does not keep the thumb's tap. 端の誤タッチ (on by
+  default, `edge` in the settings) drops the base of the thumb: a touch within 12 px of the side that
+  is very narrow (radius 0.5 or less) or lands while another finger is down, and in the bottom 12 % any
+  touch within 16 px of the side (measured on the A25 held in one hand).
 - **目次:** chapters and episodes; episodes kept in the app are marked 保存済み, with a count
   (looked up as the 目次 is delivered).
 - **Bars:** 本棚, 目次, 作品 (title, author, links to the original), Aa (settings), a position slider
@@ -146,7 +150,7 @@ and the backup limit is 25 MB).
   bars show a hint above it ("数字を長押しすると、話を選べます"), at most 3 times (`ephint` in the
   settings; settings from a version without it show it too).
 - **Aa settings:** background (5), typeface (4, two bundled OFL fonts), 空行, 字下げ, 英字 (web
-  novels only), text size, 行間, 上下余白, 左右余白, 触る場所, read-ahead, clock, volume keys.
+  novels only), text size, 行間, 上下余白, 左右余白, 触る場所, 端の誤タッチ, read-ahead, clock, volume keys.
   空行, 字下げ and 英字 change the formatting, so the episode is formatted again at the same share read.
 - **First-time guide:** the tap zones, shown once (`guided` in the settings), again from Aa.
 - **Across episodes:** the next and previous episodes are formatted ahead and swapped in place.
