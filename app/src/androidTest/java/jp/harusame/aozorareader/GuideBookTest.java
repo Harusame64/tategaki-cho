@@ -37,6 +37,21 @@ public class GuideBookTest {
     }
 
     /** B1: a new shelf holds the guide book, and はじめかた offers the ways to add a work. */
+    /** The sections kept from an older guide.txt are dropped at start, so an update's new pages show. */
+    @Test
+    public void sectionsKeptFromAnOlderGuideAreFormattedAgain() throws Exception {
+        java.io.File kept = AozoraSite.sectionsFile(E2E.ctx(), Guide.KEY);
+        kept.getParentFile().mkdirs();
+        java.nio.file.Files.write(kept.toPath(), "[\"古い説明\"]".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        E2E.ctx().getSharedPreferences("reader", Context.MODE_PRIVATE).edit().putString(Guide.FORMATTED, "old").commit();
+        Guide.ensure(E2E.ctx());
+        org.junit.Assert.assertFalse("kept from the older text", kept.isFile());
+        // The same text at the next start: what was formatted from it is kept.
+        java.nio.file.Files.write(kept.toPath(), "[\"今の説明\"]".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        Guide.ensure(E2E.ctx());
+        org.junit.Assert.assertTrue("formatted from the same text", kept.isFile());
+    }
+
     @Test
     public void aNewShelfHoldsTheGuideAndHowToStart() throws Exception {
         scenario = ActivityScenario.launch(new Intent(E2E.ctx(), ShelfActivity.class));
