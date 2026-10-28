@@ -620,7 +620,7 @@ public class ReadingTest {
         openAa(a, bars);
         E2E.js(a, "document.querySelector('.zp[data-zp=\"pmnpmnpmn\"]').click()");
         assertEquals("true", E2E.js(a, "document.querySelector('.zp[data-zp=\"pmnpmnpmn\"]').classList.contains('on')"));
-        assertEquals("\"前のページ\"", E2E.js(a, "document.querySelector('.zc[data-zc=\"0\"]').textContent"));
+        assertEquals("\"前へ\"", E2E.js(a, "document.querySelector('.zc[data-zc=\"0\"]').textContent"));
         closeAa(a, bars);
         E2E.tapLeft();
         E2E.waitFor(a, "__reader.cur()", "1");
@@ -632,13 +632,18 @@ public class ReadingTest {
         E2E.js(a, "document.querySelector('.zc[data-zc=\"1\"]').click();document.querySelector('.zc[data-zc=\"4\"]').click();"
                 + "document.querySelector('.zc[data-zc=\"7\"]').click()");
         assertEquals("\"メニュー\"", E2E.js(a, "document.querySelector('.zc[data-zc=\"7\"]').textContent"));
+        // The message goes with the next change.
+        E2E.js(a, "document.querySelector('.zw[data-zw=\"m\"]').click()");
+        assertEquals("\"\"", E2E.js(a, "document.querySelector('.zmsg').textContent"));
+        E2E.js(a, "document.querySelector('.zc[data-zc=\"7\"]').click()");
         assertTrue(E2E.js(a, "document.querySelector('.zmsg').textContent").contains("1 つは残して"));
         E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"zones\":\"n0pn0pnmp\""),
                 "zones saved");
-        // The guide is drawn from them: one block per run of the same zone, the middle at the top two rows nothing.
+        // The guide is drawn from them: each zone in its colour, one label per region of zones that do the same.
         E2E.js(a, "document.querySelector('#info button[data-guide]').click()");
         E2E.waitFor(a, "document.getElementById('guide').classList.contains('on')", "true");
-        assertEquals("\"n o p m\"", E2E.js(a, "Array.prototype.map.call(document.querySelectorAll('#guide .z'),function(z){return z.classList[1];}).join(' ')"));
+        assertEquals("\"n o p n o p n m p\"", E2E.js(a, "Array.prototype.map.call(document.querySelectorAll('#guide .z'),function(z){return z.classList[1];}).join(' ')"));
+        assertEquals("\"次のページ なし 前のページ メニュー\"", E2E.js(a, "Array.prototype.map.call(document.querySelectorAll('#guide .z b'),function(z){return z.textContent;}).join(' ')"));
         E2E.tapMiddle();
         E2E.waitFor(a, "document.getElementById('guide').classList.contains('on')", "false");
         SystemClock.sleep(400);
@@ -649,7 +654,7 @@ public class ReadingTest {
         assertEquals("2", E2E.js(a, "__reader.cur()"));
         // At 35 % across and low down, the menu row: with 真ん中の幅 普通 that is the left column (next page); 広い
         // starts the middle at 33 %, the menu.
-        androidx.test.uiautomator.UiDevice d = androidx.test.uiautomator.UiDevice.getInstance(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation());
+        androidx.test.uiautomator.UiDevice d = E2E.device();
         d.click(d.getDisplayWidth() * 35 / 100, d.getDisplayHeight() * 80 / 100);
         E2E.waitFor(a, "__reader.cur()", "3");
         SystemClock.sleep(400);
@@ -657,12 +662,31 @@ public class ReadingTest {
         d.click(d.getDisplayWidth() / 2, d.getDisplayHeight() * 80 / 100);
         E2E.waitFor(a, bars, "true");
         SystemClock.sleep(600);
-        E2E.js(a, "document.getElementById('dispb').click();document.querySelector('.zw[data-zw=\"l\"]').click()");
-        E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"zw\":\"l\""), "zw saved");
-        closeAa(a, bars);
-        d.click(d.getDisplayWidth() * 35 / 100, d.getDisplayHeight() * 80 / 100);
+        E2E.js(a, "document.getElementById('dispb').click();document.querySelector('.zw[data-zw=\"l\"]').click();"
+                + "document.querySelector('.zh[data-zh=\"l\"]').click()");
+        E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"zh\":\"l\""), "zw, zh saved");
+        // Opened again, the reader reads them back: at 35 % across and 78 % down, the middle column (広い starts it at
+        // 33 %) and the bottom row (広い makes the middle row 25 % to 75 %), the menu; the middle of the screen still
+        // does nothing.
+        reader.close();
+        a = open(1, 2);
+        E2E.waitReady(a);
+        d.click(d.getDisplayWidth() / 2, d.getDisplayHeight() / 2);
+        SystemClock.sleep(700);
+        assertEquals("false", E2E.js(a, bars));
+        assertEquals("2", E2E.js(a, "__reader.cur()"));
+        d.click(d.getDisplayWidth() * 35 / 100, d.getDisplayHeight() * 78 / 100);
         E2E.waitFor(a, bars, "true");
-        assertEquals("3", E2E.js(a, "__reader.cur()"));
+        assertEquals("2", E2E.js(a, "__reader.cur()"));
+        // A saved size that is no choice (an inherited name) falls back to 普通: the menu zone at the top left stays
+        // reachable (codex).
+        reader.close();
+        E2E.ctx().getSharedPreferences("reader", 0).edit()
+                .putString("display", "{\"guided\":true,\"zones\":\"mnnnnnnnn\",\"zw\":\"constructor\",\"zh\":\"toString\"}").commit();
+        a = open(1, 2);
+        E2E.waitReady(a);
+        d.click(d.getDisplayWidth() / 10, d.getDisplayHeight() / 10);
+        E2E.waitFor(a, bars, "true");
     }
 
     private static void openAa(Activity a, String bars) throws Exception {
