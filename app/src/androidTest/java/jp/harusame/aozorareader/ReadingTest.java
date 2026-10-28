@@ -404,10 +404,10 @@ public class ReadingTest {
     @Test
     public void theBaseOfTheThumbDoesNotTurn() throws Exception {
         E2E.reset();
-        E2E.seedNarou(3, 140);
+        E2E.seedNarou(3, 180);
         Activity a = open(1, 0);
         E2E.waitReady(a);
-        assertTrue("needs pages to turn", E2E.num(a, "__reader.pages()") >= 10);
+        assertTrue("needs pages to turn", E2E.num(a, "__reader.pages()") >= 12);
         E2E.js(a, "window.__t=function(type,list,changed){function mk(o){return new Touch({identifier:o.id,target:document.body,"
                 + "clientX:o.x,clientY:o.y,radiusX:o.r,radiusY:o.r});}document.body.dispatchEvent(new TouchEvent(type,"
                 + "{touches:list.map(mk),changedTouches:changed.map(mk),bubbles:true,cancelable:true}));};"
@@ -488,6 +488,17 @@ public class ReadingTest {
         E2E.js(a, "__t('touchend',[],[Q])");
         SystemClock.sleep(600);
         assertEquals("7", E2E.js(a, "__reader.cur()"));
+        // A base landing in the bottom corner during a tap, still down after the tap: it is remembered as a base,
+        // so the next tap at the same side is not taken for one (codex on #13).
+        E2E.js(a, "var T={id:19,x:30,y:" + h + "*0.5,r:1.2};window.C={id:20,x:8,y:" + h + "*0.93,r:1.5};"
+                + "__t('touchstart',[T],[T]);__t('touchstart',[T,C],[C]);__t('touchend',[C],[T])");
+        E2E.waitFor(a, "__reader.cur()", "8");
+        SystemClock.sleep(400);
+        E2E.js(a, "var U={id:21,x:6,y:" + h + "*0.5,r:1.2};__t('touchstart',[C,U],[U]);__t('touchend',[C],[U])");
+        E2E.waitFor(a, "__reader.cur()", "9");
+        SystemClock.sleep(400);
+        E2E.js(a, "__t('touchend',[],[C])");
+        SystemClock.sleep(400);
         // 防がない: a touch in the bottom corner turns, as before.
         E2E.tapMiddle();
         E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "true");
@@ -500,7 +511,7 @@ public class ReadingTest {
         E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "false");
         SystemClock.sleep(600);
         E2E.js(a, "__tap({id:9,x:6,y:" + h + "*0.9,r:0.3})");
-        E2E.waitFor(a, "__reader.cur()", "8");
+        E2E.waitFor(a, "__reader.cur()", "10");
     }
 
     /** R19b: a 青空文庫 book's sections are its episodes on the page bar, all kept, named as in its 目次. */

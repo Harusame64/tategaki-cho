@@ -1083,12 +1083,16 @@ span.sesame{text-emphasis-position:over right}
     // Fingers down besides this one, on the same half of the screen, not taken for a base (see thumbBase).
     function others(t){var n=0,left=t.clientX<window.innerWidth/2;for(var j=0;j<e.touches.length;j++){var o=e.touches[j];
       if(o.identifier!==t.identifier&&!based[o.identifier]&&(o.clientX<window.innerWidth/2)===left)n++;}return n;}
+    // Every new finger is judged first, so a base landing during a tap is remembered as one even though the tap
+    // keeps the gesture; else it would count as "another finger" for the taps after it (codex on #13).
+    var fresh=null;
+    for(var i=0;i<e.changedTouches.length;i++){var t=e.changedTouches[i];
+      if(thumbBase(t,others(t)))based[t.identifier]=1; else if(!fresh)fresh=t;}
+    if(!fresh)return;
     if(x0!==null&&owned(e.touches)){
       if(dir||Date.now()-t0<300)return;                              // swiping, or in the middle of a tap: it keeps the gesture
     } else if(x0!==null&&dir){settle();}                             // its release never came (the page was swapped under it): let it go
-    for(var i=0;i<e.changedTouches.length;i++){var t=e.changedTouches[i];
-      if(thumbBase(t,others(t))){based[t.identifier]=1;continue;}
-      own=t.identifier; x0=lastX=t.clientX; t0=lastT=Date.now(); drag=0; dir=0; vx=0; return;}
+    own=fresh.identifier; x0=lastX=fresh.clientX; t0=lastT=Date.now(); drag=0; dir=0; vx=0;
   },{passive:true});
   document.addEventListener('touchmove',function(e){
     if(x0===null)return;
