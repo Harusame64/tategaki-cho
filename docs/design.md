@@ -152,8 +152,11 @@ and the backup limit is 25 MB).
   bars show a hint above it ("数字を長押しすると、話を選べます"), at most 3 times (`ephint` in the
   settings; settings from a version without it show it too).
 - **Aa settings:** background (5), typeface (4, two bundled OFL fonts), 空行, 字下げ, 英字 (web
-  novels only), text size, 行間, 上下余白, 左右余白, 触る場所, 端の誤タッチ, read-ahead, clock, volume keys.
+  novels only), text size, 行間, 上下余白, 左右余白, 触る場所, 端の誤タッチ, read-ahead, clock, volume keys, めくりの振動 (a tick when a tap turns the page, off by default; the long press
+  feedback, the only one that vibrated on the user's Galaxy A25).
   空行, 字下げ and 英字 change the formatting, so the episode is formatted again at the same share read.
+- **Sheets (作品, Aa):** pulled down from their top they follow the finger; let go past a third of their
+  height (at least 120 px) they close with the bars, back to the page, else slide back.
 - **First-time guide:** the tap zones, shown once (`guided` in the settings), again from Aa.
 - **Across episodes:** the next and previous episodes are formatted ahead and swapped in place.
   At the end of a work, an end card.
