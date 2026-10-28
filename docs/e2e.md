@@ -50,8 +50,9 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | R8b | After a jump from the 目次 reloads the page, Back closes the reader (no overlay left registered) | backWorksAfterAJumpReloadsThePage |
 | R13 | Opening part-way saves no page 0 and logs no page read until one is turned | openingPartWayReadsNothingYet (ReadingTest) |
 | R14 | 字下げ 付ける indents a paragraph written flush, at once and after reopening | theIndentSettingIndentsFlushParagraphs (ReadingTest) |
+| R14b | 英字 すべて縦向き stands an English phrase upright (full-width), at once and after reopening; a short word is upright either way | theUprightSettingStandsEnglishUpright (ReadingTest) |
 | R15 | 行間, 上下余白 and 左右余白 change the layout at once, keep the share read, and stay after reopening | lineHeightAndMarginsChangeTheLayout (ReadingTest) |
-| R16 | A 青空文庫 book hides 空行 and 字下げ; a なろう episode shows them | aozoraBooksHideTheWebFormattingRows (ReadingTest) |
+| R16 | A 青空文庫 book hides 空行, 字下げ and 英字; a なろう episode shows them | aozoraBooksHideTheWebFormattingRows (ReadingTest) |
 | R17 | The 目次 marks the episodes kept in the app and counts them | theTocMarksKeptEpisodes (ShelfFlowTest) |
 | R18 | The page slider runs right to left: its right end is page 1, its left end the last page | theSliderRunsRightToLeft (ReadingTest) |
 | G1 | The first book opens under the tap guide; a tap closes it without turning, and it is not shown again | shownOnceAndATapClosesItWithoutTurning (GuideTest) |

@@ -708,7 +708,7 @@ span.sesame{text-emphasis-position:over right}
 #toc .ep.read{color:var(--sub)}
 /* kept in the app: readable without a signal */
 #toc .ep.kept::after{content:"保存済み";float:right;margin-left:10px;font-size:11px;font-weight:normal;color:var(--sub)}
-#info .vk.on,#info .ah.on,#info .bk.on,#info .ft.on,#info .pk.on,#info .ik.on,#info .lh.on,#info .mx.on,#info .my.on{border-color:var(--link);color:var(--link);font-weight:bold}
+#info .vk.on,#info .ah.on,#info .bk.on,#info .ft.on,#info .pk.on,#info .ik.on,#info .uk.on,#info .lh.on,#info .mx.on,#info .my.on{border-color:var(--link);color:var(--link);font-weight:bold}
 </style></head><body>
 <div id="book" class="pagebox">%%BOOK%%</div><div id="credit"></div><div id="pg"></div>
 <div id="info"></div>
@@ -824,9 +824,9 @@ span.sesame{text-emphasis-position:over right}
   var FONTS={serif:{n:'明朝',f:'"Noto Serif CJK JP","Noto Serif JP",serif'},sans:{n:'ゴシック',f:'"Noto Sans CJK JP","Noto Sans JP",sans-serif'},
     bizud:{n:'BIZ UD明朝',f:'"BIZ UDMincho",serif'},shippori:{n:'しっぽり明朝',f:'"Shippori Mincho",serif'}};
   var FONT_ORDER=['serif','sans','bizud','shippori'];
-  var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,lh:2,mx:'m',my:'m',guided:false};
+  var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,upright:false,lh:2,mx:'m',my:'m',guided:false};
   if(PREFS){if(THEMES[PREFS.theme])prefs.theme=PREFS.theme;if(SIZES.indexOf(PREFS.fs)>=0)prefs.fs=PREFS.fs;
-    if(AHEAD.indexOf(PREFS.ahead)>=0)prefs.ahead=PREFS.ahead;else if(PREFS.ahead>20)prefs.ahead=20;if(PREFS.vol===true)prefs.vol=true;if(PREFS.bar===true)prefs.bar=true;if(FONTS[PREFS.font])prefs.font=PREFS.font;if(PREFS.pack===false)prefs.pack=false;if(PREFS.indent===true)prefs.indent=true;
+    if(AHEAD.indexOf(PREFS.ahead)>=0)prefs.ahead=PREFS.ahead;else if(PREFS.ahead>20)prefs.ahead=20;if(PREFS.vol===true)prefs.vol=true;if(PREFS.bar===true)prefs.bar=true;if(FONTS[PREFS.font])prefs.font=PREFS.font;if(PREFS.pack===false)prefs.pack=false;if(PREFS.indent===true)prefs.indent=true;if(PREFS.upright===true)prefs.upright=true;
     if(LHS.indexOf(PREFS.lh)>=0)prefs.lh=PREFS.lh;if(MX[PREFS.mx])prefs.mx=PREFS.mx;if(MY[PREFS.my])prefs.my=PREFS.my;if(PREFS.guided===true)prefs.guided=true;}
   function applyTheme(){
     var t=THEMES[prefs.theme], r=document.documentElement.style;
@@ -842,6 +842,7 @@ span.sesame{text-emphasis-position:over right}
     +FONT_ORDER.map(function(k){return '<button class="ft" data-font="'+k+'" style="font-family:'+FONTS[k].f.replace(/"/g,"&quot;")+'">'+FONTS[k].n+'</button>';}).join('')
     +'</div></div><div class="row web"><span class="k">空行</span><div class="opts"><button class="pk" data-pack="1">詰める</button><button class="pk" data-pack="0">原文のまま</button></div>'
     +'</div><div class="row web"><span class="k">字下げ</span><div class="opts"><button class="ik" data-indent="1">付ける</button><button class="ik" data-indent="0">原文のまま</button></div>'
+    +'</div><div class="row web"><span class="k">英字</span><div class="opts"><button class="uk" data-upright="0">英文は横向き</button><button class="uk" data-upright="1">すべて縦向き</button></div>'
     +'</div><div class="row"><span class="k">文字</span><div class="opts"><button data-fs="-1">A−</button><span class="fsv"></span><button data-fs="1">A＋</button></div></div>'
     +'<div class="row"><span class="k">行間</span><div class="opts">'+LHS.map(function(v){return '<button class="lh" data-lh="'+v+'">'+v.toFixed(1)+'</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">上下余白</span><div class="opts">'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="my" data-my="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div></div>'
@@ -869,6 +870,7 @@ span.sesame{text-emphasis-position:over right}
     info.querySelectorAll('.mx').forEach(function(b){b.classList.toggle('on',b.dataset.mx===prefs.mx);});
     info.querySelectorAll('.my').forEach(function(b){b.classList.toggle('on',b.dataset.my===prefs.my);});
     info.querySelectorAll('.ik').forEach(function(b){b.classList.toggle('on',(b.dataset.indent==='1')===prefs.indent);});
+    info.querySelectorAll('.uk').forEach(function(b){b.classList.toggle('on',(b.dataset.upright==='1')===prefs.upright);});
     info.querySelectorAll('.bk').forEach(function(b){b.classList.toggle('on',(b.dataset.bar==='1')===prefs.bar);});
   }
   info.addEventListener('click',function(e){
@@ -890,6 +892,11 @@ span.sesame{text-emphasis-position:over right}
     if(b.dataset.indent&&(b.dataset.indent==='1')!==prefs.indent){
       // Likewise: the indent is put in by the formatter.
       prefs.indent=b.dataset.indent==='1'; markDisp(); save();
+      if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1)); return;
+    }
+    if(b.dataset.upright&&(b.dataset.upright==='1')!==prefs.upright){
+      // Likewise: the letters are made full-width by the formatter.
+      prefs.upright=b.dataset.upright==='1'; markDisp(); save();
       if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1)); return;
     }
     if(b.id==='tocb'){openToc();return;}

@@ -573,7 +573,8 @@ public class ReaderActivity extends Activity {
         String html = url == null ? asset("narou-episode-sample.html") : episode(url);
         boolean kk = url != null && Shelf.isKakuyomu(Shelf.ncodeOf(url));
         String pageUrl = url == null ? SAMPLE_URL : kk ? KakuyomuSite.realUrl(this, url) : url;
-        List<String> sections = new EpisodeFormatter(dataDir(), packBlankLines() ? 1 : 0, forceIndent()).toXhtmlSections(html, pageUrl);
+        List<String> sections = new EpisodeFormatter(dataDir(), packBlankLines() ? 1 : 0, forceIndent(), uprightLetters())
+                .toXhtmlSections(html, pageUrl);
         EpisodeInfo ep = kk ? kakuyomuInfo(url) : EpisodeInfo.fromNarou(html, pageUrl);
         StringBuilder sb = new StringBuilder();
         for (String sec : sections) sb.append("<section class=\"ep\">").append(sec).append("</section>");
@@ -733,6 +734,16 @@ public class ReaderActivity extends Activity {
         try {
             String d = prefs.getString("display", null);
             return d != null && new JSONObject(d).optBoolean("indent", false);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    /** Whether every half-width letter stands upright, English included (off by default: narou.rb's rule). */
+    boolean uprightLetters() {
+        try {
+            String d = prefs.getString("display", null);
+            return d != null && new JSONObject(d).optBoolean("upright", false);
         } catch (Exception ignored) {
             return false;
         }

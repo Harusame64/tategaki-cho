@@ -58,7 +58,7 @@ public class AozoraTextFinalizer {
 
 	/** 英文候補の正規表現 (narou.rb: ENGLISH_SENTENCES_CHARACTERS) */
 	private static final Pattern ENGLISH_SENTENCES_PATTERN = Pattern.compile(
-		"[\\w.,!?'\" &:;-]+");
+		"[A-Za-z0-9_.,!?'\" &:;-]+");     //\w は Android では漢字やかなにも当たる（WebAozoraConverter#protectEnglishSentences）
 
 	/** 漢数字テーブル */
 	private static final char[] KANJI_NUM = "〇一二三四五六七八九".toCharArray();

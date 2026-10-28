@@ -168,6 +168,8 @@ public class WebAozoraConverter
 	float modifiedExpire = 24;
 	/** 本文内挿絵のダウンロードをスキップする（表紙は除く） */
 	public boolean skipImages = false;
+	/** 英文も含めて半角英字をすべて全角にする（narou.rb の enable_alphabet_force_zenkaku。たてがき帖の設定「英字」） */
+	public boolean forceZenkakuAlphabet = false;
 	/** Cloudflare の確認画面で止められた。以降はこのサイトに取りに行かない（変換ごとに戻す） */
 	boolean blockedByChallenge = false;
 	
@@ -2464,7 +2466,10 @@ public class WebAozoraConverter
 	 * 3. それ以外 → アルファベットを全角化
 	 */
 	private String protectEnglishSentences(String text) {
-		Pattern pattern = Pattern.compile("[\\w.,!?'\" &:;_-]+");
+		if (this.forceZenkakuAlphabet) return alphabetToZenkaku(text);
+		//\w は Android（ICU）では漢字やかなにも当たり、段落ごと「英文」と見なして英字を全角にしなくなる。
+		//narou.rb（Ruby の \w は ASCII）と同じく半角英数字と _ だけにする
+		Pattern pattern = Pattern.compile("[A-Za-z0-9_.,!?'\" &:;-]+");
 		java.util.regex.Matcher matcher = pattern.matcher(text);
 		StringBuffer result = new StringBuffer();
 

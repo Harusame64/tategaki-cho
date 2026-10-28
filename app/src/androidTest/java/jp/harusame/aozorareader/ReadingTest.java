@@ -203,6 +203,30 @@ public class ReadingTest {
         assertEquals(0, Net.asked.size());
     }
 
+    /**
+     * R14b: 英字 すべて縦向き stands an English phrase upright (full-width), at once and after reopening; a short word is
+     * upright either way. On the device only: Android's \w matches kanji and kana, which once made the whole paragraph
+     * "English" and left every letter half-width (core's unit tests run on a JVM, where \w is ASCII).
+     */
+    @Test
+    public void theUprightSettingStandsEnglishUpright() throws Exception {
+        String text = "<p id=\"L0\">帰還のKing FisherとPKの話。</p>";
+        java.nio.file.Files.write(new java.io.File(E2E.ctx().getFilesDir(), "episodes/" + E2E.NCODE + "/1.html").toPath(),
+                E2E.narouEpisode(1, 3, "第1話　試験", 10, text).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String book = "document.getElementById('book').textContent";
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        assertEquals("narou.rb's rule by default", "true", E2E.js(a, book + ".indexOf('帰還のKing FisherとＰＫの話')>=0"));
+        E2E.js(a, "document.querySelector('#info .uk[data-upright=\"1\"]').click()");
+        E2E.waitFor(a, book + ".indexOf('帰還のＫｉｎｇ ＦｉｓｈｅｒとＰＫの話')>=0", "true");
+        reader.recreate();
+        AtomicReference<Activity> b = new AtomicReference<>();
+        reader.onActivity(b::set);
+        E2E.waitReady(b.get());
+        assertEquals("kept across a new reader", "true", E2E.js(b.get(), book + ".indexOf('帰還のＫｉｎｇ ＦｉｓｈｅｒとＰＫの話')>=0"));
+        assertEquals(0, Net.asked.size());
+    }
+
     /** R15: 行間 and 余白 in Aa change the layout at once, keep the share read, and stay for the next reader. */
     @Test
     public void lineHeightAndMarginsChangeTheLayout() throws Exception {
@@ -247,12 +271,12 @@ public class ReadingTest {
         reader.onActivity(a::set);
         E2E.waitReady(a.get());
         E2E.waitFor(a.get(), "document.getElementById('book').textContent.indexOf('吾輩は試験')>=0", "true");
-        assertEquals("\"none,none\"", E2E.js(a.get(), shown));
+        assertEquals("\"none,none,none\"", E2E.js(a.get(), shown));
         assertEquals(0, Net.asked.size());
         reader.close();
         Activity b = open(1, 0);
         E2E.waitReady(b);
-        assertEquals("\"flex,flex\"", E2E.js(b, shown));
+        assertEquals("\"flex,flex,flex\"", E2E.js(b, shown));
     }
 
     /** R18: the page slider runs right to left, as the pages turn: its right end is page 1, its left end the last page. */

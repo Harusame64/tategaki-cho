@@ -33,6 +33,9 @@ docs/   this file, e2e.md
 - **EpisodeFormatter**: an episode page's HTML → aozora's web extraction
   (`web/<site>/extract.txt`) → Aozora text → **AozoraFormatter** → XHTML sections.
   Illustrations are skipped: the converter would fetch them itself, outside the app's network door.
+  The extraction applies narou.rb's letter rule: a short word becomes full-width (upright), an English
+  phrase or a word of 8+ letters stays half-width (sideways); `uprightLetters` (英字 すべて縦向き)
+  makes every letter full-width.
 - **AozoraFormatter**: Aozora text → vertical XHTML. Options: `removeEmptyLines` (空行),
   `forceIndent` (強制字下げ).
 - **SafeXhtml**: cuts the formatter's output down to text structure, ruby and the formatter's
@@ -135,9 +138,9 @@ and the backup limit is 25 MB).
   (looked up as the 目次 is delivered).
 - **Bars:** 本棚, 目次, 作品 (title, author, links to the original), Aa (settings), a position slider
   that runs right to left, as the pages turn (page 1 at its right end).
-- **Aa settings:** background (5), typeface (4, two bundled OFL fonts), 空行, 字下げ (web novels
-  only), text size, 行間, 上下余白, 左右余白, 触る場所, read-ahead, clock, volume keys.
-  空行 and 字下げ change the formatting, so the episode is formatted again at the same share read.
+- **Aa settings:** background (5), typeface (4, two bundled OFL fonts), 空行, 字下げ, 英字 (web
+  novels only), text size, 行間, 上下余白, 左右余白, 触る場所, read-ahead, clock, volume keys.
+  空行, 字下げ and 英字 change the formatting, so the episode is formatted again at the same share read.
 - **First-time guide:** the tap zones, shown once (`guided` in the settings), again from Aa.
 - **Across episodes:** the next and previous episodes are formatted ahead and swapped in place.
   At the end of a work, an end card.

@@ -15,6 +15,7 @@ public final class EpisodeFormatter {
 	private final File dataDir;
 	private final int removeEmptyLines;
 	private final boolean forceIndent;
+	private final boolean uprightLetters;
 
 	/** @param dataDir holds the chuki tables and web/&lt;site&gt;/extract.txt */
 	public EpisodeFormatter(File dataDir) {
@@ -28,9 +29,18 @@ public final class EpisodeFormatter {
 
 	/** @param forceIndent see {@link AozoraFormatter#AozoraFormatter(String, int, boolean)} */
 	public EpisodeFormatter(File dataDir, int removeEmptyLines, boolean forceIndent) {
+		this(dataDir, removeEmptyLines, forceIndent, false);
+	}
+
+	/**
+	 * @param uprightLetters every half-width letter full-width (upright in vertical text), English included;
+	 *        false keeps narou.rb's rule (an English phrase or a word of 8+ letters stays half-width)
+	 */
+	public EpisodeFormatter(File dataDir, int removeEmptyLines, boolean forceIndent, boolean uprightLetters) {
 		this.dataDir = dataDir;
 		this.removeEmptyLines = removeEmptyLines;
 		this.forceIndent = forceIndent;
+		this.uprightLetters = uprightLetters;
 	}
 
 	public List<String> toXhtmlSections(String html, String url) throws Exception {
@@ -38,6 +48,7 @@ public final class EpisodeFormatter {
 		if (conv == null) throw new IOException("no site definition for " + url);
 		// 挿絵 are not taken: the converter would fetch them itself, outside the app's network door.
 		conv.skipImages = true;
+		conv.forceZenkakuAlphabet = uprightLetters;
 		Document doc = Jsoup.parse(html, url);
 		StringWriter text = new StringWriter();
 		conv.episodeToAozoraText(text, doc);
