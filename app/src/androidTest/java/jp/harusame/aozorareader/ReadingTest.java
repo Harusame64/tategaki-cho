@@ -328,6 +328,14 @@ public class ReadingTest {
         E2E.js(a, "var s=document.getElementById('seek');s.value=1;s.dispatchEvent(new Event('input'));s.dispatchEvent(new Event('touchend'))");
         E2E.waitFor(a, "document.querySelector('#info .epp').classList.contains('on')", "false");
         assertEquals("\"1 / 5 話\"", E2E.js(a, "document.getElementById('seekv').textContent"));
+        // Aa while the slider spans episodes: back to pages, so the sheet's changes show on the text (review on #12).
+        E2E.js(a, "var s=document.getElementById('seek');s.value=4;s.dispatchEvent(new Event('input'))");
+        E2E.js(a, "document.getElementById('dispb').click()");
+        assertEquals("false", E2E.js(a, "document.querySelector('#info .epp').classList.contains('on')"));
+        assertEquals("\"1 / " + E2E.num(a, "__reader.pages()") + "\"", E2E.js(a, "document.getElementById('seekv').textContent"));
+        E2E.js(a, "document.getElementById('dispb').click()");
+        E2E.holdSeekCount(a);
+        E2E.waitFor(a, "document.getElementById('seekv').textContent", "\"1 / 5 話\"");
         E2E.js(a, "var s=document.getElementById('seek');s.value=5;s.dispatchEvent(new Event('input'))");
         // Let go on the one being read: the page comes back, nothing opens.
         E2E.js(a, "var s=document.getElementById('seek');s.value=1;s.dispatchEvent(new Event('input'));s.dispatchEvent(new Event('change'))");

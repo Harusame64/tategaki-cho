@@ -927,6 +927,9 @@ public class ReaderActivity extends Activity {
             JSONArray kept = list == null ? new JSONArray() : list.getJSONArray("eps");
             for (int i = 0; i < kept.length(); i++) {
                 JSONObject e = kept.getJSONObject(i);
+                // An entry without an id (a list kept before ids were checked) cannot be opened by id, and its
+                // position is not an id: no episode slider for that work (review on #12).
+                if (!e.optString("id").matches("\\d{1,30}")) return "null";
                 JSONObject o = new JSONObject().put("n", i + 1).put("id", e.optString("id")).put("t", e.optString("t"));
                 if (Episodes.cacheFile(this, Shelf.kkEpisodeUrl(key, e.optString("id"))).isFile()) o.put("k", 1);
                 eps.put(o);

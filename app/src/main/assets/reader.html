@@ -922,6 +922,7 @@ span.sesame{text-emphasis-position:over right}
     if(b.id==='tocb'){openToc();return;}
     if(b.id==='homeb'){if(window.Android)Android.shelf();return;}
     if(b.id==='workb'||b.id==='dispb'){var k=b.id==='workb'?'work':'disp';var o=info.classList.contains(k);
+      if(eps){eps=null;markSeek();}                                    // the title page would cover the sheet's effect on the text (review on #12)
       info.classList.remove('work','disp');if(!o)info.classList.add(k);return;}
     if(b.dataset.guide){info.classList.remove('on','work','disp');guide.classList.add('on');return;}
     if(b.dataset.lh||b.dataset.mx||b.dataset.my){
@@ -974,16 +975,21 @@ span.sesame{text-emphasis-position:over right}
   // Let go back on the one being read after moving away: the range sends no change (the value is where it
   // started), so the release itself puts the page back (codex on #12).
   ['touchend','touchcancel','pointerup'].forEach(function(t){seek.addEventListener(t,function(){
-    setTimeout(function(){if(eps&&Number(seek.value)-1===Math.max(0,epAt()))markSeek();},0);},{passive:true});});
+    setTimeout(function(){if(eps&&Number(seek.value)-1===epAt())markSeek();},0);},{passive:true});});
   // A long press on the count switches the range; the slider itself only drags.
   var holdT=null;
   // The hint: shown when the bars open on a work of two or more episodes, until the count has been held
   // once, at most 3 times. Settings saved by a version without it have no ephint, so it shows there too.
   var hint=info.querySelector('.ephint'), hintT=null;
   function unhint(){clearTimeout(hintT);hintT=null;hint.classList.remove('on');}
+  // Whether the work has two or more episodes, asked once per episode shown (the list is built from what is kept,
+  // which for a long work takes a moment; review on #12).
+  var manyFor=null, many=false;
   function maybeHint(){
-    if(prefs.ephint>=3)return; var d=null;try{d=window.Android?JSON.parse(Android.episodes()):null;}catch(x){}
-    if(!d||!d.eps||d.eps.length<2)return;
+    if(prefs.ephint>=3||!info.classList.contains('on'))return;
+    var key=curId||curNo;
+    if(manyFor!==key){manyFor=key;var d=null;try{d=window.Android?JSON.parse(Android.episodes()):null;}catch(x){}many=!!(d&&d.eps&&d.eps.length>=2);}
+    if(!many)return;
     prefs.ephint++; save(); hint.classList.add('on'); hintT=setTimeout(unhint,4000);
   }
   info.addEventListener('touchstart',unhint,{passive:true,capture:true});
@@ -999,7 +1005,7 @@ span.sesame{text-emphasis-position:over right}
   var holdX=0, holdY=0;
   function unhold(){clearTimeout(holdT);holdT=null;}
   seekv.addEventListener('touchstart',function(e){unhold();holdX=e.touches[0].clientX;holdY=e.touches[0].clientY;
-    holdT=setTimeout(function(){holdT=null;epMode(!eps);},450);},{passive:true});
+    holdT=setTimeout(function(){holdT=null;if(info.classList.contains('on'))epMode(!eps);},450);},{passive:true});
   seekv.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientX-holdX)>10||Math.abs(e.touches[0].clientY-holdY)>10)unhold();},{passive:true});
   ['touchend','touchcancel'].forEach(function(t){seekv.addEventListener(t,unhold,{passive:true});});
   seekv.addEventListener('contextmenu',function(e){e.preventDefault();});
@@ -1033,7 +1039,8 @@ span.sesame{text-emphasis-position:over right}
   tocLs.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('.ep');if(!a)return;
     if(a.dataset.id?a.dataset.id===curId:Number(a.dataset.n)===curNo){toc.classList.remove('on');go(0);return;}
     tocSt.textContent='開いています…'; if(window.Android)Android.open(String(a.dataset.id||a.dataset.n));});
-  function toggleInfo(on){info.classList.toggle('on',on);info.classList.remove('work','disp');eps=null;unhint();if(on){openedAt=Date.now();markSeek();maybeHint();}}
+  function toggleInfo(on){info.classList.toggle('on',on);info.classList.remove('work','disp');eps=null;unhint();unhold();
+    if(on){openedAt=Date.now();markSeek();setTimeout(maybeHint,0);}}             // the check after the bars are drawn
   // The tap that opens the card is followed by its own click, which lands on the backdrop just shown.
   // That click can also land on a link or button of the card, now that it reaches the middle of the
   // screen: nothing in the card takes a click until the tap that opened it is over.
