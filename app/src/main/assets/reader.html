@@ -727,7 +727,7 @@ span.sesame{text-emphasis-position:over right}
 #toc .ep.read{color:var(--sub)}
 /* kept in the app: readable without a signal */
 #toc .ep.kept::after{content:"保存済み";float:right;margin-left:10px;font-size:11px;font-weight:normal;color:var(--sub)}
-#info .vk.on,#info .ah.on,#info .bk.on,#info .ft.on,#info .pk.on,#info .ik.on,#info .uk.on,#info .lh.on,#info .mx.on,#info .my.on{border-color:var(--link);color:var(--link);font-weight:bold}
+#info .vk.on,#info .ek.on,#info .ah.on,#info .bk.on,#info .ft.on,#info .pk.on,#info .ik.on,#info .uk.on,#info .lh.on,#info .mx.on,#info .my.on{border-color:var(--link);color:var(--link);font-weight:bold}
 </style></head><body>
 <div id="book" class="pagebox">%%BOOK%%</div><div id="credit"></div><div id="pg"></div>
 <div id="info"></div>
@@ -843,11 +843,12 @@ span.sesame{text-emphasis-position:over right}
   var FONTS={serif:{n:'明朝',f:'"Noto Serif CJK JP","Noto Serif JP",serif'},sans:{n:'ゴシック',f:'"Noto Sans CJK JP","Noto Sans JP",sans-serif'},
     bizud:{n:'BIZ UD明朝',f:'"BIZ UDMincho",serif'},shippori:{n:'しっぽり明朝',f:'"Shippori Mincho",serif'}};
   var FONT_ORDER=['serif','sans','bizud','shippori'];
-  var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,upright:false,lh:2,mx:'m',my:'m',guided:false,ephint:0};
+  var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,upright:false,lh:2,mx:'m',my:'m',guided:false,ephint:0,edge:true};
   if(PREFS){if(THEMES[PREFS.theme])prefs.theme=PREFS.theme;if(SIZES.indexOf(PREFS.fs)>=0)prefs.fs=PREFS.fs;
     if(AHEAD.indexOf(PREFS.ahead)>=0)prefs.ahead=PREFS.ahead;else if(PREFS.ahead>20)prefs.ahead=20;if(PREFS.vol===true)prefs.vol=true;if(PREFS.bar===true)prefs.bar=true;if(FONTS[PREFS.font])prefs.font=PREFS.font;if(PREFS.pack===false)prefs.pack=false;if(PREFS.indent===true)prefs.indent=true;if(PREFS.upright===true)prefs.upright=true;
     if(LHS.indexOf(PREFS.lh)>=0)prefs.lh=PREFS.lh;if(MX[PREFS.mx])prefs.mx=PREFS.mx;if(MY[PREFS.my])prefs.my=PREFS.my;if(PREFS.guided===true)prefs.guided=true;
-    if(typeof PREFS.ephint==='number'&&PREFS.ephint>0)prefs.ephint=Math.min(3,Math.floor(PREFS.ephint));}
+    if(typeof PREFS.ephint==='number'&&PREFS.ephint>0)prefs.ephint=Math.min(3,Math.floor(PREFS.ephint));
+    if(PREFS.edge===false)prefs.edge=false;}
   function applyTheme(){
     var t=THEMES[prefs.theme], r=document.documentElement.style;
     for(var k in t)r.setProperty('--'+k,t[k]);
@@ -868,6 +869,7 @@ span.sesame{text-emphasis-position:over right}
     +'<div class="row"><span class="k">上下余白</span><div class="opts">'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="my" data-my="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">左右余白</span><div class="opts">'+[['s','狭い'],['m','普通'],['l','広い']].map(function(m){return '<button class="mx" data-mx="'+m[0]+'">'+m[1]+'</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">触る場所</span><button class="lk" data-guide="1">説明を見る</button></div>'
+    +'<div class="row"><span class="k">端の誤タッチ</span><div class="opts"><button class="ek" data-edge="1">防ぐ</button><button class="ek" data-edge="0">防がない</button></div></div>'
     +'<div class="row"><span class="k">先読み</span><div class="opts">'
     +AHEAD.map(function(n){return '<button class="ah" data-ahead="'+n+'">'+n+'話</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">時計</span><div class="opts"><button class="bk" data-bar="1">時刻・通知を出す</button><button class="bk" data-bar="0">隠す</button></div></div>'
@@ -884,6 +886,7 @@ span.sesame{text-emphasis-position:over right}
     info.querySelector('.fsv').textContent=String(prefs.fs);
     info.querySelectorAll('.ah').forEach(function(b){b.classList.toggle('on',Number(b.dataset.ahead)===prefs.ahead);});
     info.querySelectorAll('.vk').forEach(function(b){b.classList.toggle('on',(b.dataset.vol==='1')===prefs.vol);});
+    info.querySelectorAll('.ek').forEach(function(b){b.classList.toggle('on',(b.dataset.edge==='1')===prefs.edge);});
     info.querySelectorAll('.ft').forEach(function(b){b.classList.toggle('on',b.dataset.font===prefs.font);});
     info.querySelectorAll('.pk').forEach(function(b){b.classList.toggle('on',(b.dataset.pack==='1')===prefs.pack);});
     info.querySelectorAll('.lh').forEach(function(b){b.classList.toggle('on',Number(b.dataset.lh)===prefs.lh);});
@@ -903,6 +906,7 @@ span.sesame{text-emphasis-position:over right}
     }
     if(b.dataset.ahead){prefs.ahead=Number(b.dataset.ahead);}
     if(b.dataset.vol){prefs.vol=b.dataset.vol==='1';}
+    if(b.dataset.edge){prefs.edge=b.dataset.edge==='1';}
     if(b.dataset.bar){prefs.bar=b.dataset.bar==='1';}
     if(b.dataset.pack&&(b.dataset.pack==='1')!==prefs.pack){
       // The blank lines are the formatter's, so the app formats the episode again, at the same share read.
@@ -1050,14 +1054,50 @@ span.sesame{text-emphasis-position:over right}
   info.addEventListener('click',function(e){if(e.target===info||epp.contains(e.target))toggleInfo(false);});
   // A swipe drags the page with the finger (rightwards = next); let go past a fifth of the width, or
   // flick, and it turns, otherwise it slides back. A tap turns by the side it lands on.
-  var x0=null, t0=0, drag=0, dir=0, lastX=0, lastT=0, vx=0;
+  // One finger owns a gesture. A new finger takes it over only from one resting still for 0.3 s or more (a firm
+  // grip's palm, further in than the edge rule sees): the user on the A25 found the thumb's taps ignored while
+  // gripping firmly when the first finger always kept the gesture. A finger swiping, or one in the middle of a
+  // tap, keeps it. Before either, the page followed whichever finger the browser listed first, so the base of
+  // the thumb on the edge, or landing during a tap, turned the page.
+  var x0=null, t0=0, drag=0, dir=0, lastX=0, lastT=0, vx=0, own=null, based={};
+  // With 端の誤タッチ on (prefs.edge, the default), the base of the thumb is not a tap or a swipe:
+  //  - in the bottom 15 % of the screen, any touch that starts within 16 px of the left or right side;
+  //  - higher up, one within 13 px of the side that lands while another finger is down on the same half of the
+  //    screen (not counting one already taken for a base): the base lands beside the thumb that is tapping.
+  // Measured on the A25: held in one hand, the base landed 5 to 14 px from the side and 87 to 98 % down, often
+  // during a tap. Fingertip taps at the very side, holding it normally, landed 3 to 26 px in and 30 to 60 % down,
+  // their contact cut as narrow as the base's (radius 0.3 to 0.5), so width alone does not tell them apart.
+  // Held with both hands, the user taps the outer sides at mid height while the other hand may rest a finger on
+  // the screen: that finger is on the other half and does not count. Held 0.5 s or more, no touch is a tap
+  // anyway. Only the page's own taps and swipes ask this: the bars, the 目次 and the other overlays have their
+  // own handlers and are not affected. Accepted: a swipe started in a bottom corner is dropped too.
+  function thumbBase(t,others){
+    if(!prefs.edge)return false;
+    var x=t.clientX, w=window.innerWidth, side=Math.min(x,w-x);
+    if(t.clientY>=window.innerHeight*0.85&&side<=16)return true;
+    return side<=13&&others>0;
+  }
+  function owned(list){for(var i=0;i<list.length;i++)if(list[i].identifier===own)return list[i];return null;}
   document.addEventListener('touchstart',function(e){
-    if(busy||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||document.getElementById('end').classList.contains('on')){x0=null;return;}
-    x0=lastX=e.touches[0].clientX; t0=lastT=Date.now(); drag=0; dir=0; vx=0;
+    if(busy||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on')){x0=null;own=null;return;}
+    // Fingers down besides this one, on the same half of the screen, not taken for a base (see thumbBase).
+    function others(t){var n=0,left=t.clientX<window.innerWidth/2;for(var j=0;j<e.touches.length;j++){var o=e.touches[j];
+      if(o.identifier!==t.identifier&&!based[o.identifier]&&(o.clientX<window.innerWidth/2)===left)n++;}return n;}
+    // Every new finger is judged first, so a base landing during a tap is remembered as one even though the tap
+    // keeps the gesture; else it would count as "another finger" for the taps after it (codex on #13).
+    var fresh=null;
+    for(var i=0;i<e.changedTouches.length;i++){var t=e.changedTouches[i];
+      if(thumbBase(t,others(t)))based[t.identifier]=1; else if(!fresh)fresh=t;}
+    if(!fresh)return;
+    if(x0!==null&&owned(e.touches)){
+      if(dir||Date.now()-t0<300)return;                              // swiping, or in the middle of a tap: it keeps the gesture
+    } else if(x0!==null&&dir){settle();}                             // its release never came (the page was swapped under it): let it go
+    own=fresh.identifier; x0=lastX=fresh.clientX; t0=lastT=Date.now(); drag=0; dir=0; vx=0;
   },{passive:true});
   document.addEventListener('touchmove',function(e){
     if(x0===null)return;
-    var x=e.touches[0].clientX, now=Date.now(), dx=x-x0;
+    var t=owned(e.touches); if(!t)return;
+    var x=t.clientX, now=Date.now(), dx=x-x0;
     if(now>lastT){vx=(x-lastX)/(now-lastT);} lastX=x; lastT=now;
     if(!dir){if(Math.abs(dx)<10)return; dir=dx>0?1:-1;
       var n=cur()+dir; if(n>=0&&n<pages())arm(dir);}
@@ -1067,18 +1107,22 @@ span.sesame{text-emphasis-position:over right}
     slide(drag,dir,0);
   },{passive:true});
   document.addEventListener('touchend',function(e){
+    for(var k=0;k<e.changedTouches.length;k++)delete based[e.changedTouches[k].identifier];
     if(x0===null)return;
-    if(info.classList.contains('on')||guide.classList.contains('on')){x0=null;return;}
-    var x=e.changedTouches[0].clientX;
+    var t=owned(e.changedTouches); if(!t)return;                    // another finger let go: not the gesture's
+    if(info.classList.contains('on')||guide.classList.contains('on')){x0=null;own=null;return;}
+    var x=t.clientX;
     if(dir){
       var go2=Math.abs(drag)>window.innerWidth*0.2||(dir*vx>0.5&&Math.abs(drag)>20);
       if(go2)turn(dir,true); else{busy=true;slide(0,dir,150,settle);}
     } else if(Date.now()-t0<500){
       var w=window.innerWidth; if(x<w*0.4)turn(1); else if(x>w*0.6)turn(-1); else toggleInfo(true);
     }
-    x0=null;
+    x0=null; own=null;
   });
-  document.addEventListener('touchcancel',function(){if(x0!==null&&dir&&!busy){busy=true;slide(0,dir,150,settle);}x0=null;});
+  document.addEventListener('touchcancel',function(e){for(var k=0;k<e.changedTouches.length;k++)delete based[e.changedTouches[k].identifier];
+    if(x0===null||!owned(e.changedTouches))return;
+    if(dir&&!busy){busy=true;slide(0,dir,150,settle);}x0=null;own=null;});
   window.addEventListener('resize',function(){var c=cur();layout();go(c);});
     // The next episode, formatted ahead by the app, replaces this one in place: no page load between them.
   function swap(body,i,start){

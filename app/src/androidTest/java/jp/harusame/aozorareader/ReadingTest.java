@@ -396,6 +396,124 @@ public class ReadingTest {
         assertTrue(E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"ephint\":3"));
     }
 
+    /**
+     * R20: the base of the thumb does not turn the page, a resting finger does not keep the thumb's tap, and a
+     * fingertip near the edge still turns (端の誤タッチ, on by default). Touches are sent with a contact width
+     * (radiusX), as measured on the A25 held in one hand.
+     */
+    @Test
+    public void theBaseOfTheThumbDoesNotTurn() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(3, 180);
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        assertTrue("needs pages to turn", E2E.num(a, "__reader.pages()") >= 12);
+        E2E.js(a, "window.__t=function(type,list,changed){function mk(o){return new Touch({identifier:o.id,target:document.body,"
+                + "clientX:o.x,clientY:o.y,radiusX:o.r,radiusY:o.r});}document.body.dispatchEvent(new TouchEvent(type,"
+                + "{touches:list.map(mk),changedTouches:changed.map(mk),bubbles:true,cancelable:true}));};"
+                + "window.__tap=function(o){__t('touchstart',[o],[o]);__t('touchend',[],[o]);};0");
+        String h = "innerHeight", w = "innerWidth";
+        // The base, narrow at the left edge, low down (87 to 98 % down where it was measured), alone: no turn.
+        E2E.js(a, "__tap({id:1,x:6,y:" + h + "*0.9,r:0.3})");
+        SystemClock.sleep(400);
+        assertEquals("0", E2E.js(a, "__reader.cur()"));
+        // The base in the bottom corner, wider, 14 px in (it slipped through before the corner rule): no turn.
+        // (Each on its own: a left tap and a right tap that both got through would cancel out.)
+        E2E.js(a, "__tap({id:2,x:14,y:" + h + "*0.93,r:1.1})");
+        SystemClock.sleep(400);
+        assertEquals("left corner", "0", E2E.js(a, "__reader.cur()"));
+        E2E.js(a, "__tap({id:3,x:" + w + "-10,y:" + h + "*0.95,r:1.3})");
+        SystemClock.sleep(400);
+        assertEquals("right corner", "0", E2E.js(a, "__reader.cur()"));
+        // A fingertip 14 px from the edge at mid height: it turns.
+        E2E.js(a, "__tap({id:4,x:14,y:" + h + "*0.6,r:1.1})");
+        E2E.waitFor(a, "__reader.cur()", "1");
+        SystemClock.sleep(400);
+        // A palm resting further in, then the thumb taps: the thumb turns, the palm lifting does not.
+        E2E.js(a, "window.R={id:5,x:40,y:" + h + "*0.7,r:2};__t('touchstart',[R],[R])");
+        SystemClock.sleep(400);                                          // resting, not in the middle of a tap
+        E2E.js(a, "var T={id:6,x:30,y:" + h + "*0.5,r:1.2};__t('touchstart',[R,T],[T]);__t('touchend',[R],[T])");
+        E2E.waitFor(a, "__reader.cur()", "2");
+        SystemClock.sleep(400);
+        E2E.js(a, "__t('touchend',[],[{id:5,x:40,y:" + h + "*0.7,r:2}])");
+        SystemClock.sleep(400);
+        assertEquals("2", E2E.js(a, "__reader.cur()"));
+        // The base landing at the edge during a tap (wide, so only "another finger is down" names it): the tap
+        // turns on its own release, while the base is still down; the base lifting turns nothing.
+        E2E.js(a, "var T={id:7,x:30,y:" + h + "*0.5,r:1.2},B={id:8,x:6,y:" + h + "*0.8,r:1.5};"
+                + "__t('touchstart',[T],[T]);__t('touchstart',[T,B],[B]);__t('touchend',[B],[T])");
+        E2E.waitFor(a, "__reader.cur()", "3");
+        SystemClock.sleep(400);
+        E2E.js(a, "__t('touchend',[],[{id:8,x:6,y:" + h + "*0.8,r:1.5}])");
+        SystemClock.sleep(400);
+        assertEquals("3", E2E.js(a, "__reader.cur()"));
+        // Another finger landing in the middle of a tap (not a base, on the other side): the tap keeps the gesture
+        // and turns forward; the other finger lifting turns nothing (review on #13).
+        E2E.js(a, "var T={id:10,x:30,y:" + h + "*0.5,r:1.2},F={id:11,x:" + w + "-60,y:" + h + "*0.5,r:1.5};"
+                + "__t('touchstart',[T],[T]);__t('touchstart',[T,F],[F]);__t('touchend',[F],[T])");
+        E2E.waitFor(a, "__reader.cur()", "4");
+        SystemClock.sleep(400);
+        E2E.js(a, "__t('touchend',[],[{id:11,x:" + w + "-60,y:" + h + "*0.5,r:1.5}])");
+        SystemClock.sleep(400);
+        assertEquals("4", E2E.js(a, "__reader.cur()"));
+        // A palm resting, then the base lands wide at the edge and lifts quickly: "another finger is down" names
+        // it a base, so it does not take the gesture from the resting palm and turns nothing.
+        E2E.js(a, "window.P={id:13,x:60,y:" + h + "*0.7,r:2};__t('touchstart',[P],[P])");
+        SystemClock.sleep(400);
+        E2E.js(a, "var B={id:14,x:6,y:" + h + "*0.7,r:1.5};__t('touchstart',[P,B],[B]);__t('touchend',[P],[B])");
+        SystemClock.sleep(400);
+        assertEquals("4", E2E.js(a, "__reader.cur()"));
+        E2E.js(a, "__t('touchend',[],[P])");
+        SystemClock.sleep(600);
+        assertEquals("4", E2E.js(a, "__reader.cur()"));
+        // A swipe whose release never arrives (the page swapped under the finger): the next tap still works.
+        E2E.js(a, "var S={id:15,x:150,y:" + h + "*0.5,r:1.5};__t('touchstart',[S],[S]);"
+                + "__t('touchmove',[{id:15,x:165,y:" + h + "*0.5,r:1.5}],[{id:15,x:165,y:" + h + "*0.5,r:1.5}])");
+        SystemClock.sleep(300);
+        E2E.js(a, "__tap({id:16,x:30,y:" + h + "*0.5,r:1.2})");
+        E2E.waitFor(a, "__reader.cur()", "5");
+        SystemClock.sleep(400);
+        // A fingertip at the very edge at mid height, its contact cut as narrow as the base's (holding the phone
+        // normally, the user found these ignored when width alone named the base): it turns.
+        E2E.js(a, "__tap({id:12,x:5,y:" + h + "*0.45,r:0.3})");
+        E2E.waitFor(a, "__reader.cur()", "6");
+        SystemClock.sleep(400);
+        // Both hands: the other hand rests a finger on the right side, then the left thumb taps the left side at
+        // mid height. The resting finger is on the other half, so the tap is not a base: it turns.
+        E2E.js(a, "window.Q={id:17,x:" + w + "-8,y:" + h + "*0.5,r:1.5};__t('touchstart',[Q],[Q])");
+        SystemClock.sleep(400);
+        E2E.js(a, "var L={id:18,x:6,y:" + h + "*0.5,r:0.4};__t('touchstart',[Q,L],[L]);__t('touchend',[Q],[L])");
+        E2E.waitFor(a, "__reader.cur()", "7");
+        SystemClock.sleep(400);
+        E2E.js(a, "__t('touchend',[],[Q])");
+        SystemClock.sleep(600);
+        assertEquals("7", E2E.js(a, "__reader.cur()"));
+        // A base landing in the bottom corner during a tap, still down after the tap: it is remembered as a base,
+        // so the next tap at the same side is not taken for one (codex on #13).
+        E2E.js(a, "var T={id:19,x:30,y:" + h + "*0.5,r:1.2};window.C={id:20,x:8,y:" + h + "*0.93,r:1.5};"
+                + "__t('touchstart',[T],[T]);__t('touchstart',[T,C],[C]);__t('touchend',[C],[T])");
+        E2E.waitFor(a, "__reader.cur()", "8");
+        SystemClock.sleep(400);
+        E2E.js(a, "var U={id:21,x:6,y:" + h + "*0.5,r:1.2};__t('touchstart',[C,U],[U]);__t('touchend',[C],[U])");
+        E2E.waitFor(a, "__reader.cur()", "9");
+        SystemClock.sleep(400);
+        E2E.js(a, "__t('touchend',[],[C])");
+        SystemClock.sleep(400);
+        // 防がない: a touch in the bottom corner turns, as before.
+        E2E.tapMiddle();
+        E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "true");
+        SystemClock.sleep(600);                                          // a click in the bars' first 500 ms is dropped
+        E2E.js(a, "document.getElementById('dispb').click();document.querySelector('.ek[data-edge=\"0\"]').click()");
+        E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"edge\":false"),
+                "端の誤タッチ 防がない saved");
+        E2E.js(a, "document.getElementById('dispb').click()");
+        E2E.tapMiddle();
+        E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "false");
+        SystemClock.sleep(600);
+        E2E.js(a, "__tap({id:9,x:6,y:" + h + "*0.9,r:0.3})");
+        E2E.waitFor(a, "__reader.cur()", "10");
+    }
+
     /** R19b: a 青空文庫 book's sections are its episodes on the page bar, all kept, named as in its 目次. */
     @Test
     public void aBooksSectionsAreItsEpisodesOnTheSlider() throws Exception {
