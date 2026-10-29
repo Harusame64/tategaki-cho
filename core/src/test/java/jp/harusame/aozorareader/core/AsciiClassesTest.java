@@ -20,17 +20,21 @@ import org.junit.jupiter.api.Test;
  * out ([0-9], [a-zA-Z0-9_], [ \t\n\x0B\f\r]); the app writes digits out, and may keep \s where it means any space.
  */
 class AsciiClassesTest {
-    static final Pattern LITERAL = Pattern.compile("\"((?:[^\"\\\\\\n]|\\\\.)*)\"");
-
+    /**
+     * Anywhere in the source, not only inside a quoted literal on one line: a text block, or the escape split over two
+     * literals joined with + ("\\\\" + "d"), builds the same pattern (codex on #21).
+     */
     static List<String> found(Path root, String classes) throws Exception {
-        Pattern bad = Pattern.compile("\\\\\\\\(?:[" + classes + "]|p\\{(?:Lower|Upper|ASCII|Alpha|Digit|Alnum|Punct|Graph|Print|Blank|Cntrl|XDigit|Space)\\})");
+        String posix = "p\\{(?:Lower|Upper|ASCII|Alpha|Digit|Alnum|Punct|Graph|Print|Blank|Cntrl|XDigit|Space)\\}";
+        Pattern bad = Pattern.compile("\\\\\\\\(?:[" + classes + "]|" + posix + ")|\\\\\\\\\"\\s*\\+\\s*\"(?:[" + classes + "]|" + posix + ")");
         List<String> out = new ArrayList<>();
         try (Stream<Path> s = Files.walk(root)) {
             for (Path p : (Iterable<Path>) s.filter(f -> f.toString().endsWith(".java"))::iterator) {
-                List<String> lines = Files.readAllLines(p);
-                for (int i = 0; i < lines.size(); i++) {
-                    Matcher m = LITERAL.matcher(lines.get(i));
-                    while (m.find()) if (bad.matcher(m.group(1)).find()) out.add(root.relativize(p) + ":" + (i + 1) + " " + m.group());
+                String text = Files.readString(p);
+                Matcher m = bad.matcher(text);
+                while (m.find()) {
+                    int line = 1 + (int) text.substring(0, m.start()).chars().filter(c -> c == '\n').count();
+                    out.add(root.relativize(p) + ":" + line + " " + m.group());
                 }
             }
         }
@@ -47,13 +51,15 @@ class AsciiClassesTest {
         assertEquals(List.of(), found(Path.of("../app/src/main/java"), "dDwWbB"));
     }
 
-    /** The scan sees a class where it is written, inside a character class and next to other escapes. */
+    /** The scan sees a class where it is written: in a literal, a class, a text block, or split over two literals. */
     @Test
     void theScanSeesThem() throws Exception {
         Path dir = Files.createTempDirectory("ascii");
-        Files.writeString(dir.resolve("A.java"), "class A { String a = \"[\\\\d,]+\", b = \"x\\\\.\\\\w\", c = \"\\\\p{Alpha}\", d = \"[0-9]\"; }\n");
+        Files.writeString(dir.resolve("A.java"), "class A { String a = \"[\\\\d,]+\", b = \"x\\\\.\\\\w\", c = \"\\\\p{Alpha}\", d = \"[0-9]\";\n"
+                + "  String e = \"\"\"\n    \\\\s+\n    \"\"\";\n  String f = \"\\\\\" + \"d+\"; }\n");
         List<String> f = found(dir, "dDsSwWbB");
-        assertEquals(3, f.size(), f.toString());                                   // [0-9] is not one
-        assertTrue(f.get(0).contains("\\\\d") && f.get(1).contains("\\\\w") && f.get(2).contains("Alpha"), f.toString());
+        assertEquals(5, f.size(), f.toString());                                   // [0-9] is not one
+        assertTrue(f.get(0).contains("d") && f.get(1).contains("w") && f.get(2).contains("Alpha") && f.get(3).startsWith("A.java:3 ")
+                && f.get(4).startsWith("A.java:5 "), f.toString());
     }
 }
