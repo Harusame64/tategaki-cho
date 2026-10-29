@@ -692,6 +692,29 @@ public class ReadingTest {
         E2E.waitReady(a);
         d.click(d.getDisplayWidth() / 10, d.getDisplayHeight() / 10);
         E2E.waitFor(a, bars, "true");
+        // 上のバー 触るとメニュー: a tap at the top right, in the strip where Aa sits, shows the bars, though the zone
+        // there turns to the next page; just below the strip it still turns. The guide draws the strip.
+        SystemClock.sleep(600);
+        E2E.js(a, "document.getElementById('dispb').click();document.querySelector('.tk[data-tb=\"1\"]').click()");
+        E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"tb\":true"), "tb saved");
+        String strip = E2E.js(a, "document.querySelector('#info .topbar').offsetHeight*devicePixelRatio");
+        int sh = (int) Double.parseDouble(strip);
+        closeAa(a, bars);
+        d.click(d.getDisplayWidth() * 90 / 100, sh / 2);
+        E2E.waitFor(a, bars, "true");
+        assertEquals("2", E2E.js(a, "__reader.cur()"));
+        SystemClock.sleep(600);
+        closeAa(a, bars);
+        d.click(d.getDisplayWidth() * 90 / 100, sh + d.getDisplayHeight() / 20);
+        E2E.waitFor(a, "__reader.cur()", "3");
+        assertEquals("false", E2E.js(a, bars));
+        SystemClock.sleep(400);
+        d.click(d.getDisplayWidth() / 2, sh / 2);
+        E2E.waitFor(a, bars, "true");
+        SystemClock.sleep(600);
+        E2E.js(a, "document.getElementById('dispb').click();document.querySelector('#info button[data-guide]').click()");
+        E2E.waitFor(a, "document.getElementById('guide').classList.contains('on')", "true");
+        assertEquals("\"メニュー\"", E2E.js(a, "document.querySelector('#guide .tb').textContent"));
     }
 
     private static void openAa(Activity a, String bars) throws Exception {

@@ -717,6 +717,8 @@ span.sesame{text-emphasis-position:over right}
 #info .zside{display:flex;flex-direction:column;align-items:flex-start;gap:8px;font-size:12px;color:var(--sub)}
 #info .zmsg{color:var(--link)}
 #info .zmsg:empty{display:none}
+#guide .tb{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(50,50,50,.96);border-bottom:1px solid rgba(255,255,255,.35);font-size:15px;white-space:nowrap;overflow:hidden}
 #guide .foot{position:absolute;left:0;right:0;bottom:28px;text-align:center;font-size:13px;padding:0 16px}
 /* Short of room for a bottom-row label even above the footer, the footer keeps only how to close the guide. */
 #guide .foot.c{bottom:8px}
@@ -885,12 +887,12 @@ span.sesame{text-emphasis-position:over right}
   var SML=[['s','狭い'],['m','普通'],['l','広い']];
   function sml(cls,names){return SML.map(function(m,i){return '<button class="'+cls+'" data-'+cls+'="'+m[0]+'">'+(names?names[i]:m[1])+'</button>';}).join('');}
   var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,upright:false,lh:2,mx:'m',my:'m',guided:false,ephint:0,edge:true,buzz:false,
-    zones:'nmpnmpnmp',zw:'m',zh:'m'};
+    zones:'nmpnmpnmp',zw:'m',zh:'m',tb:false};
   if(PREFS){if(hasKey(THEMES,PREFS.theme))prefs.theme=PREFS.theme;if(SIZES.indexOf(PREFS.fs)>=0)prefs.fs=PREFS.fs;
     if(AHEAD.indexOf(PREFS.ahead)>=0)prefs.ahead=PREFS.ahead;else if(PREFS.ahead>20)prefs.ahead=20;if(PREFS.vol===true)prefs.vol=true;if(PREFS.bar===true)prefs.bar=true;if(hasKey(FONTS,PREFS.font))prefs.font=PREFS.font;if(PREFS.pack===false)prefs.pack=false;if(PREFS.indent===true)prefs.indent=true;if(PREFS.upright===true)prefs.upright=true;
     if(LHS.indexOf(PREFS.lh)>=0)prefs.lh=PREFS.lh;if(hasKey(MX,PREFS.mx))prefs.mx=PREFS.mx;if(hasKey(MY,PREFS.my))prefs.my=PREFS.my;if(PREFS.guided===true)prefs.guided=true;
     if(typeof PREFS.ephint==='number'&&PREFS.ephint>0)prefs.ephint=Math.min(3,Math.floor(PREFS.ephint));
-    if(PREFS.edge===false)prefs.edge=false;if(PREFS.buzz===true)prefs.buzz=true;
+    if(PREFS.edge===false)prefs.edge=false;if(PREFS.buzz===true)prefs.buzz=true;if(PREFS.tb===true)prefs.tb=true;
     if(typeof PREFS.zones==='string'&&/^[npm0]{9}$/.test(PREFS.zones)&&PREFS.zones.indexOf('m')>=0)prefs.zones=PREFS.zones;
     if(hasKey(ZW,PREFS.zw))prefs.zw=PREFS.zw;if(hasKey(ZH,PREFS.zh))prefs.zh=PREFS.zh;}
   // What a tap at (x, y) does: n, p, m or 0.
@@ -899,6 +901,12 @@ span.sesame{text-emphasis-position:over right}
     var c=x<w*a?0:x>w*(1-a)?2:1, r=y<hh*b?0:y>hh*(1-b)?2:1;
     return prefs.zones.charAt(r*3+c);
   }
+  // With 上のバー set to show the menu, a tap where the top bar sits, as tall as it is drawn, shows the bars whatever
+  // the zone below: a reader who reaches for Aa before the bars are up gets them, not a page back.
+  var tbH=0;
+  function barH(){if(!tbH){var on=info.classList.contains('on');info.style.visibility='hidden';info.classList.add('on');
+    tbH=info.querySelector('.topbar').offsetHeight;if(!on)info.classList.remove('on');info.style.visibility='';}return tbH;}
+  function tapAt(x,y){return prefs.tb&&y<barH()?'m':zoneAt(x,y);}
   function zoneTracks(min){var a=(100-ZW[prefs.zw])/2, b=(100-ZH[prefs.zh])/2;
     function t(v){return min?'minmax('+min+'px,'+v+'fr)':v+'fr';}
     return {cols:t(a)+' '+t(ZW[prefs.zw])+' '+t(a), rows:t(b)+' '+t(ZH[prefs.zh])+' '+t(b)};}
@@ -928,6 +936,7 @@ span.sesame{text-emphasis-position:over right}
     +'<div class="row"><span class="k">ひな形</span><div class="opts">'+ZPRESETS.map(function(z){return '<button class="zp" data-zp="'+z[2]+'">'+z[1]+'</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">真ん中の幅</span><div class="opts">'+sml('zw')+'</div></div>'
     +'<div class="row"><span class="k">真ん中の高さ</span><div class="opts">'+sml('zh',['低い','普通','高い'])+'</div></div>'
+    +'<div class="row"><span class="k">上のバー</span><div class="opts"><button class="tk" data-tb="1">触るとメニュー</button><button class="tk" data-tb="0">区画どおり</button></div></div>'
     +'<div class="row"><span class="k">端の誤タッチ</span><div class="opts"><button class="ek" data-edge="1">防ぐ</button><button class="ek" data-edge="0">防がない</button></div></div>'
     +'<div class="row"><span class="k">先読み</span><div class="opts">'
     +AHEAD.map(function(n){return '<button class="ah" data-ahead="'+n+'">'+n+'話</button>';}).join('')+'</div></div>'
@@ -959,6 +968,7 @@ span.sesame{text-emphasis-position:over right}
     info.querySelectorAll('.zp').forEach(function(b){b.classList.toggle('on',b.dataset.zp===prefs.zones);});
     info.querySelectorAll('.zw').forEach(function(b){b.classList.toggle('on',b.dataset.zw===prefs.zw);});
     info.querySelectorAll('.zh').forEach(function(b){b.classList.toggle('on',b.dataset.zh===prefs.zh);});
+    info.querySelectorAll('.tk').forEach(function(b){b.classList.toggle('on',(b.dataset.tb==='1')===prefs.tb);});
     // The small screen: as tall for its width as this one, but every zone at least 48 px, a touch target (A11yTest),
     // and tall enough for its label on a landscape tablet.
     var zg=info.querySelector('.zg'), tr=zoneTracks(48);
@@ -1011,6 +1021,7 @@ span.sesame{text-emphasis-position:over right}
     if(b.dataset.zp)prefs.zones=b.dataset.zp;
     if(b.dataset.zw)prefs.zw=b.dataset.zw;
     if(b.dataset.zh)prefs.zh=b.dataset.zh;
+    if(b.dataset.tb)prefs.tb=b.dataset.tb==='1';
     if(b.dataset.lh||b.dataset.mx||b.dataset.my){
       // As for a new size: the same share of the episode read, after the relayout.
       var f1=cur()/Math.max(1,pages()-1);
@@ -1129,7 +1140,7 @@ span.sesame{text-emphasis-position:over right}
   function unpull(){info.querySelectorAll('.sheet').forEach(function(sh){sh.style.transition='';sh.style.transform='';});}
   function toggleInfo(on){info.classList.toggle('on',on);info.classList.remove('work','disp');eps=null;unhint();unhold();unpull();
     info.querySelector('.zmsg').textContent='';
-    if(on){openedAt=Date.now();markSeek();setTimeout(maybeHint,0);}}             // the check after the bars are drawn
+    if(on){openedAt=Date.now();markSeek();setTimeout(maybeHint,0);tbH=info.querySelector('.topbar').offsetHeight||tbH;}}             // the check after the bars are drawn
   // The tap that opens the card is followed by its own click, which lands on the backdrop just shown.
   // That click can also land on a link or button of the card, now that it reaches the middle of the
   // screen: nothing in the card takes a click until the tap that opened it is over.
@@ -1226,14 +1237,14 @@ span.sesame{text-emphasis-position:over right}
       var go2=Math.abs(drag)>window.innerWidth*0.2||(dir*vx>0.5&&Math.abs(drag)>20);
       if(go2)turn(dir,true); else{busy=true;slide(0,dir,150,settle);}
     } else if(Date.now()-t0<500){
-      var z=zoneAt(x,t.clientY); if(z==='n')turn(1); else if(z==='p')turn(-1); else if(z==='m')toggleInfo(true);
+      var z=tapAt(x,t.clientY); if(z==='n')turn(1); else if(z==='p')turn(-1); else if(z==='m')toggleInfo(true);
     }
     x0=null; own=null;
   });
   document.addEventListener('touchcancel',function(e){for(var k=0;k<e.changedTouches.length;k++)delete based[e.changedTouches[k].identifier];
     if(x0===null||!owned(e.changedTouches))return;
     if(dir&&!busy){busy=true;slide(0,dir,150,settle);}x0=null;own=null;});
-  window.addEventListener('resize',function(){var c=cur();layout();go(c);markDisp();if(guide.classList.contains('on'))showGuide();});
+  window.addEventListener('resize',function(){tbH=0;var c=cur();layout();go(c);markDisp();if(guide.classList.contains('on'))showGuide();});
     // The next episode, formatted ahead by the app, replaces this one in place: no page load between them.
   function swap(body,i,start){
     settle(); book.innerHTML=body; peer.innerHTML=body; setInfo(i); edgeAt=0;
@@ -1259,16 +1270,17 @@ span.sesame{text-emphasis-position:over right}
         if(best[i]===undefined||cw[c]*rh[r]>cw[best[i]%3]*rh[Math.floor(best[i]/3)])best[i]=q;}}
     for(var j=0;j<9;j++){var k=z.charAt(j), r=Math.floor(j/3), c=j%3, line='1px solid rgba(255,255,255,.35)';
       var lab=best[reg[j]]===j;
-      out+='<div class="z '+(k==='0'?'o':k)+(lab&&r===2?' lo':'')+'" style="grid-area:'+(r+1)+'/'+(c+1)
+      out+='<div class="z '+(k==='0'?'o':k)+(lab&&r===2?' lo':'')+'" style="grid-area:'+(r+1)+'/'+(c+1)+(prefs.tb&&r===0?';padding-top:'+barH()+'px':'')
         +(c<2&&z.charAt(j+1)!==k?';border-right:'+line:'')+(r<2&&z.charAt(j+3)!==k?';border-bottom:'+line:'')+'">'
         +(lab?'<b>'+ZNAMES[k]+'</b>'+(k==='m'?'<span>目次<br>設定<br>作品</span>':k==='0'?'':'<span>ここをタップ</span>'):'')+'</div>';}
+    if(prefs.tb)out+='<div class="tb" style="height:'+barH()+'px"><b>メニュー</b></div>';
     guide.innerHTML=out+'<div class="foot"><div class="x">右へスワイプで次のページ、左へスワイプで前のページ</div><div>どこかをタップすると閉じます</div><div class="x">Aa の「触る場所」で変えられます</div></div>';
     guide.classList.add('on');
     guide.querySelectorAll('.z').forEach(function(z){
       var ls=Array.prototype.filter.call(z.children,function(l){return getComputedStyle(l).display!=='none';});
       function need(){var w=0,h=0,v=Array.prototype.filter.call(z.children,function(l){return l.offsetHeight>0;});
         v.forEach(function(l){w=Math.max(w,l.offsetWidth);h+=l.offsetHeight;});return {w:w,h:h+8*Math.max(0,v.length-1)};}
-      function fits(){var n=need();return n.w<=z.clientWidth-12&&n.h<=z.clientHeight-8;}
+      function fits(){var n=need();return n.w<=z.clientWidth-12&&n.h<=z.clientHeight-8-(parseFloat(z.style.paddingTop)||0);}
       // The size set is scaled again by Android's text size (computed = set x zoom), so step the set size down from
       // the computed one divided by that zoom: stepping from the computed size grew the text at 1.3 and never ended.
       function shrink(min){for(var more=true;more&&!fits();){more=false;
