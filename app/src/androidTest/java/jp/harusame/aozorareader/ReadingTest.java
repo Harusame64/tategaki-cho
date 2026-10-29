@@ -949,6 +949,35 @@ public class ReadingTest {
         assertFalse(key.apply(up, 0));
         assertFalse(key.apply(up, 2));
         assertTrue("down's release, taken as its press was", key.apply(down, 2));
+     * R27: 字下げ (as 空行 and 英字) formats the episode again and reloads the page; Aa comes back open on its tab, to go
+     * on choosing (it closed). A book opened again does not open Aa.
+     */
+    @Test
+    public void aaStaysOpenAfterAReformat() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(3, 40);
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        String bars = "document.getElementById('info').classList.contains('on')";
+        openAa(a, bars);
+        E2E.js(a, "window.__before=1;document.querySelector('.ik[data-indent=\"1\"]').click()");
+        E2E.waitFor(a, "typeof window.__before", "\"undefined\"");                 // a new page
+        E2E.waitReady(a);
+        E2E.waitFor(a, "document.getElementById('info').className", "\"on disp\"");
+        assertEquals("\"look\"", E2E.js(a, "document.querySelector('#info .tab.on').dataset.tab"));
+        assertEquals("true", E2E.js(a, "document.querySelector('.ik[data-indent=\"1\"]').classList.contains('on')"));
+        assertTrue(E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"indent\":true"));
+        // Only that page: the next one loaded (an episode picked in the 目次) opens without Aa.
+        E2E.js(a, "__reader.closeOverlays();window.__before=1;Android.open('3');0");
+        E2E.waitFor(a, "typeof window.__before", "\"undefined\"");
+        E2E.waitReady(a);
+        SystemClock.sleep(500);
+        assertEquals("false", E2E.js(a, bars));
+        reader.close();
+        a = open(1, 0);
+        E2E.waitReady(a);
+        SystemClock.sleep(500);
+        assertEquals("false", E2E.js(a, bars));
     }
 
     private static void openAa(Activity a, String bars) throws Exception {

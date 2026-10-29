@@ -275,11 +275,13 @@ public class ReaderActivity extends Activity {
 
         /** Formats the episode shown again (after the 空行, 字下げ or 英字 setting changed), at the same share read. */
         @JavascriptInterface
-        public void reformat(double share) {
+        public void reformat(double share, String tab) {
             Prepared p = shown;
             if (p == null) return;
             nextReady = prevReady = null;
             shown = null;
+            // The page comes back with Aa open on the tab it was changed from (the user's choice; it closed).
+            reopenAa = tab != null && tab.matches("look|touch|other") ? tab : null;
             run(work, () -> load(p.url, 0, share));
         }
 
@@ -481,8 +483,8 @@ public class ReaderActivity extends Activity {
      * The page template's slots filled in one pass over the template: a value (a title holding "%%BOOK%%")
      * is never read again as a slot.
      */
-    static String fill(String template, String info, String start, String share, String prefs, String book) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("%%(INFO|START|SHARE|PREFS|BOOK)%%").matcher(template);
+    static String fill(String template, String info, String start, String share, String prefs, String aa, String book) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("%%(INFO|START|SHARE|PREFS|AA|BOOK)%%").matcher(template);
         StringBuilder out = new StringBuilder();
         while (m.find()) {
             String v;
@@ -491,6 +493,7 @@ public class ReaderActivity extends Activity {
                 case "START": v = start; break;
                 case "SHARE": v = share; break;
                 case "PREFS": v = prefs; break;
+                case "AA": v = aa; break;
                 default: v = book;
             }
             m.appendReplacement(out, java.util.regex.Matcher.quoteReplacement(v));
@@ -596,6 +599,8 @@ public class ReaderActivity extends Activity {
      * the page. The one just left is kept as is; the others are formatted only from the cache.
      */
     volatile Prepared shown, nextReady, prevReady;
+    /** Aa's tab to open again on the page a reformat loads (see Bridge.reformat). */
+    volatile String reopenAa;
     /** guards nextReady/prevReady with readAheadGen: a read-ahead finishing after a newer show() drops its result */
     final Object ready = new Object();
 
@@ -689,7 +694,11 @@ public class ReaderActivity extends Activity {
             if (display != null) {
                 try { displayJson = new JSONObject(display).toString().replace("</", "<\\/"); } catch (Exception ignored) { }
             }
-            page = fill(asset("reader.html"), p.info, String.valueOf(startPage), String.valueOf(share), displayJson, p.body);
+            // Aa reopened after a reformat only: taken once, by the page that reformat loads.
+            String aa = reopenAa;
+            reopenAa = null;
+            page = fill(asset("reader.html"), p.info, String.valueOf(startPage), String.valueOf(share), displayJson,
+                    aa == null ? "null" : JSONObject.quote(aa), p.body);
         } catch (IOException e) {
             Log.e(TAG, "reader.html", e);
             return;

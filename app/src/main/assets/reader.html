@@ -766,7 +766,7 @@ span.sesame{text-emphasis-position:over right}
 <div id="guide"></div>
 <div id="end"><div class="card"><div class="t"></div><div class="a"></div><div class="btns"></div></div></div>
 <div id="toc"><div class="hd"><span class="tt">目次</span><button id="tocx">閉じる</button></div><div class="st"></div><div class="ls"></div></div>
-<script>var INFO=%%INFO%%, START=%%START%%, SHARE=%%SHARE%%, PREFS=%%PREFS%%;</script><script>
+<script>var INFO=%%INFO%%, START=%%START%%, SHARE=%%SHARE%%, PREFS=%%PREFS%%, AA=%%AA%%;</script><script>
 (function(){
   var book=document.getElementById('book'), pg=document.getElementById('pg');
   // The page a turn slides in: a copy of the episode scrolled to that page, kept beside the book.
@@ -1016,17 +1016,17 @@ span.sesame{text-emphasis-position:over right}
     if(b.dataset.pack&&(b.dataset.pack==='1')!==prefs.pack){
       // The blank lines are the formatter's, so the app formats the episode again, at the same share read.
       prefs.pack=b.dataset.pack==='1'; markDisp(); save();
-      if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1)); return;
+      if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1),aaTab); return;
     }
     if(b.dataset.indent&&(b.dataset.indent==='1')!==prefs.indent){
       // Likewise: the indent is put in by the formatter.
       prefs.indent=b.dataset.indent==='1'; markDisp(); save();
-      if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1)); return;
+      if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1),aaTab); return;
     }
     if(b.dataset.upright&&(b.dataset.upright==='1')!==prefs.upright){
       // Likewise: the letters are made full-width by the formatter.
       prefs.upright=b.dataset.upright==='1'; markDisp(); save();
-      if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1)); return;
+      if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1),aaTab); return;
     }
     if(b.id==='tocb'){openToc();return;}
     if(b.id==='homeb'){if(window.Android)Android.shelf();return;}
@@ -1379,7 +1379,9 @@ span.sesame{text-emphasis-position:over right}
   // shown (review on 0.1.6).
   function key(d){if((x0!==null&&dir)||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on'))return;turn(d);}
   window.__reader={swap:swap,end:end,key:key,closeOverlays:closeOverlays,go:go,cur:cur,pages:pages,turn:turn,ticks:function(){return ticks;},vol:function(){return prefs.vol&&!info.classList.contains('on')&&!guide.classList.contains('on');},toc:renderToc};
-  function start(){if(window.Android)Android.overlay(false);layout();starting=false;if(!prefs.guided)showGuide();go(SHARE>=0?Math.round(SHARE*(pages()-1)):START<0?pages()-1:START);}
+  function start(){if(window.Android)Android.overlay(false);layout();starting=false;if(!prefs.guided)showGuide();go(SHARE>=0?Math.round(SHARE*(pages()-1)):START<0?pages()-1:START);
+    // Reloaded for 空行, 字下げ or 英字: Aa as it was, on its tab, to go on choosing.
+    if(AA&&!guide.classList.contains('on')){toggleInfo(true);info.classList.add('disp');showTab(AA);}}
   document.fonts&&document.fonts.ready?document.fonts.ready.then(start):start();
 })();
 </script></body></html>
