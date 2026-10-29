@@ -742,6 +742,13 @@ public class ReadingTest {
         d.click(d.getDisplayWidth() / 10, sh / 2);
         E2E.waitFor(a, bars, "true");
         assertTrue(E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"tb\":true"));
+        // Opened again, the zones without a menu are kept: the middle turns the page.
+        reader.close();
+        a = open(1, 2);
+        E2E.waitReady(a);
+        E2E.tapMiddle();
+        E2E.waitFor(a, "__reader.cur()", "3");
+        assertEquals("false", E2E.js(a, bars));
         // Saved zones without a menu and without the strip (an older version's, or a broken value): the default zones,
         // the bars from the middle.
         reader.close();
