@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
  * episode slider (toc.json); review on 0.1.6. Every other way to write is kept out of the app's sources.
  */
 class AtomicWritesTest {
-    static final Pattern WRITER = Pattern.compile("Files\\.(?:write|writeString|newOutputStream|newBufferedWriter)\\(|"
+    static final Pattern WRITER = Pattern.compile("Files\\.(?:write|writeString|newOutputStream|newBufferedWriter|copy)\\(|"
             + "new (?:java\\.io\\.)?(?:FileOutputStream|FileWriter|PrintWriter|RandomAccessFile)\\(|openFileOutput\\(|\\.renameTo\\(");
 
     @Test

@@ -193,7 +193,7 @@ final class Shelf {
             s.checked = 0;
             int b = s.read(bak);
             if (b == OK) {
-                try { Files.copy(bak.toPath(), s.file.toPath()); } catch (IOException e) { Log.e(TAG, "shelf not restored", e); }
+                try { Atomic.write(s.file, Files.readAllBytes(bak.toPath())); } catch (IOException e) { Log.e(TAG, "shelf not restored", e); }
             } else if (b == UNREAD) {
                 s.unread = true;
             }
@@ -247,8 +247,7 @@ final class Shelf {
                 byte[] json = toJson().getBytes(StandardCharsets.UTF_8);
                 // The copy is made first and the new file renamed over the old in one step: shelf.json is never
                 // missing, whenever the app stops.
-                if (file.isFile()) Files.copy(file.toPath(), new File(file.getPath() + ".bak").toPath(),
-                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                if (file.isFile()) Atomic.write(new File(file.getPath() + ".bak"), Files.readAllBytes(file.toPath()));
                 Atomic.write(file, json);
             } catch (Exception e) {
                 Log.e(TAG, "shelf not saved", e);
