@@ -1046,6 +1046,30 @@ public class ReadingTest {
         E2E.waitUntil(() -> E2E.work().lastEpisode == 3, "the place followed to 3");
     }
 
+    /**
+     * R28b: the numbers now, from a 目次 with a title used twice in a row and a kept page whose title cannot be read.
+     * Kept A, X, X, (unreadable), B; listed A, Y, X, X, Z, B: the two X go where the run went (3, 4, not both to the
+     * nearest X), the unreadable one is dropped with the rest, B goes to 6, and only A stays kept.
+     */
+    @Test
+    public void renumberingFollowsTheRunOfTitles() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(1, 1);
+        java.io.File dir = new java.io.File(E2E.ctx().getFilesDir(), "episodes/" + E2E.NCODE);
+        String[] old = {"A", "X", "X", null, "B"};
+        for (int n = 1; n <= old.length; n++) java.nio.file.Files.write(new java.io.File(dir, n + ".html").toPath(), (old[n - 1] == null
+                ? "<html><body>no title</body></html>" : E2E.narouEpisode(n, 5, old[n - 1], 1, "")).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        org.json.JSONArray now = new org.json.JSONArray();
+        String[] listed = {"A", "Y", "X", "X", "Z", "B"};
+        for (int n = 1; n <= listed.length; n++) now.put(new org.json.JSONObject().put("n", n).put("t", listed[n - 1]));
+        java.util.Map<Integer, Integer> moved;
+        synchronized (Shelf.class) { moved = Episodes.followNarou(E2E.ctx(), E2E.NCODE, now); }
+        assertEquals("{2=3, 3=4, 4=0, 5=6}", moved.toString());
+        java.util.List<String> left = new java.util.ArrayList<>();
+        for (String f : dir.list()) if (f.endsWith(".html")) left.add(f);
+        assertEquals("[1.html]", left.toString());
+    }
+
     private static void openAa(Activity a, String bars) throws Exception {
         E2E.tapMiddle();
         E2E.waitFor(a, bars, "true");

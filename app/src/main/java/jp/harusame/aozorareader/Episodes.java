@@ -117,10 +117,24 @@ final class Episodes {
         Integer from = null;
         for (java.util.Map.Entry<Integer, String> k : kept.entrySet()) if (!k.getValue().equals(listed.get(k.getKey()))) { from = k.getKey(); break; }
         if (from == null) return moved;
-        for (java.util.Map.Entry<Integer, String> k : kept.tailMap(from).entrySet()) {
-            int n = k.getKey(), to = 0;
-            // Where its title is listed now, nearest its old number (a title can be used twice).
-            for (int at : where.getOrDefault(k.getValue(), java.util.Collections.emptyList())) if (to == 0 || Math.abs(at - n) < Math.abs(to - n)) to = at;
+        // Every file from there, a title read or not (codex on #28: one without a readable title stayed at the old number).
+        java.util.TreeSet<Integer> drop = new java.util.TreeSet<>();
+        for (File f : files) {
+            int n = Integer.parseInt(f.getName().substring(0, f.getName().length() - 5));
+            if (n >= from) drop.add(n);
+        }
+        Integer shift = null;
+        for (int n : drop) {
+            int to = 0;
+            String title = kept.get(n);
+            // Where its title is listed now: the same shift as the one before it, else nearest its old number, later on
+            // a tie. A title used twice in a row (X, X) then goes where the run went, not to the nearest X (codex on #28).
+            if (title != null) for (int at : where.getOrDefault(title, java.util.Collections.emptyList())) {
+                if (to == 0) { to = at; continue; }
+                int d = shift != null ? Math.abs(at - n - shift) - Math.abs(to - n - shift) : Math.abs(at - n) - Math.abs(to - n);
+                if (d < 0 || (d == 0 && at > to)) to = at;
+            }
+            if (to > 0) shift = to - n;
             moved.put(n, to);
             File f = new File(dir, n + ".html");
             if (to == 0 && FullSave.ENABLED) {
