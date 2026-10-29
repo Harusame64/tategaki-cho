@@ -967,6 +967,9 @@ public class ReadingTest {
         assertEquals("\"look\"", E2E.js(a, "document.querySelector('#info .tab.on').dataset.tab"));
         assertEquals("true", E2E.js(a, "document.querySelector('.ik[data-indent=\"1\"]').classList.contains('on')"));
         assertTrue(E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"indent\":true"));
+        // Opened by the app, not a tap: a tab picked at once is taken (codex on #27).
+        E2E.js(a, "document.querySelector('#info .tab[data-tab=\"touch\"]').click()");
+        assertEquals("\"touch\"", E2E.js(a, "document.querySelector('#info .tab.on').dataset.tab"));
         // Only that page: the next one loaded (an episode picked in the 目次) opens without Aa.
         E2E.js(a, "__reader.closeOverlays();window.__before=1;Android.open('3');0");
         E2E.waitFor(a, "typeof window.__before", "\"undefined\"");

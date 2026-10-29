@@ -1381,7 +1381,8 @@ span.sesame{text-emphasis-position:over right}
   window.__reader={swap:swap,end:end,key:key,closeOverlays:closeOverlays,go:go,cur:cur,pages:pages,turn:turn,ticks:function(){return ticks;},vol:function(){return prefs.vol&&!info.classList.contains('on')&&!guide.classList.contains('on');},toc:renderToc};
   function start(){if(window.Android)Android.overlay(false);layout();starting=false;if(!prefs.guided)showGuide();go(SHARE>=0?Math.round(SHARE*(pages()-1)):START<0?pages()-1:START);
     // Reloaded for 空行, 字下げ or 英字: Aa as it was, on its tab, to go on choosing.
-    if(AA&&!guide.classList.contains('on')){toggleInfo(true);info.classList.add('disp');showTab(AA);}}
+    // Opened by the app, not by a tap: no tap's click to drop, so the next one is taken at once (codex on #27).
+    if(AA&&!guide.classList.contains('on')){toggleInfo(true);openedAt=0;info.classList.add('disp');showTab(AA);}}
   document.fonts&&document.fonts.ready?document.fonts.ready.then(start):start();
 })();
 </script></body></html>

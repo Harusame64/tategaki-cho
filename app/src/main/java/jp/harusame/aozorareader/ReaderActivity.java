@@ -280,9 +280,10 @@ public class ReaderActivity extends Activity {
             if (p == null) return;
             nextReady = prevReady = null;
             shown = null;
-            // The page comes back with Aa open on the tab it was changed from (the user's choice; it closed).
-            reopenAa = tab != null && tab.matches("look|touch|other") ? tab : null;
-            run(work, () -> load(p.url, 0, share));
+            // The page comes back with Aa open on the tab it was changed from (the user's choice; it closed). The tab
+            // goes with this load, not to whichever load comes next (codex on #27).
+            String aa = tab != null && tab.matches("look|touch|other") ? tab : null;
+            run(work, () -> load(p.url, 0, share, aa));
         }
 
         /** The work's 目次, delivered to the page as it is read (see loadToc). */
@@ -599,8 +600,6 @@ public class ReaderActivity extends Activity {
      * the page. The one just left is kept as is; the others are formatted only from the cache.
      */
     volatile Prepared shown, nextReady, prevReady;
-    /** Aa's tab to open again on the page a reformat loads (see Bridge.reformat). */
-    volatile String reopenAa;
     /** guards nextReady/prevReady with readAheadGen: a read-ahead finishing after a newer show() drops its result */
     final Object ready = new Object();
 
@@ -645,6 +644,11 @@ public class ReaderActivity extends Activity {
 
     /** @param share when 0..1, the share of the episode to open at instead of startPage */
     void load(String url, int startPage, double share) {
+        load(url, startPage, share, null);
+    }
+
+    /** @param aa Aa's tab to open on the page loaded (after a reformat), or null */
+    void load(String url, int startPage, double share, String aa) {
         Prepared p;
         try {
             p = prepare(url);
@@ -659,7 +663,7 @@ public class ReaderActivity extends Activity {
                     + "</p><p>電波の届く所で、もう一度めくってください。</p></section>", json);
             p.failed = true;
         }
-        show(p, startPage, true, share);
+        show(p, startPage, true, share, aa);
     }
 
     /** Shows a prepared episode: a whole page load the first time, a swap inside the page after that. */
@@ -668,6 +672,10 @@ public class ReaderActivity extends Activity {
     }
 
     void show(Prepared p, int startPage, boolean reload, double share) {
+        show(p, startPage, reload, share, null);
+    }
+
+    void show(Prepared p, int startPage, boolean reload, double share, String aa) {
         pending = null;
         Prepared left = shown;
         if (p.ep != null) current = p.ep;
@@ -694,9 +702,6 @@ public class ReaderActivity extends Activity {
             if (display != null) {
                 try { displayJson = new JSONObject(display).toString().replace("</", "<\\/"); } catch (Exception ignored) { }
             }
-            // Aa reopened after a reformat only: taken once, by the page that reformat loads.
-            String aa = reopenAa;
-            reopenAa = null;
             page = fill(asset("reader.html"), p.info, String.valueOf(startPage), String.valueOf(share), displayJson,
                     aa == null ? "null" : JSONObject.quote(aa), p.body);
         } catch (IOException e) {
