@@ -4180,7 +4180,7 @@ public class AozoraEpub3Converter
 				chapterId = "kobo."+this.lineIdNum+"."+(idIdx++);
 				if (line.startsWith("<")) {
 					//タグがあるのでIDを設定
-					line = line.replaceFirst("(<[\\d|\\w]+)", "$1 id=\""+chapterId+"\"");
+					line = line.replaceFirst("(<[0-9|a-zA-Z0-9_]+)", "$1 id=\""+chapterId+"\"");
 				} else {
 					//タグでなければ一文字目をspanに入れる
 					out.write("<span id=\""+chapterId+"\">"+line.charAt(0)+"</span>");

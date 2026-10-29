@@ -540,7 +540,7 @@ public class WebAozoraConverter
 			return null;
 		}
 		// ncode.syosetu.com/n1234ab/ または /n1234ab/123/ のパターン
-		java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(".*/([nN]\\d{4}[a-zA-Z]+)/?.*");
+		java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(".*/([nN][0-9]{4}[a-zA-Z]+)/?.*");
 		java.util.regex.Matcher matcher = pattern.matcher(url);
 		if (matcher.matches()) {
 			return matcher.group(1).toLowerCase();
@@ -1197,7 +1197,7 @@ public class WebAozoraConverter
 				if (this.queryMap.containsKey(ExtractId.PAGE_URL)) {
 					Element tocPageUrlElem = getExtractFirstElement(doc, this.queryMap.get(ExtractId.PAGE_URL));
 					if (tocPageUrlElem != null) {
-						java.util.regex.Matcher pm = java.util.regex.Pattern.compile("[?&]p=(\\d+)").matcher(tocPageUrlElem.attr("href"));
+						java.util.regex.Matcher pm = java.util.regex.Pattern.compile("[?&]p=([0-9]+)").matcher(tocPageUrlElem.attr("href"));
 						int tocTotalPages = -1;
 						try { if (pm.find()) tocTotalPages = Integer.parseInt(pm.group(1)); } catch (NumberFormatException e) { /* 意図的: パース失敗時は tocTotalPages=-1 のまま続行 */ }
 						if (tocTotalPages > 1) {
@@ -2541,7 +2541,7 @@ public class WebAozoraConverter
 	private boolean isMultiWordEnglish(String str) {
 		String trimmed = str.trim();
 		if (trimmed.isEmpty()) return false;
-		return trimmed.split("\\s+").length >= 2;
+		return trimmed.split("[ \\t\\n\\x0B\\f\\r]+").length >= 2;
 	}
 
 	/**
@@ -3063,7 +3063,7 @@ public class WebAozoraConverter
 	 * 参考: narou-3.8.2/lib/converterbase.rb:265-329
 	 */
 	private String convertFractions(String text) {
-		Pattern datePattern = Pattern.compile("(\\d{4})/(\\d{1,2})/(\\d{1,2})");
+		Pattern datePattern = Pattern.compile("([0-9]{4})/([0-9]{1,2})/([0-9]{1,2})");
 		java.util.ArrayList<String> dates = new java.util.ArrayList<>();
 		Matcher dateMatcher = datePattern.matcher(text);
 		StringBuffer dateSb = new StringBuffer();
@@ -3074,7 +3074,7 @@ public class WebAozoraConverter
 		dateMatcher.appendTail(dateSb);
 		text = dateSb.toString();
 
-		Pattern fractionPattern = Pattern.compile("(\\d+)/(\\d+)");
+		Pattern fractionPattern = Pattern.compile("([0-9]+)/([0-9]+)");
 		Matcher fractionMatcher = fractionPattern.matcher(text);
 		StringBuffer fractionSb = new StringBuffer();
 		while (fractionMatcher.find()) {
@@ -3097,7 +3097,7 @@ public class WebAozoraConverter
 	 */
 	private String convertDates(String text) {
 		String fmt = formatSettings.getDateFormat();
-		Pattern datePattern = Pattern.compile("(\\d{4})/(\\d{1,2})/(\\d{1,2})");
+		Pattern datePattern = Pattern.compile("([0-9]{4})/([0-9]{1,2})/([0-9]{1,2})");
 		Matcher matcher = datePattern.matcher(text);
 		StringBuffer sb = new StringBuffer();
 		while (matcher.find()) {
@@ -3557,12 +3557,12 @@ public class WebAozoraConverter
 		if (scripts.isEmpty()) return null;
 		String json = scripts.get(0).html();
 		// URLから作品IDを取得
-		Pattern workPattern = Pattern.compile("/works/(\\d+)");
+		Pattern workPattern = Pattern.compile("/works/([0-9]+)");
 		Matcher workMatcher = workPattern.matcher(urlString);
 		if (!workMatcher.find()) return null;
 		String workId = workMatcher.group(1);
 		// "Episode:ID" を出現順・重複なしで収集
-		Pattern epPattern = Pattern.compile("\"Episode:(\\d+)\"");
+		Pattern epPattern = Pattern.compile("\"Episode:([0-9]+)\"");
 		Matcher epMatcher = epPattern.matcher(json);
 		ArrayList<String> result = new ArrayList<String>();
 		HashSet<String> seen = new HashSet<String>();
@@ -3606,11 +3606,11 @@ public class WebAozoraConverter
 	private HashMap<String, String> buildEpisodeChapterMapFromNextData(String json, String workId) {
 		HashMap<String, String> result = new HashMap<String, String>();
 		// "TableOfContentsChapter:ID":{ エントリを検索
-		Pattern chapterKeyPat = Pattern.compile("\"TableOfContentsChapter:\\d+\":\\{");
+		Pattern chapterKeyPat = Pattern.compile("\"TableOfContentsChapter:[0-9]+\":\\{");
 		// キャプチャーグループ内のエピソード参照パターン
-		Pattern epRefPat = Pattern.compile("\"__ref\":\"Episode:(\\d+)\"");
+		Pattern epRefPat = Pattern.compile("\"__ref\":\"Episode:([0-9]+)\"");
 		// 章本体 ("Chapter:ID") への参照
-		Pattern chapterRefPat = Pattern.compile("\"chapter\":\\{\"__ref\":\"Chapter:(\\d+)\"\\}");
+		Pattern chapterRefPat = Pattern.compile("\"chapter\":\\{\"__ref\":\"Chapter:([0-9]+)\"\\}");
 		// 章タイトルパターン (文字列中のエスケープ \" で切らない)
 		Pattern titlePat = Pattern.compile("\"title\":\"((?:[^\"\\\\]|\\\\.)*+)\"");
 		Matcher chMatcher = chapterKeyPat.matcher(json);
@@ -3814,7 +3814,7 @@ public class WebAozoraConverter
 	private HashMap<String, String> buildEpisodeDateMapFromNextData(String json) {
 		HashMap<String, String> result = new HashMap<String, String>();
 		// "Episode:ID":{ の実オブジェクトエントリを検索 ("__ref":"Episode:ID" の参照値は : の後が { でないため除外)
-		Pattern epKeyPat = Pattern.compile("\"Episode:(\\d+)\"\\s*:\\s*\\{");
+		Pattern epKeyPat = Pattern.compile("\"Episode:([0-9]+)\"[ \\t\\n\\x0B\\f\\r]*:[ \\t\\n\\x0B\\f\\r]*\\{");
 		Pattern datePat = Pattern.compile("\"publishedAt\":\"([^\"]*+)\"");
 		java.util.List<Integer> positions = new java.util.ArrayList<Integer>();
 		java.util.List<String> epIds = new java.util.ArrayList<String>();

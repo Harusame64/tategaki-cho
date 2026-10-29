@@ -162,31 +162,31 @@ public class ImageInfoReader
 	{
 		if (this.hasImage(srcImageFileName)) return srcImageFileName;
 		//拡張子修正
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".png");
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".png");
 		if (this.hasImage(srcImageFileName)) return srcImageFileName;
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".jpg");
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".jpg");
 		if (this.hasImage(srcImageFileName)) return srcImageFileName;
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".jpeg");
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".jpeg");
 		if (this.hasImage(srcImageFileName)) return srcImageFileName;
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".gif");
-		if (this.hasImage(srcImageFileName)) return srcImageFileName;
-		
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".PNG");
-		if (this.hasImage(srcImageFileName)) return srcImageFileName;
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".JPG");
-		if (this.hasImage(srcImageFileName)) return srcImageFileName;
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".JPEG");
-		if (this.hasImage(srcImageFileName)) return srcImageFileName;
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".GIF");
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".gif");
 		if (this.hasImage(srcImageFileName)) return srcImageFileName;
 		
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".Png");
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".PNG");
 		if (this.hasImage(srcImageFileName)) return srcImageFileName;
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".Jpg");
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".JPG");
 		if (this.hasImage(srcImageFileName)) return srcImageFileName;
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".Jpeg");
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".JPEG");
 		if (this.hasImage(srcImageFileName)) return srcImageFileName;
-		srcImageFileName = srcImageFileName.replaceFirst("\\.\\w+$", ".Gif");
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".GIF");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".Png");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".Jpg");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".Jpeg");
+		if (this.hasImage(srcImageFileName)) return srcImageFileName;
+		srcImageFileName = srcImageFileName.replaceFirst("\\.[a-zA-Z0-9_]+$", ".Gif");
 		if (this.hasImage(srcImageFileName)) return srcImageFileName;
 		
 		return null;

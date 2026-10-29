@@ -41,8 +41,8 @@ public final class Toc {
 		this.trailingChapter = trailingChapter;
 	}
 
-	private static final Pattern EPISODE = Pattern.compile("/n\\w+/(\\d+)/?$");
-	private static final Pattern PAGE = Pattern.compile("[?&]p=(\\d+)");
+	private static final Pattern EPISODE = Pattern.compile("/n[a-zA-Z0-9_]+/([0-9]+)/?$");
+	private static final Pattern PAGE = Pattern.compile("[?&]p=([0-9]+)");
 
 	public static Toc fromNarou(String html, String url) {
 		return fromNarou(html, url, null);

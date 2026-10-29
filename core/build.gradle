@@ -35,4 +35,6 @@ dependencies {
 tasks.named("test") {
     useJUnitPlatform()
     testLogging { events "failed"; exceptionFormat "full"; showStandardStreams = true }
+    // AsciiClassesTest reads the app's sources too: without them as an input, a change there left the test up to date.
+    inputs.dir("../app/src/main/java").withPropertyName("appSources")
 }

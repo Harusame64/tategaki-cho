@@ -29,14 +29,14 @@ public final class AozoraBunkoUrl
 	public static final String ENCODING = "MS932";
 
 	/** 作品の XHTML。1: 作家ID 2: 作品ID */
-	static final Pattern WORK_PAGE = Pattern.compile("^"+Host.SITE+"/cards/(\\d+)/files/(\\d+)_\\d+\\.html?(?:[?#].*)?$");
+	static final Pattern WORK_PAGE = Pattern.compile("^"+Host.SITE+"/cards/([0-9]+)/files/([0-9]+)_[0-9]+\\.html?(?:[?#].*)?$");
 	/** 図書カード。1: 作家ID 2: 作品ID */
-	static final Pattern CARD_PAGE = Pattern.compile("^"+Host.SITE+"/cards/(\\d+)/card(\\d+)\\.html?(?:[?#].*)?$");
+	static final Pattern CARD_PAGE = Pattern.compile("^"+Host.SITE+"/cards/([0-9]+)/card([0-9]+)\\.html?(?:[?#].*)?$");
 
 	private static final class Host
 	{
 		/** 青空文庫のサイト（スキームとホスト名は大文字小文字を問わない。ポートが付いていても。Web 変換のサイトの決め方もポートを落とす） */
-		static final String SITE = "(?i:https?://(?:www\\.)?aozora\\.gr\\.jp)(?::\\d+)?";
+		static final String SITE = "(?i:https?://(?:www\\.)?aozora\\.gr\\.jp)(?::[0-9]+)?";
 	}
 
 	/** 青空文庫のサイトの URL */
