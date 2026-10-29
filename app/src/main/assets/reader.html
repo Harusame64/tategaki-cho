@@ -649,11 +649,11 @@ span.sesame{text-emphasis-position:over right}
 #info .disp{margin:0}
 #info .pane{display:none}
 #info .pane.on{display:block}
-/* The tabs stay at the top of the sheet while it scrolls (its padding is 20px). */
-#info .tabs{position:sticky;top:-20px;z-index:1;display:flex;margin:-20px -22px 10px;padding:8px 22px 0;background:var(--card);
-  border-bottom:1px solid var(--line)}
-#info .tabs .tab{flex:1;border:0;border-bottom:3px solid transparent;border-radius:0;color:var(--sub)}
-#info .tabs .tab.on{border-bottom-color:var(--link);color:var(--link);font-weight:bold}
+/* The tabs stay at the foot of the sheet while it scrolls (its bottom padding is 28px). */
+#info .tabs{position:sticky;bottom:-28px;z-index:1;display:flex;margin:10px -22px -28px;padding:0 22px 12px;background:var(--card);
+  border-top:1px solid var(--line)}
+#info .tabs .tab{flex:1;border:0;border-top:3px solid transparent;border-radius:0;color:var(--sub)}
+#info .tabs .tab.on{border-top-color:var(--link);color:var(--link);font-weight:bold}
 #info .row{display:flex;align-items:center;gap:10px;margin:6px 0}
 /* The label never breaks (上下余白 at a large system font size broke into two lines); the buttons wrap beside it. */
 #info .row .k{flex:0 0 auto;min-width:4.5em;white-space:nowrap;color:var(--sub);font-size:13px}
@@ -929,9 +929,7 @@ span.sesame{text-emphasis-position:over right}
   }
   function save(){if(window.Android)Android.savePrefs(JSON.stringify(prefs));}
   // Aa in three tabs: how the text looks (changed while reading), how taps and keys work (set once), and the rest.
-  h+='<div class="sheet d"><div class="tabs" role="tablist">'
-    +AA_TABS.map(function(t){return '<button class="tab" role="tab" data-tab="'+t[0]+'">'+t[1]+'</button>';}).join('')
-    +'</div><div class="disp"><div class="pane" data-pane="look"><div class="row"><span class="k">背景</span><div class="opts">'
+  h+='<div class="sheet d"><div class="disp"><div class="pane" data-pane="look"><div class="row"><span class="k">背景</span><div class="opts">'
     +THEME_ORDER.map(function(k){return '<button class="sw" data-theme="'+k+'" style="background:'+THEMES[k].bg+'"></button>';}).join('')
     +'</div></div><div class="row fonts"><span class="k">書体</span><div class="opts">'
     +FONT_ORDER.map(function(k){return '<button class="ft" data-font="'+k+'" style="font-family:'+FONTS[k].f.replace(/"/g,"&quot;")+'">'+FONTS[k].n+'</button>';}).join('')
@@ -955,7 +953,9 @@ span.sesame{text-emphasis-position:over right}
     +'<div class="row"><span class="k">めくりの振動</span><div class="opts"><button class="zk" data-buzz="1">震わせる</button><button class="zk" data-buzz="0">震わせない</button></div></div></div>'
     +'<div class="pane" data-pane="other"><div class="row"><span class="k">先読み</span><div class="opts">'
     +AHEAD.map(function(n){return '<button class="ah" data-ahead="'+n+'">'+n+'話</button>';}).join('')+'</div></div>'
-    +'<div class="row"><span class="k">時計</span><div class="opts"><button class="bk" data-bar="1">時刻・通知を出す</button><button class="bk" data-bar="0">隠す</button></div></div></div></div></div>';
+    +'<div class="row"><span class="k">時計</span><div class="opts"><button class="bk" data-bar="1">時刻・通知を出す</button><button class="bk" data-bar="0">隠す</button></div></div></div></div>'
+    +'<div class="tabs" role="tablist">'+AA_TABS.map(function(t){return '<button class="tab" role="tab" data-tab="'+t[0]+'">'+t[1]+'</button>';}).join('')
+    +'</div></div>';
   // As in Kindle, a tap on a menu zone (the middle, as first set: prefs.zones, zoneAt) shows only the bars: the
   // work and its buttons on top, the page bar below. The settings (Aa) and the work's links each open from their button, never from that tap.
   h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
@@ -963,16 +963,13 @@ span.sesame{text-emphasis-position:over right}
     +'<div class="sheet w"><div class="head"></div></div>'+h;
   info.innerHTML=h;
   setInfo(INFO);
-  // The panes share the tallest one's height, so the sheet's top and its tabs stay where they are when the tab
-  // changes: a tab bar that moved under the finger would take the next tap somewhere else.
+  // The sheet is as tall as the tab's rows, so a short tab leaves the page in sight; the tabs are at its foot, on
+  // the screen's bottom edge, where a change of tab does not move them from under the finger.
   function showTab(t){
     aaTab=t;
-    var sh=info.querySelector('.sheet.d'), d=sh.querySelector('.disp'), m=0;
     info.querySelectorAll('.tab').forEach(function(b){var on=b.dataset.tab===t;b.classList.toggle('on',on);b.setAttribute('aria-selected',String(on));});
-    d.style.minHeight='';
-    d.querySelectorAll('.pane').forEach(function(p){p.style.display='block';m=Math.max(m,p.offsetHeight);p.style.display='';
-      p.classList.toggle('on',p.dataset.pane===t);});
-    d.style.minHeight=m+'px'; sh.scrollTop=0;
+    info.querySelectorAll('.pane').forEach(function(p){p.classList.toggle('on',p.dataset.pane===t);});
+    info.querySelector('.sheet.d').scrollTop=0;
   }
   function markDisp(){
     info.querySelectorAll('.sw').forEach(function(b){b.classList.toggle('on',b.dataset.theme===prefs.theme);});

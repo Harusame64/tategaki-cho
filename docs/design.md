@@ -159,8 +159,9 @@ and the backup limit is 25 MB).
   A tap on the title page goes back to the page being read. Until the count has been held once, the
   bars show a hint above it ("数字を長押しすると、話を選べます"), at most 3 times (`ephint` in the
   settings; settings from a version without it show it too).
-- **Aa settings,** in three tabs that keep their place (the panes share the tallest one's height, so the tabs
-  do not move under the finger); the tab last open comes back while the book is open, 見た目 first.
+- **Aa settings,** in three tabs at the sheet's foot, on the screen's bottom edge, so a change of tab does not
+  move them from under the finger; the sheet is as tall as the tab's rows, so a short tab leaves the page in sight.
+  The tab last open comes back while the book is open, 見た目 first.
   見た目: background (5), typeface (4, two bundled OFL fonts), 空行, 字下げ, 英字 (web
   novels only), text size, 行間, 上下余白, 左右余白. 操作: 触る場所 (nine zones, each 次へ/前へ/メニュー/なし, with ひな形, 真ん中の幅 and 真ん中の高さ (低い/普通/高い); see Taps above), 上端のタップ, 端の誤タッチ, volume keys, めくりの振動 (a tick when a tap or a volume key turns the page, not a swipe, off by default; the long press
   feedback, the only one that vibrated on the user's Galaxy A25). その他: read-ahead, clock.

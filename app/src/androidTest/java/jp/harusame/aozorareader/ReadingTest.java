@@ -557,7 +557,8 @@ public class ReadingTest {
         E2E.waitFor(a, "document.querySelector('#info .sheet.d').style.transform", "\"\"");
         assertEquals("true", E2E.js(a, bars));
         // A touch that starts at the top, scrolls the sheet and comes back past the top a long way: a scroll, not a
-        // pull, so the sheet stays open (review on 0.1.5).
+        // pull, so the sheet stays open (review on 0.1.5). On 操作, the tab long enough to scroll.
+        E2E.js(a, "document.querySelector('#info .tab[data-tab=\"touch\"]').click()");
         assertEquals("a scroll back past the top", "\"open\"", E2E.js(a, "var sh=document.querySelector('#info .sheet.d'),r=sh.getBoundingClientRect(),"
                 + "x=r.left+r.width/2,y=r.top+200;function t(type,yy,list){var o=new Touch({identifier:1,target:sh,clientX:x,clientY:yy});"
                 + "sh.dispatchEvent(new TouchEvent(type,{touches:list?[o]:[],changedTouches:[o],bubbles:true}));}"
@@ -762,8 +763,9 @@ public class ReadingTest {
     }
 
     /**
-     * R23: Aa opens on 見た目 with only its rows; 操作 and その他 show theirs, the tabs stay where they were (the panes
-     * share the tallest one's height) and stay on top of a scrolled sheet; the tab last open comes back.
+     * R23: Aa opens on 見た目 with only its rows; 操作 and その他 show theirs, the sheet as tall as they are; the tabs
+     * stay where they were (at the sheet's foot, on the screen's edge) and stay there over a scrolled sheet; the tab
+     * last open comes back.
      */
     @Test
     public void theAaSheetIsInTabs() throws Exception {
@@ -796,6 +798,8 @@ public class ReadingTest {
         assertEquals("false", E2E.js(a, shown + "('#info .zg')"));
         assertEquals("0", E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop"));
         assertEquals(top, E2E.js(a, tab + "('other')"));
+        // その他's two rows: the sheet is short and the page shows above it.
+        assertEquals("true", E2E.js(a, "document.querySelector('#info .sheet.d').getBoundingClientRect().top>window.innerHeight/2"));
         // Closed and opened again: その他, at the top.
         closeAa(a, bars);
         openAa(a, bars);
