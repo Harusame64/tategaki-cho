@@ -949,6 +949,9 @@ public class ReadingTest {
         assertFalse(key.apply(up, 0));
         assertFalse(key.apply(up, 2));
         assertTrue("down's release, taken as its press was", key.apply(down, 2));
+    }
+
+    /**
      * R27: 字下げ (as 空行 and 英字) formats the episode again and reloads the page; Aa comes back open on its tab, to go
      * on choosing (it closed). A book opened again does not open Aa.
      */
