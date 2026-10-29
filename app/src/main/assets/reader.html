@@ -695,6 +695,10 @@ span.sesame{text-emphasis-position:over right}
   overflow:hidden}
 /* A label in the bottom row stays clear of the footer. */
 #guide .z.lo{padding-bottom:120px}
+/* A label never breaks mid-word: it shrinks to its zone, and where even that is too narrow only the name stays, upright. */
+#guide .z>*{white-space:nowrap}
+#guide .z.v>span{display:none}
+#guide .z.v>b{writing-mode:vertical-rl}
 #guide .z b{font-size:19px}
 #guide .n{background:rgba(26,95,180,.93)}
 #guide .m{background:rgba(50,50,50,.93);font-size:13px}
@@ -1257,6 +1261,9 @@ span.sesame{text-emphasis-position:over right}
         +(lab?'<b>'+ZNAMES[k]+'</b>'+(k==='m'?'<span>目次<br>設定<br>作品</span>':k==='0'?'':'<span>ここをタップ</span>'):'')+'</div>';}
     guide.innerHTML=out+'<div class="foot">右へスワイプで次のページ、左へスワイプで前のページ<br>どこかをタップすると閉じます<br>Aa の「触る場所」で変えられます</div>';
     guide.classList.add('on');
+    guide.querySelectorAll('.z>*').forEach(function(l){var w=l.parentNode.clientWidth-12, f=parseFloat(getComputedStyle(l).fontSize);
+      while(l.offsetWidth>w&&f>11)l.style.fontSize=(--f)+'px';
+      if(l.offsetWidth>w)l.parentNode.classList.add('v');});
   }
   function closeGuide(){if(!guide.classList.contains('on'))return;guide.classList.remove('on');if(!prefs.guided){prefs.guided=true;save();}}
   guide.addEventListener('click',closeGuide);
