@@ -793,6 +793,10 @@ public class ReadingTest {
         E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop=9999");
         assertEquals("true", E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop>0"));
         assertEquals(top, E2E.js(a, tab + "('other')"));
+        // A tab opens at its top, also the one already open.
+        E2E.js(a, "document.querySelector('#info .tab[data-tab=\"touch\"]').click()");
+        assertEquals("0", E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop"));
+        E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop=9999");
         E2E.js(a, "document.querySelector('#info .tab[data-tab=\"other\"]').click()");
         assertEquals("true", E2E.js(a, shown + "('#info .ah')"));
         assertEquals("false", E2E.js(a, shown + "('#info .zg')"));
