@@ -38,6 +38,12 @@ public final class EpisodeInfo {
 		return new EpisodeInfo(url, workTitle, workUrl, author, authorUrl, number, prevUrl, nextUrl);
 	}
 
+	/** A なろう episode page's own title (as its 目次 lists it), or null. */
+	public static String narouTitle(String html) {
+		Element t = Jsoup.parse(html).selectFirst(".p-novel__title, .novel_subtitle");
+		return t == null ? null : t.text().trim();
+	}
+
 	public static EpisodeInfo fromNarou(String html, String url) {
 		Document doc = Jsoup.parse(html, url);
 		String workTitle = null, workUrl = null, author = null, authorUrl = null;

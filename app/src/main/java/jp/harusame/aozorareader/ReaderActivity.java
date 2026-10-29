@@ -1036,19 +1036,50 @@ public class ReaderActivity extends Activity {
             out.put("done", done);
             out.put("at", System.currentTimeMillis());
             out.put("entries", entries);
+            java.util.Map<Integer, Integer> moved = java.util.Collections.emptyMap();
             if (done) {
                 synchronized (Shelf.class) {
                     if (Shelf.load(this).find(ncode) != null) {
                         Atomic.write(f, out.toString().getBytes(StandardCharsets.UTF_8));
+                        // Episodes put in or taken out since they were kept: each kept one goes to its number now.
+                        moved = Episodes.followNarou(this, ncode, entries);
+                        java.util.Map<Integer, Integer> m = moved;
+                        if (!m.isEmpty()) Shelf.update(this, s -> {
+                            Shelf.Work w = s.find(ncode);
+                            Integer to = w == null ? null : m.get(w.lastEpisode);
+                            if (to != null && to > 0) w.lastEpisode = to;
+                        });
                     }
                 }
             }
+            if (!moved.isEmpty()) followShown(ncode, moved);
             deliverToc(out.toString());
             if (!done) later(work, () -> tocPage(gen, ncode, page + 1, entries, f, t.trailingChapter), TOC_PAGE_DELAY_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             Log.w(TAG, "toc page " + page, e);
             deliverToc("{\"error\":true}");
         }
+    }
+
+    /**
+     * The episode on screen moved to another number (see Episodes.followNarou): the same text is opened again under
+     * its number now, at the same page, so its neighbours and the place saved are the right ones. Read-ahead made for
+     * the old numbers is dropped.
+     */
+    void followShown(String ncode, java.util.Map<Integer, Integer> moved) {
+        nextReady = prevReady = null;
+        Prepared p = shown;
+        Object[] ep = p == null || p.url == null ? null : Shelf.episodeOf(p.url);
+        if (ep == null || !ncode.equals(ep[0])) return;
+        Integer to = moved.get((Integer) ep[1]);
+        if (to == null || to <= 0) return;
+        // The page from the place saved (already followed to the new number), when it is this episode's.
+        Shelf.Work w = Shelf.load(this).find(ncode);
+        boolean here = w != null && w.lastEpisode == to;
+        int page = here ? w.lastPage : 0, pages = here ? w.lastPages : 0;
+        shown = null;
+        String url = Shelf.episodeUrl(ncode, to);
+        run(work, () -> load(url, page, pages > 1 ? (double) page / (pages - 1) : -1));
     }
 
     /**
