@@ -275,12 +275,15 @@ public class ReaderActivity extends Activity {
 
         /** Formats the episode shown again (after the 空行, 字下げ or 英字 setting changed), at the same share read. */
         @JavascriptInterface
-        public void reformat(double share) {
+        public void reformat(double share, String tab) {
             Prepared p = shown;
             if (p == null) return;
             nextReady = prevReady = null;
             shown = null;
-            run(work, () -> load(p.url, 0, share));
+            // The page comes back with Aa open on the tab it was changed from (the user's choice; it closed). The tab
+            // goes with this load, not to whichever load comes next (codex on #27).
+            String aa = tab != null && tab.matches("look|touch|other") ? tab : null;
+            run(work, () -> load(p.url, 0, share, aa));
         }
 
         /** The work's 目次, delivered to the page as it is read (see loadToc). */
@@ -481,8 +484,8 @@ public class ReaderActivity extends Activity {
      * The page template's slots filled in one pass over the template: a value (a title holding "%%BOOK%%")
      * is never read again as a slot.
      */
-    static String fill(String template, String info, String start, String share, String prefs, String book) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("%%(INFO|START|SHARE|PREFS|BOOK)%%").matcher(template);
+    static String fill(String template, String info, String start, String share, String prefs, String aa, String book) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("%%(INFO|START|SHARE|PREFS|AA|BOOK)%%").matcher(template);
         StringBuilder out = new StringBuilder();
         while (m.find()) {
             String v;
@@ -491,6 +494,7 @@ public class ReaderActivity extends Activity {
                 case "START": v = start; break;
                 case "SHARE": v = share; break;
                 case "PREFS": v = prefs; break;
+                case "AA": v = aa; break;
                 default: v = book;
             }
             m.appendReplacement(out, java.util.regex.Matcher.quoteReplacement(v));
@@ -640,6 +644,11 @@ public class ReaderActivity extends Activity {
 
     /** @param share when 0..1, the share of the episode to open at instead of startPage */
     void load(String url, int startPage, double share) {
+        load(url, startPage, share, null);
+    }
+
+    /** @param aa Aa's tab to open on the page loaded (after a reformat), or null */
+    void load(String url, int startPage, double share, String aa) {
         Prepared p;
         try {
             p = prepare(url);
@@ -654,7 +663,7 @@ public class ReaderActivity extends Activity {
                     + "</p><p>電波の届く所で、もう一度めくってください。</p></section>", json);
             p.failed = true;
         }
-        show(p, startPage, true, share);
+        show(p, startPage, true, share, aa);
     }
 
     /** Shows a prepared episode: a whole page load the first time, a swap inside the page after that. */
@@ -663,6 +672,10 @@ public class ReaderActivity extends Activity {
     }
 
     void show(Prepared p, int startPage, boolean reload, double share) {
+        show(p, startPage, reload, share, null);
+    }
+
+    void show(Prepared p, int startPage, boolean reload, double share, String aa) {
         pending = null;
         Prepared left = shown;
         if (p.ep != null) current = p.ep;
@@ -689,7 +702,8 @@ public class ReaderActivity extends Activity {
             if (display != null) {
                 try { displayJson = new JSONObject(display).toString().replace("</", "<\\/"); } catch (Exception ignored) { }
             }
-            page = fill(asset("reader.html"), p.info, String.valueOf(startPage), String.valueOf(share), displayJson, p.body);
+            page = fill(asset("reader.html"), p.info, String.valueOf(startPage), String.valueOf(share), displayJson,
+                    aa == null ? "null" : JSONObject.quote(aa), p.body);
         } catch (IOException e) {
             Log.e(TAG, "reader.html", e);
             return;
