@@ -351,7 +351,13 @@ final class Shelf {
                         : w.lastEpisodeId != null ? kkNo.get("k" + w.lastEpisodeId + ".html") : Integer.valueOf(w.lastEpisode);
                 drop = no != null && at != null && no < at - 1;
             }
-            if (drop) { freed += f.length(); f.delete(); }
+            if (drop) {
+                // gone/ (なろう episodes no longer listed, kept in the personal build) goes with the rest.
+                File[] in = f.isDirectory() ? f.listFiles() : null;
+                if (in != null) for (File g : in) { freed += g.length(); g.delete(); }
+                freed += f.length();
+                f.delete();
+            }
         }
         if (w == null) d.delete();
         return freed;

@@ -258,7 +258,8 @@ public class ReaderActivity extends Activity {
             // The page waits for this call, so the shelf is written on the saver: a drag of the page bar makes
             // many calls, and only the latest place is written. カクヨム: the place is the episode's id; its
             // number is worked out when it is written.
-            place.set(new Object[]{ncode, ep != null ? (Integer) ep[1] : 0, n, total, kk == null ? null : kk[1]});
+            place.set(new Object[]{ncode, ep != null ? (Integer) ep[1] : 0, n, total, kk == null ? null : kk[1], p});
+            lastShown = new Object[]{p, n, total};
             run(saver, ReaderActivity.this::savePlace);
         }
 
@@ -421,7 +422,10 @@ public class ReaderActivity extends Activity {
                     // The list is read here, under the shelf's lock, where a list change and its remap are one step.
                     if (!KakuyomuSite.place(w, (String) pl[4], KakuyomuSite.load(this, (String) pl[0]))) return;
                 } else {
-                    w.lastEpisode = no;
+                    // A place from the page shown when the なろう episodes were renumbered: its number now.
+                    Object[] rn = renumbered;
+                    Integer to = rn != null && rn[0] == pl[5] ? ((java.util.Map<Integer, Integer>) rn[1]).get(no) : null;
+                    w.lastEpisode = to != null && to > 0 ? to : no;
                 }
                 w.lastPage = (Integer) pl[2];
                 w.lastPages = (Integer) pl[3];
@@ -600,6 +604,10 @@ public class ReaderActivity extends Activity {
      * the page. The one just left is kept as is; the others are formatted only from the cache.
      */
     volatile Prepared shown, nextReady, prevReady;
+    /** The page shown when なろう episodes were renumbered, and old number to new (see tocPage, savePlace). */
+    volatile Object[] renumbered;
+    /** The page last reported: the Prepared it came from, the page, the page count. */
+    volatile Object[] lastShown;
     /** guards nextReady/prevReady with readAheadGen: a read-ahead finishing after a newer show() drops its result */
     final Object ready = new Object();
 
@@ -1044,6 +1052,7 @@ public class ReaderActivity extends Activity {
                         // Episodes put in or taken out since they were kept: each kept one goes to its number now.
                         moved = Episodes.followNarou(this, ncode, entries);
                         java.util.Map<Integer, Integer> m = moved;
+                        if (!m.isEmpty()) renumbered = new Object[]{shown, m};
                         if (!m.isEmpty()) Shelf.update(this, s -> {
                             Shelf.Work w = s.find(ncode);
                             Integer to = w == null ? null : m.get(w.lastEpisode);
@@ -1062,9 +1071,8 @@ public class ReaderActivity extends Activity {
     }
 
     /**
-     * The episode on screen moved to another number (see Episodes.followNarou): the same text is opened again under
-     * its number now, at the same page, so its neighbours and the place saved are the right ones. Read-ahead made for
-     * the old numbers is dropped.
+     * The episode on screen was renumbered (see Episodes.followNarou): it opens again under its number now, at the
+     * page it was at, fetched again with its neighbours' links right. Read-ahead made for the old numbers is dropped.
      */
     void followShown(String ncode, java.util.Map<Integer, Integer> moved) {
         nextReady = prevReady = null;
@@ -1073,10 +1081,9 @@ public class ReaderActivity extends Activity {
         if (ep == null || !ncode.equals(ep[0])) return;
         Integer to = moved.get((Integer) ep[1]);
         if (to == null || to <= 0) return;
-        // The page from the place saved (already followed to the new number), when it is this episode's.
-        Shelf.Work w = Shelf.load(this).find(ncode);
-        boolean here = w != null && w.lastEpisode == to;
-        int page = here ? w.lastPage : 0, pages = here ? w.lastPages : 0;
+        // The page last reported from it (the place saved can still hold the old number for a moment).
+        Object[] at = lastShown;
+        int page = at != null && at[0] == p ? (Integer) at[1] : 0, pages = at != null && at[0] == p ? (Integer) at[2] : 0;
         shown = null;
         String url = Shelf.episodeUrl(ncode, to);
         run(work, () -> load(url, page, pages > 1 ? (double) page / (pages - 1) : -1));

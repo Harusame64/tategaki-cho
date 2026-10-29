@@ -990,30 +990,14 @@ public class ReadingTest {
 
     /**
      * R28: an episode put in between (割り込み投稿). The 目次 now lists 第1話, a new one, 第2話, 第3話: the kept 2.html and
-     * 3.html (第2話, 第3話) are renamed to 3 and 4 by their titles, the new one is not kept, the shelf's place follows,
-     * and the episode on screen opens again under its number now, at the same page.
+     * 3.html (第2話, 第3話) are dropped, to be fetched again under their numbers now with their links right; the shelf's
+     * place follows, and the episode on screen opens again as 3, fetched, at the same page. A 目次 that lists almost
+     * none of what is kept (a page that is not the 目次) changes nothing.
      */
     @Test
     public void anEpisodePutInBetweenMovesTheKeptOnes() throws Exception {
         E2E.reset();
         E2E.seedNarou(3, 40);
-        String[] titles = {"第1話　試験", "割り込みの話", "第2話　試験", "第3話　試験"};
-        StringBuilder toc = new StringBuilder("<div class=\"p-eplist\">");
-        for (int n = 1; n <= titles.length; n++) toc.append("<div class=\"p-eplist__sublist\"><a href=\"/").append(E2E.NCODE).append("/").append(n)
-                .append("/\" class=\"p-eplist__subtitle\">").append(titles[n - 1]).append("</a></div>");
-        E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", toc.append("</div>").toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        Activity a = open(2, 1);
-        E2E.waitReady(a);
-        ReaderActivity r = (ReaderActivity) a;
-        E2E.waitUntil(() -> E2E.work().lastEpisode == 2 && E2E.work().lastPage == 1, "the place at 2, page 1");
-        String bars = "document.getElementById('info').classList.contains('on')";
-        E2E.tapMiddle();
-        E2E.waitFor(a, bars, "true");
-        SystemClock.sleep(600);
-        E2E.js(a, "document.getElementById('tocb').click()");
-        E2E.waitUntil(() -> { ReaderActivity.Prepared p = r.shown; return p != null && Shelf.episodeUrl(E2E.NCODE, 3).equals(p.url); }, "the episode opened again as 3");
-        E2E.waitReady(a);
-        assertEquals("1", E2E.js(a, "__reader.cur()"));
         java.io.File dir = new java.io.File(E2E.ctx().getFilesDir(), "episodes/" + E2E.NCODE);
         java.util.function.Function<Integer, String> kept = n -> {
             try {
@@ -1021,10 +1005,44 @@ public class ReadingTest {
                 return f.isFile() ? jp.harusame.aozorareader.core.EpisodeInfo.narouTitle(new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8)) : null;
             } catch (Exception e) { throw new RuntimeException(e); }
         };
+        String[] titles = {"第1話　試験", "割り込みの話", "第2話　試験", "第3話　試験"};
+        java.util.function.Function<String[], byte[]> toc = ts -> {
+            StringBuilder b = new StringBuilder("<div class=\"p-eplist\">");
+            for (int n = 1; n <= ts.length; n++) b.append("<div class=\"p-eplist__sublist\"><a href=\"/").append(E2E.NCODE).append("/").append(n)
+                    .append("/\" class=\"p-eplist__subtitle\">").append(ts[n - 1]).append("</a></div>");
+            return b.append("</div>").toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        };
+        for (int n = 2; n <= 4; n++) E2E.net.put(Shelf.episodeUrl(E2E.NCODE, n),
+                E2E.narouEpisode(n, 4, titles[n - 1], 40, "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String bars = "document.getElementById('info').classList.contains('on')";
+        // Not the 目次: none of the kept titles listed. Nothing is dropped.
+        E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", toc.apply(new String[]{"お知らせ", "メンテナンス中"}));
+        Activity a = open(2, 1);
+        E2E.waitReady(a);
+        ReaderActivity r = (ReaderActivity) a;
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        SystemClock.sleep(600);
+        E2E.js(a, "document.getElementById('tocb').click()");
+        E2E.waitFor(a, "document.querySelectorAll('#toc .ep').length", "2");
+        assertEquals("第2話　試験", kept.apply(2));
+        assertEquals("第3話　試験", kept.apply(3));
+        E2E.js(a, "document.getElementById('tocx').click()");
+        // The 目次 with the new episode in it.
+        new java.io.File(dir, "toc.json").delete();
+        E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", toc.apply(titles));
+        E2E.waitUntil(() -> E2E.work().lastEpisode == 2 && E2E.work().lastPage == 1, "the place at 2, page 1");
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        SystemClock.sleep(600);
+        E2E.js(a, "document.getElementById('tocb').click()");
+        E2E.waitUntil(() -> { ReaderActivity.Prepared p = r.shown; return p != null && Shelf.episodeUrl(E2E.NCODE, 3).equals(p.url); }, "the episode opened again as 3");
+        E2E.waitReady(a);
+        assertEquals("1", E2E.js(a, "__reader.cur()"));
         assertEquals("第1話　試験", kept.apply(1));
-        assertEquals(null, kept.apply(2));
-        assertEquals("第2話　試験", kept.apply(3));
-        assertEquals("第3話　試験", kept.apply(4));
+        assertEquals("第2話　試験", kept.apply(3));                     // fetched again under 3
+        assertTrue("2 holds no old episode: " + kept.apply(2), !"第2話　試験".equals(kept.apply(2)));
+        assertEquals("next goes to 4", Shelf.episodeUrl(E2E.NCODE, 4), r.current.nextUrl);
         E2E.waitUntil(() -> E2E.work().lastEpisode == 3, "the place followed to 3");
     }
 
