@@ -904,6 +904,41 @@ public class ReadingTest {
         E2E.waitFor(a, "__reader.cur()", "1");
     }
 
+    /**
+     * R26: with 音量キー ページをめくる, a volume key turns the page and the system does not get it; under the bars it
+     * goes to the system (the volume), and so does its release, also when the bars close in between.
+     */
+    @Test
+    public void volumeKeysAreTheSystemsUnderTheBars() throws Exception {
+        E2E.reset();
+        E2E.ctx().getSharedPreferences("reader", 0).edit().putString("display", "{\"guided\":true,\"vol\":true}").commit();
+        E2E.seedNarou(3, 40);
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        ReaderActivity r = (ReaderActivity) a;
+        int down = android.view.KeyEvent.KEYCODE_VOLUME_DOWN;
+        java.util.function.Function<Integer, Boolean> press = action -> {
+            boolean[] got = new boolean[1];
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> got[0] = action == 0
+                    ? r.onKeyDown(down, new android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, down))
+                    : r.onKeyUp(down, new android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, down)));
+            return got[0];
+        };
+        assertTrue("taken to turn", press.apply(0));
+        assertTrue(press.apply(1));
+        E2E.waitFor(a, "__reader.cur()", "1");
+        String bars = "document.getElementById('info').classList.contains('on')";
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        E2E.waitUntil(() -> r.overlayCallback, "the app told of the bars");
+        assertFalse("left to the system under the bars", press.apply(0));
+        // The bars close before the release: it still goes where its press went.
+        E2E.js(a, "__reader.closeOverlays();0");
+        E2E.waitUntil(() -> !r.overlayCallback, "the app told they closed");
+        assertFalse(press.apply(1));
+        assertEquals("1", E2E.js(a, "__reader.cur()"));
+    }
+
     private static void openAa(Activity a, String bars) throws Exception {
         E2E.tapMiddle();
         E2E.waitFor(a, bars, "true");

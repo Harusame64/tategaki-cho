@@ -139,19 +139,29 @@ public class ReaderActivity extends Activity {
         run(saver, this::savePlace);                                       // the last place, before the app may be killed
     }
 
-    /** Kindle's option: the volume keys turn pages (down = next), when chosen in the settings. */
+    /**
+     * Kindle's option: the volume keys turn pages (down = next), when chosen in the settings. Not while the bars, the
+     * 目次, the end card or the guide is open, where a page does not turn: there the keys change the volume, as
+     * without the option (the user's choice; they did nothing at all before).
+     */
     @Override
     public boolean onKeyDown(int code, KeyEvent e) {
-        if (volumeTurns() && (code == KeyEvent.KEYCODE_VOLUME_DOWN || code == KeyEvent.KEYCODE_VOLUME_UP)) {
-            web.evaluateJavascript("window.__reader&&__reader.key(" + (code == KeyEvent.KEYCODE_VOLUME_DOWN ? 1 : -1) + ")", null);
-            return true;
+        if (code == KeyEvent.KEYCODE_VOLUME_DOWN || code == KeyEvent.KEYCODE_VOLUME_UP) {
+            volumeTaken = volumeTurns() && !overlayCallback;
+            if (volumeTaken) {
+                web.evaluateJavascript("window.__reader&&__reader.key(" + (code == KeyEvent.KEYCODE_VOLUME_DOWN ? 1 : -1) + ")", null);
+                return true;
+            }
         }
         return super.onKeyDown(code, e);
     }
 
+    /** The release goes where its press went, also when the bars opened or closed in between. */
+    boolean volumeTaken;
+
     @Override
     public boolean onKeyUp(int code, KeyEvent e) {
-        if (volumeTurns() && (code == KeyEvent.KEYCODE_VOLUME_DOWN || code == KeyEvent.KEYCODE_VOLUME_UP)) return true;
+        if ((code == KeyEvent.KEYCODE_VOLUME_DOWN || code == KeyEvent.KEYCODE_VOLUME_UP) && volumeTaken) return true;
         return super.onKeyUp(code, e);
     }
 
