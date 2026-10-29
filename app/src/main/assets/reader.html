@@ -893,7 +893,9 @@ span.sesame{text-emphasis-position:over right}
     if(LHS.indexOf(PREFS.lh)>=0)prefs.lh=PREFS.lh;if(hasKey(MX,PREFS.mx))prefs.mx=PREFS.mx;if(hasKey(MY,PREFS.my))prefs.my=PREFS.my;if(PREFS.guided===true)prefs.guided=true;
     if(typeof PREFS.ephint==='number'&&PREFS.ephint>0)prefs.ephint=Math.min(3,Math.floor(PREFS.ephint));
     if(PREFS.edge===false)prefs.edge=false;if(PREFS.buzz===true)prefs.buzz=true;if(PREFS.tb===true)prefs.tb=true;
-    if(typeof PREFS.zones==='string'&&/^[npm0]{9}$/.test(PREFS.zones)&&PREFS.zones.indexOf('m')>=0)prefs.zones=PREFS.zones;
+    // Zones without a menu only with the top strip showing the bars: else the saved zones give way to the default,
+    // or nothing would bring the bars (and Aa) back.
+    if(typeof PREFS.zones==='string'&&/^[npm0]{9}$/.test(PREFS.zones)&&(PREFS.zones.indexOf('m')>=0||prefs.tb))prefs.zones=PREFS.zones;
     if(hasKey(ZW,PREFS.zw))prefs.zw=PREFS.zw;if(hasKey(ZH,PREFS.zh))prefs.zh=PREFS.zh;}
   // What a tap at (x, y) does: n, p, m or 0.
   function zoneAt(x,y){
@@ -1015,13 +1017,19 @@ span.sesame{text-emphasis-position:over right}
     if(b.dataset.zc){
       var zi=Number(b.dataset.zc), z0=prefs.zones.charAt(zi), z1={n:'p',p:'m',m:'0','0':'n'}[z0]||'n';
       var zs=prefs.zones.slice(0,zi)+z1+prefs.zones.slice(zi+1), msg=info.querySelector('.zmsg');
-      if(zs.indexOf('m')<0){msg.textContent='メニューの区画は、少なくとも 1 つ残してください。';return;}
+      if(zs.indexOf('m')<0&&!prefs.tb){msg.textContent='メニューの区画を 1 つ残すか、「上端のタップ」を「メニューを表示」にしてください。';return;}
       prefs.zones=zs;
     }
     if(b.dataset.zp)prefs.zones=b.dataset.zp;
     if(b.dataset.zw)prefs.zw=b.dataset.zw;
     if(b.dataset.zh)prefs.zh=b.dataset.zh;
-    if(b.dataset.tb)prefs.tb=b.dataset.tb==='1';
+    if(b.dataset.tb){
+      // The strip is the only way to the bars while no zone is a menu: it stays until one is.
+      if(b.dataset.tb!=='1'&&prefs.zones.indexOf('m')<0){
+        info.querySelector('.zmsg').textContent='メニューの区画がないため、「区画どおり」にできません。先に区画を 1 つ「メニュー」にしてください。';
+        info.querySelector('.zrow').scrollIntoView({block:'nearest'});return;}
+      prefs.tb=b.dataset.tb==='1';
+    }
     if(b.dataset.lh||b.dataset.mx||b.dataset.my){
       // As for a new size: the same share of the episode read, after the relayout.
       var f1=cur()/Math.max(1,pages()-1);

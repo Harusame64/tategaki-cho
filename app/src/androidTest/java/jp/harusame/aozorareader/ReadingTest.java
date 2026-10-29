@@ -644,7 +644,7 @@ public class ReadingTest {
         E2E.js(a, "document.querySelector('.zw[data-zw=\"m\"]').click()");
         assertEquals("\"\"", E2E.js(a, "document.querySelector('.zmsg').textContent"));
         E2E.js(a, "document.querySelector('.zc[data-zc=\"7\"]').click()");
-        assertTrue(E2E.js(a, "document.querySelector('.zmsg').textContent").contains("1 つ残して"));
+        assertTrue(E2E.js(a, "document.querySelector('.zmsg').textContent").contains("1 つ残すか"));
         E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"zones\":\"n0pn0pnmp\""),
                 "zones saved");
         // The guide is drawn from them: each zone in its colour, one label per region of zones that do the same.
@@ -728,6 +728,28 @@ public class ReadingTest {
         a = open(1, 2);
         E2E.waitReady(a);
         d.click(d.getDisplayWidth() * 90 / 100, sh / 2);
+        E2E.waitFor(a, bars, "true");
+        assertEquals("2", E2E.js(a, "__reader.cur()"));
+        // With the strip, the last menu zone may go; the strip then stays on (it is the only way to the bars) until a
+        // zone is a menu again.
+        SystemClock.sleep(600);
+        E2E.js(a, "document.getElementById('dispb').click();document.querySelector('.zc[data-zc=\"0\"]').click()");
+        E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"zones\":\"0nnnnnnnn\""), "no menu zone saved");
+        E2E.js(a, "document.querySelector('.tk[data-tb=\"0\"]').click()");
+        assertTrue(E2E.js(a, "document.querySelector('.zmsg').textContent").contains("区画どおり"));
+        assertEquals("true", E2E.js(a, "document.querySelector('.tk[data-tb=\"1\"]').classList.contains('on')"));
+        closeAa(a, bars);
+        d.click(d.getDisplayWidth() / 10, sh / 2);
+        E2E.waitFor(a, bars, "true");
+        assertTrue(E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"tb\":true"));
+        // Saved zones without a menu and without the strip (an older version's, or a broken value): the default zones,
+        // the bars from the middle.
+        reader.close();
+        E2E.ctx().getSharedPreferences("reader", 0).edit()
+                .putString("display", "{\"guided\":true,\"zones\":\"0nnnnnnnn\",\"tb\":false}").commit();
+        a = open(1, 2);
+        E2E.waitReady(a);
+        E2E.tapMiddle();
         E2E.waitFor(a, bars, "true");
         assertEquals("2", E2E.js(a, "__reader.cur()"));
     }

@@ -134,12 +134,14 @@ and the backup limit is 25 MB).
   Lines are never cut in half. Margins (`PADX`, `PADY`) and line height (`--lh`) come from the
   display settings.
 - **Taps:** by the tap zones, the screen in 3 x 3 (`zones` in the settings, 9 letters row by row: n next page,
-  p previous, m the bars, 0 nothing; at least one m). The middle column is 10, 20 or 34 % wide (`zw`), the
+  p previous, m the bars, 0 nothing; at least one m unless `tb`). The middle column is 10, 20 or 34 % wide (`zw`), the
   middle row 20, 34 or 50 % high (`zh`). The default is the layout before zones: left 40 % next page, right 40 %
   previous, middle 20 % the bars. Presets 標準, 左右反転, 片手 (all next, the bars in the middle, the bottom
   corners nothing) and 上下 (the top row previous); a zone tapped in Aa's small screen cycles.
   上端のタップ メニューを表示 (`tb`, off at first) makes a tap in the strip where the top bar is drawn show the bars, whatever
-  the zone under it, so a reach for Aa before the bars are up does not turn the page; the guide draws the strip. Swipes turn with the
+  the zone under it, so a reach for Aa before the bars are up does not turn the page; the guide draws the strip. With it the zones
+  may have no menu; then it cannot be turned off until one zone is a menu again, and saved zones without a menu and without
+  `tb` give way to the default. Swipes turn with the
   finger; volume keys turn when chosen. One finger owns a gesture; a new finger takes it over only from
   one resting still for 0.3 s or more, so a resting palm does not keep the thumb's tap, and a tap or a
   swipe in progress keeps it. 端の誤タッチ (on by default, `edge` in the settings) drops the base of
