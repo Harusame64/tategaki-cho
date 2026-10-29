@@ -71,6 +71,18 @@ public class ScreensTest {
             mark(t + "_aa");
             E2E.js(a.get(), "document.querySelector('#info .sheet.d').scrollTop=9999");
             mark(t + "_aa2");
+            // The tap zones' editor in Aa, then the guide drawn from them
+            E2E.js(a.get(), "var sh=document.querySelector('#info .sheet.d');sh.scrollTop=sh.querySelector('.zrow').offsetTop-20");
+            mark(t + "_zones");
+            E2E.js(a.get(), "document.querySelector('#info button[data-guide]').click()");
+            mark(t + "_guide");
+            E2E.js(a.get(), "document.getElementById('guide').click()");
+            // With 上端のタップ on the top bar's strip: the guide draws the strip and the top row's labels go below it
+            E2E.js(a.get(), "document.querySelector('#info [data-tb=\\'1\\']').click();document.querySelector('#info button[data-guide]').click()");
+            mark(t + "_guidetb");
+            E2E.js(a.get(), "document.getElementById('guide').click();document.querySelector('#info [data-tb=\\'0\\']').click()");
+            E2E.tapMiddle(); SystemClock.sleep(600);
+            E2E.js(a.get(), "document.getElementById('dispb').click()");
             E2E.js(a.get(), "document.getElementById('dispb').click();document.getElementById('tocb').click()");
             SystemClock.sleep(1500);
             mark(t + "_toc");

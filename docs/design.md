@@ -133,7 +133,15 @@ and the backup limit is 25 MB).
 - **Pages:** one page = one column of a vertical-rl multicol box; a page turn scrolls one column.
   Lines are never cut in half. Margins (`PADX`, `PADY`) and line height (`--lh`) come from the
   display settings.
-- **Taps:** left 40 % next page, right 40 % previous, middle 20 % the bars; swipes turn with the
+- **Taps:** by the tap zones, the screen in 3 x 3 (`zones` in the settings, 9 letters row by row: n next page,
+  p previous, m the bars, 0 nothing; at least one m unless `tb`). The middle column is 10, 20 or 34 % wide (`zw`), the
+  middle row 20, 34 or 50 % high (`zh`). The default is the layout before zones: left 40 % next page, right 40 %
+  previous, middle 20 % the bars. Presets 標準, 左右反転, 片手 (all next, the bars in the middle, the bottom
+  corners nothing) and 上下 (the top row previous); a zone tapped in Aa's small screen cycles.
+  上端のタップ メニューを表示 (`tb`, off at first) makes a tap in the strip where the top bar is drawn show the bars, whatever
+  the zone under it, so a reach for Aa before the bars are up does not turn the page; the guide draws the strip. With it the zones
+  may have no menu; then it cannot be turned off until one zone is a menu again, and saved zones without a menu and without
+  `tb` give way to the default. Swipes turn with the
   finger; volume keys turn when chosen. One finger owns a gesture; a new finger takes it over only from
   one resting still for 0.3 s or more, so a resting palm does not keep the thumb's tap, and a tap or a
   swipe in progress keeps it. 端の誤タッチ (on by default, `edge` in the settings) drops the base of
@@ -152,14 +160,15 @@ and the backup limit is 25 MB).
   bars show a hint above it ("数字を長押しすると、話を選べます"), at most 3 times (`ephint` in the
   settings; settings from a version without it show it too).
 - **Aa settings:** background (5), typeface (4, two bundled OFL fonts), 空行, 字下げ, 英字 (web
-  novels only), text size, 行間, 上下余白, 左右余白, 触る場所, 端の誤タッチ, read-ahead, clock, volume keys, めくりの振動 (a tick when a tap or a volume key turns the page, not a swipe, off by default; the long press
+  novels only), text size, 行間, 上下余白, 左右余白, 触る場所 (nine zones, each 次へ/前へ/メニュー/なし, with ひな形, 真ん中の幅 and 真ん中の高さ (低い/普通/高い); see Taps above), 端の誤タッチ, read-ahead, clock, volume keys, めくりの振動 (a tick when a tap or a volume key turns the page, not a swipe, off by default; the long press
   feedback, the only one that vibrated on the user's Galaxy A25).
   空行, 字下げ and 英字 change the formatting, so the episode is formatted again at the same share read.
 - **Sheets (作品, Aa):** pulled down from their top they follow the finger after 10 px of give; let go past a
   third of their height (at least 120 px) they close with the bars, back to the page, else slide back. A
   second finger, or any other close, puts the sheet back in place. A touch that scrolls the sheet does not pull,
   even back past its top.
-- **First-time guide:** the tap zones, shown once (`guided` in the settings), again from Aa.
+- **First-time guide:** the tap zones as set, neighbouring zones that do the same drawn as one block; shown once
+  (`guided` in the settings), again from Aa.
 - **Across episodes:** the next and previous episodes are formatted ahead and swapped in place.
   At the end of a work, an end card.
 - **Places:** the episode and page are saved to the shelf as pages turn and on pause; カクヨム
