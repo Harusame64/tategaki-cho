@@ -914,10 +914,38 @@ public class ReaderActivity extends Activity {
                 if (e.has("c")) o.put("c", e.getString("c"));
                 entries.put(o);
             }
+            offList(key, eps, entries);
             deliverToc(new JSONObject().put("pages", 1).put("read", 1).put("done", true).put("entries", entries).toString());
         } catch (Exception e) {
             Log.w(TAG, "kakuyomu toc", e);
             deliverToc("{\"error\":true}");
+        }
+    }
+
+    /**
+     * The personal build keeps the text of what a work no longer shows. An episode the author took off the list (when
+     * the work became a book, say) stays kept as k<id>.html, but nothing listed reached it any more (review on 0.1.6):
+     * the 目次 ends with those, under their own heading, oldest first (ids grow), each opened by its id.
+     */
+    void offList(String key, JSONArray eps, JSONArray entries) throws Exception {
+        if (!FullSave.ENABLED) return;
+        java.util.Set<String> listed = new java.util.HashSet<>();
+        for (int i = 0; i < eps.length(); i++) listed.add(eps.getJSONObject(i).optString("id"));
+        File[] kept = new File(getFilesDir(), "episodes/" + key).listFiles((d, n) -> n.matches("k[0-9]{1,30}\\.html"));
+        if (kept == null) return;
+        java.util.TreeMap<java.math.BigInteger, File> off = new java.util.TreeMap<>();
+        for (File f : kept) {
+            String id = f.getName().substring(1, f.getName().length() - 5);
+            if (!listed.contains(id)) off.put(new java.math.BigInteger(id), f);
+        }
+        int n = eps.length();
+        boolean first = true;
+        for (java.util.Map.Entry<java.math.BigInteger, File> e : off.entrySet()) {
+            String t = jp.harusame.aozorareader.core.EpisodeInfo.kakuyomuTitle(new String(Files.readAllBytes(e.getValue().toPath()), StandardCharsets.UTF_8));
+            JSONObject o = new JSONObject().put("n", ++n).put("id", e.getKey().toString()).put("t", t == null || t.isEmpty() ? "（題名なし）" : t);
+            if (first) o.put("c", "一覧から外れた話（保存済み）");
+            first = false;
+            entries.put(o);
         }
     }
 

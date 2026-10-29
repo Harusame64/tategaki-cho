@@ -44,6 +44,12 @@ public final class EpisodeInfo {
 		return t == null ? null : t.text().trim();
 	}
 
+	/** A カクヨム episode page's own title, or null. */
+	public static String kakuyomuTitle(String html) {
+		Element t = Jsoup.parse(html).selectFirst("p.widget-episodeTitle");
+		return t == null ? null : t.text().trim();
+	}
+
 	public static EpisodeInfo fromNarou(String html, String url) {
 		Document doc = Jsoup.parse(html, url);
 		String workTitle = null, workUrl = null, author = null, authorUrl = null;

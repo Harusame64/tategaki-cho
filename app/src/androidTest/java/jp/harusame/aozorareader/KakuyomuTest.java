@@ -298,4 +298,36 @@ public class KakuyomuTest {
         E2E.js(a, "document.getElementById('seek').dispatchEvent(new Event('change'))");
         showing(a, "C");
     }
+
+    /**
+     * K11: an episode the author took off the list, kept. In the personal build (which keeps text a work no longer
+     * shows) the 目次 ends with it under its own heading, and it opens; in the public build it is not listed.
+     */
+    @Test
+    public void aKeptEpisodeOffTheListIsInThePersonalToc() throws Exception {
+        addAt(A);
+        java.io.File dir = new java.io.File(E2E.ctx().getFilesDir(), "episodes/" + KEY);
+        dir.mkdirs();
+        for (String id : new String[]{A, B, C})
+            java.nio.file.Files.write(new java.io.File(dir, "k" + id + ".html").toPath(), episodePage(letter(id)).getBytes(StandardCharsets.UTF_8));
+        listBecomes(A, C);
+        Activity a = openFromShelf();
+        showing(a, "A");
+        String bars = "document.getElementById('info').classList.contains('on')";
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        android.os.SystemClock.sleep(600);
+        E2E.js(a, "document.getElementById('tocb').click()");
+        E2E.waitFor(a, "document.querySelectorAll('#toc .ep').length>=2", "true");
+        android.os.SystemClock.sleep(300);
+        String eps = E2E.js(a, "Array.prototype.map.call(document.querySelectorAll('#toc .ep'),function(e){return e.textContent;}).join(' ')");
+        if (!FullSave.ENABLED) {
+            assertEquals("\"題A 題C\"", eps);
+            return;
+        }
+        assertEquals("\"題A 題C 題B\"", eps);
+        assertEquals("true", E2E.js(a, "document.getElementById('toc').textContent.indexOf('一覧から外れた話（保存済み）')>=0"));
+        E2E.js(a, "document.querySelector('#toc .ep[data-id=\"" + B + "\"]').click()");
+        showing(a, "B");
+    }
 }

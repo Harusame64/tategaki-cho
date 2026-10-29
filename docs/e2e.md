@@ -113,6 +113,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | K6b | カクヨム: sharing an episode newer than the kept list, of a work on the shelf, opens that episode | aSharedNewEpisodeOpensIt |
 | K7b | カクヨム: the place's episode deleted and never kept here; "next" from the error page opens the one after where it was | thePlacesEpisodeDeletedAndNeverKept |
 | K10 | カクヨム: the page bar across the episodes follows the kept list by id; letting go on 題C opens C | theEpisodeSliderOpensByIdFromTheKeptList |
+| K11 | カクヨム: an episode taken off the list and kept is listed at the end of the 目次 under 一覧から外れた話（保存済み） and opens, in the personal build only | aKeptEpisodeOffTheListIsInThePersonalToc (KakuyomuTest) |
 
 ## Background check (CheckWorkerTest) — done
 
