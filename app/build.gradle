@@ -20,8 +20,8 @@ android {
         minSdk 33
         targetSdk 36
         // versionCode only goes up, by one per published build (Play requires it too); tags are v<versionName>.
-        versionCode 6
-        versionName "0.1.5"
+        versionCode 7
+        versionName "0.1.6"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
