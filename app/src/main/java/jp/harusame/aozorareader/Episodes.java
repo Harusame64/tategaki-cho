@@ -77,4 +77,76 @@ final class Episodes {
         if (ncode == null) throw new IllegalArgumentException("not a なろう URL: " + url);
         return new File(c.getFilesDir(), "episodes/" + ncode + "/0.html");
     }
+
+    /**
+     * なろう keeps episodes by number, so an episode put in between (割り込み投稿) or taken out moved every one after it
+     * to another number while the kept files stayed: the kept 5.html showed under 5 while 5 was now another episode
+     * (review on 0.1.6). With the whole 目次 read, from the first kept episode whose title is not the one listed at
+     * its number, the kept files are dropped, to be fetched again under their numbers now: a kept page carries links
+     * to its neighbours by number, so a file renamed would still link to the old ones (codex on #28). One no longer
+     * listed at all is moved to gone/ in the personal build (which keeps text a work no longer shows), else dropped.
+     * A 目次 that lists none of what is kept, or less than half of it (a maintenance page read as one, a page cut
+     * short), changes nothing. Called under the shelf's lock.
+     *
+     * @return old number to new, by title, for each dropped (0 when no longer listed); empty when nothing was
+     */
+    static java.util.Map<Integer, Integer> followNarou(Context c, String ncode, org.json.JSONArray entries) throws Exception {
+        java.util.Map<Integer, Integer> moved = new java.util.TreeMap<>();
+        File dir = new File(c.getFilesDir(), "episodes/" + ncode);
+        File[] files = dir.listFiles((d, n) -> n.matches("[0-9]{1,9}\\.html"));
+        if (files == null || files.length == 0 || entries.length() == 0) return moved;
+        java.util.Map<Integer, String> listed = new java.util.HashMap<>();
+        java.util.Map<String, java.util.List<Integer>> where = new java.util.HashMap<>();
+        for (int i = 0; i < entries.length(); i++) {
+            org.json.JSONObject e = entries.getJSONObject(i);
+            String t = e.optString("t").trim();
+            listed.put(e.getInt("n"), t);
+            where.computeIfAbsent(t, k -> new java.util.ArrayList<>()).add(e.getInt("n"));
+        }
+        java.util.TreeMap<Integer, String> kept = new java.util.TreeMap<>();
+        for (File f : files) {
+            String title = jp.harusame.aozorareader.core.EpisodeInfo.narouTitle(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
+            if (title != null) kept.put(Integer.parseInt(f.getName().substring(0, f.getName().length() - 5)), title);
+        }
+        int found = 0;
+        for (String t : kept.values()) if (where.containsKey(t)) found++;
+        if (found * 2 < kept.size()) {
+            Log.w(Shelf.TAG, "目次 lists " + found + " of " + kept.size() + " kept episodes of " + ncode + ": not followed");
+            return moved;
+        }
+        Integer from = null;
+        for (java.util.Map.Entry<Integer, String> k : kept.entrySet()) if (!k.getValue().equals(listed.get(k.getKey()))) { from = k.getKey(); break; }
+        if (from == null) return moved;
+        // Every file from there, a title read or not (codex on #28: one without a readable title stayed at the old number).
+        java.util.TreeSet<Integer> drop = new java.util.TreeSet<>();
+        for (File f : files) {
+            int n = Integer.parseInt(f.getName().substring(0, f.getName().length() - 5));
+            if (n >= from) drop.add(n);
+        }
+        Integer shift = null;
+        for (int n : drop) {
+            int to = 0;
+            String title = kept.get(n);
+            // Where its title is listed now: the same shift as the one before it, else nearest its old number, later on
+            // a tie. A title used twice in a row (X, X) then goes where the run went, not to the nearest X (codex on #28).
+            if (title != null) for (int at : where.getOrDefault(title, java.util.Collections.emptyList())) {
+                if (to == 0) { to = at; continue; }
+                int d = shift != null ? Math.abs(at - n - shift) - Math.abs(to - n - shift) : Math.abs(at - n) - Math.abs(to - n);
+                if (d < 0 || (d == 0 && at > to)) to = at;
+            }
+            if (to > 0) shift = to - n;
+            moved.put(n, to);
+            File f = new File(dir, n + ".html");
+            if (to == 0 && FullSave.ENABLED) {
+                File gone = new File(dir, "gone");
+                gone.mkdirs();
+                Files.move(f.toPath(), new File(gone, n + "-" + System.currentTimeMillis() + ".html").toPath(),
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } else {
+                f.delete();
+            }
+        }
+        Log.i(Shelf.TAG, "なろう episodes renumbered " + ncode + " " + moved);
+        return moved;
+    }
 }
