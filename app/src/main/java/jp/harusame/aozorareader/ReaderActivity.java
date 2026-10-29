@@ -147,8 +147,10 @@ public class ReaderActivity extends Activity {
     @Override
     public boolean onKeyDown(int code, KeyEvent e) {
         if (code == KeyEvent.KEYCODE_VOLUME_DOWN || code == KeyEvent.KEYCODE_VOLUME_UP) {
-            volumeTaken = volumeTurns() && !overlayCallback;
-            if (volumeTaken) {
+            // Decided when the key goes down, and kept while it is held: a repeat after the bars opened or closed
+            // does not change hands (codex on #26).
+            if (e.getRepeatCount() == 0) volumeTaken.put(code, volumeTurns() && !overlayCallback);
+            if (volumeTaken.get(code)) {
                 web.evaluateJavascript("window.__reader&&__reader.key(" + (code == KeyEvent.KEYCODE_VOLUME_DOWN ? 1 : -1) + ")", null);
                 return true;
             }
@@ -156,12 +158,12 @@ public class ReaderActivity extends Activity {
         return super.onKeyDown(code, e);
     }
 
-    /** The release goes where its press went, also when the bars opened or closed in between. */
-    boolean volumeTaken;
+    /** Each key's release goes where its press went, also when the bars opened or closed in between. */
+    final android.util.SparseBooleanArray volumeTaken = new android.util.SparseBooleanArray();
 
     @Override
     public boolean onKeyUp(int code, KeyEvent e) {
-        if ((code == KeyEvent.KEYCODE_VOLUME_DOWN || code == KeyEvent.KEYCODE_VOLUME_UP) && volumeTaken) return true;
+        if ((code == KeyEvent.KEYCODE_VOLUME_DOWN || code == KeyEvent.KEYCODE_VOLUME_UP) && volumeTaken.get(code)) return true;
         return super.onKeyUp(code, e);
     }
 

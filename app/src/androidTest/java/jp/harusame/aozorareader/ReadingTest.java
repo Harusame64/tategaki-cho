@@ -916,27 +916,39 @@ public class ReadingTest {
         Activity a = open(1, 0);
         E2E.waitReady(a);
         ReaderActivity r = (ReaderActivity) a;
-        int down = android.view.KeyEvent.KEYCODE_VOLUME_DOWN;
-        java.util.function.Function<Integer, Boolean> press = action -> {
+        int down = android.view.KeyEvent.KEYCODE_VOLUME_DOWN, up = android.view.KeyEvent.KEYCODE_VOLUME_UP;
+        // key, then 0 a press, 1 a repeat of it, 2 its release: whether the reader took it.
+        java.util.function.BiFunction<Integer, Integer, Boolean> key = (code, what) -> {
             boolean[] got = new boolean[1];
-            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> got[0] = action == 0
-                    ? r.onKeyDown(down, new android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, down))
-                    : r.onKeyUp(down, new android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, down)));
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> got[0] = what == 2
+                    ? r.onKeyUp(code, new android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, code))
+                    : r.onKeyDown(code, new android.view.KeyEvent(0, 0, android.view.KeyEvent.ACTION_DOWN, code, what)));
             return got[0];
         };
-        assertTrue("taken to turn", press.apply(0));
-        assertTrue(press.apply(1));
+        assertTrue("taken to turn", key.apply(down, 0));
+        assertTrue(key.apply(down, 2));
         E2E.waitFor(a, "__reader.cur()", "1");
         String bars = "document.getElementById('info').classList.contains('on')";
         E2E.tapMiddle();
         E2E.waitFor(a, bars, "true");
         E2E.waitUntil(() -> r.overlayCallback, "the app told of the bars");
-        assertFalse("left to the system under the bars", press.apply(0));
-        // The bars close before the release: it still goes where its press went.
+        assertFalse("left to the system under the bars", key.apply(down, 0));
+        // The bars close while it is held: its repeats and its release still go where its press went (codex on #26).
         E2E.js(a, "__reader.closeOverlays();0");
         E2E.waitUntil(() -> !r.overlayCallback, "the app told they closed");
-        assertFalse(press.apply(1));
+        assertFalse(key.apply(down, 1));
+        assertFalse(key.apply(down, 2));
         assertEquals("1", E2E.js(a, "__reader.cur()"));
+        // Each key keeps its own: down held to turn, the bars opened, up pressed and let go there, then down let go.
+        assertTrue(key.apply(down, 0));
+        E2E.waitFor(a, "__reader.cur()", "2");
+        SystemClock.sleep(600);
+        E2E.tapMiddle();
+        E2E.waitFor(a, bars, "true");
+        E2E.waitUntil(() -> r.overlayCallback, "the app told of the bars again");
+        assertFalse(key.apply(up, 0));
+        assertFalse(key.apply(up, 2));
+        assertTrue("down's release, taken as its press was", key.apply(down, 2));
     }
 
     private static void openAa(Activity a, String bars) throws Exception {
