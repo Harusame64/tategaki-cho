@@ -21,10 +21,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
@@ -1015,8 +1013,7 @@ public class ReaderActivity extends Activity {
             if (done) {
                 synchronized (Shelf.class) {
                     if (Shelf.load(this).find(ncode) != null) {
-                        f.getParentFile().mkdirs();
-                        Files.write(f.toPath(), out.toString().getBytes(StandardCharsets.UTF_8));
+                        Atomic.write(f, out.toString().getBytes(StandardCharsets.UTF_8));
                     }
                 }
             }
@@ -1092,13 +1089,10 @@ public class ReaderActivity extends Activity {
         for (String n : names) {
             File f = new File(dir, n);
             if (f.isFile()) continue;
-            f.getParentFile().mkdirs();
-            // Copied whole, then renamed: a table cut short would never be copied again.
-            File tmp = new File(f.getPath() + ".tmp");
+            // Copied whole: a table cut short would never be copied again.
             try (InputStream in = AozoraFormatter.class.getResourceAsStream("/" + n)) {
                 if (in == null) { Log.w(TAG, "missing resource " + n); continue; }
-                try (OutputStream out = new FileOutputStream(tmp)) { in.transferTo(out); }
-                Files.move(tmp.toPath(), f.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                Atomic.write(f, in.readAllBytes());
             }
         }
         return dir;

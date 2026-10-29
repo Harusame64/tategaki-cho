@@ -63,8 +63,7 @@ final class KakuyomuSite {
                 .put("author", w.author == null ? "" : w.author).put("authorUrl", w.authorUrl == null ? "" : w.authorUrl)
                 .put("finished", w.finished).put("eps", eps);
         File f = listFile(c, key);
-        f.getParentFile().mkdirs();
-        Files.write(f.toPath(), o.toString().getBytes(StandardCharsets.UTF_8));
+        Atomic.write(f, o.toString().getBytes(StandardCharsets.UTF_8));
         // Episodes are kept by their id (k<id>.html); files kept by position before that are dropped.
         File[] old = f.getParentFile().listFiles((d, n) -> n.matches("[0-9]+\\.html"));
         if (old != null) for (File x : old) x.delete();

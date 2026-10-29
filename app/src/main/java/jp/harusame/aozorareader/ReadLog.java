@@ -7,8 +7,6 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -79,12 +77,7 @@ final class ReadLog {
                     w.put("last", Math.max(w.optInt("last"), episode));
                 }
                 w.put("pages", w.optInt("pages") + Math.max(0, pages));
-                File tmp = new File(file(dir).getPath() + ".tmp");
-                try (java.io.FileOutputStream out = new java.io.FileOutputStream(tmp)) {
-                    out.write(all.toString().getBytes(StandardCharsets.UTF_8));
-                    out.getFD().sync();
-                }
-                Files.move(tmp.toPath(), file(dir).toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                Atomic.write(file(dir), all.toString().getBytes(StandardCharsets.UTF_8));
             } catch (Exception e) {
                 Log.w(Shelf.TAG, "read log not written", e);
             }
