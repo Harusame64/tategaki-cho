@@ -329,5 +329,12 @@ public class KakuyomuTest {
         assertEquals("true", E2E.js(a, "document.getElementById('toc').textContent.indexOf('一覧から外れた話（保存済み）')>=0"));
         E2E.js(a, "document.querySelector('#toc .ep[data-id=\"" + B + "\"]').click()");
         showing(a, "B");
+        // Its place is kept, and the work opens there again (codex on #29).
+        E2E.js(a, "__reader.go(2)");
+        E2E.waitUntil(() -> { Shelf.Work w = Shelf.load(E2E.ctx()).find(KEY); return B.equals(w.lastEpisodeId) && w.lastPage == 2; }, "the place at B, page 2");
+        reader.close();
+        a = openFromShelf();
+        showing(a, "B");
+        assertEquals("2", E2E.js(a, "__reader.cur()"));
     }
 }

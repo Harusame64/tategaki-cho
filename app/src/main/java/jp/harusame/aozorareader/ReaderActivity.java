@@ -420,7 +420,8 @@ public class ReaderActivity extends Activity {
                 if (w == null) return;
                 if (pl[4] != null) {
                     // The list is read here, under the shelf's lock, where a list change and its remap are one step.
-                    if (!KakuyomuSite.place(w, (String) pl[4], KakuyomuSite.load(this, (String) pl[0]))) return;
+                    boolean offList = FullSave.ENABLED && new File(getFilesDir(), "episodes/" + pl[0] + "/k" + pl[4] + ".html").isFile();
+                    if (!KakuyomuSite.place(w, (String) pl[4], KakuyomuSite.load(this, (String) pl[0]), offList)) return;
                 } else {
                     // A place from the page shown when the なろう episodes were renumbered: its number now.
                     Object[] rn = renumbered;
