@@ -761,6 +761,48 @@ public class ReadingTest {
         assertEquals("2", E2E.js(a, "__reader.cur()"));
     }
 
+    /**
+     * R23: Aa opens on 見た目 with only its rows; 操作 and その他 show theirs, the tabs stay where they were (the panes
+     * share the tallest one's height) and stay on top of a scrolled sheet; the tab last open comes back.
+     */
+    @Test
+    public void theAaSheetIsInTabs() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(3, 40);
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        String bars = "document.getElementById('info').classList.contains('on')";
+        String shown = "(function(s){var e=document.querySelector(s);return !!(e&&e.offsetParent);})";
+        // Where the tab is drawn, and whether a tap there reaches it rather than something over it.
+        String tab = "(function(t){var b=document.querySelector('#info .tab[data-tab=\"'+t+'\"]'),r=b.getBoundingClientRect();"
+                + "return Math.round(r.top)+(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===b?'':' covered');})";
+        openAa(a, bars);
+        assertEquals("true", E2E.js(a, shown + "('#info .sw')"));
+        assertEquals("false", E2E.js(a, shown + "('#info .zg')"));
+        assertEquals("false", E2E.js(a, shown + "('#info .ah')"));
+        String top = E2E.js(a, tab + "('look')");
+        assertFalse(top, top.contains("covered"));
+        E2E.js(a, "document.querySelector('#info .tab[data-tab=\"touch\"]').click()");
+        assertEquals("true", E2E.js(a, shown + "('#info .zg')"));
+        assertEquals("false", E2E.js(a, shown + "('#info .sw')"));
+        assertEquals("true", E2E.js(a, "document.querySelector('#info .tab[data-tab=\"touch\"]').getAttribute('aria-selected')==='true'"));
+        assertEquals("the tabs did not move", top, E2E.js(a, tab + "('touch')"));
+        // Scrolled to the end, the tabs are still there to tap.
+        E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop=9999");
+        assertEquals("true", E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop>0"));
+        assertEquals(top, E2E.js(a, tab + "('other')"));
+        E2E.js(a, "document.querySelector('#info .tab[data-tab=\"other\"]').click()");
+        assertEquals("true", E2E.js(a, shown + "('#info .ah')"));
+        assertEquals("false", E2E.js(a, shown + "('#info .zg')"));
+        assertEquals("0", E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop"));
+        assertEquals(top, E2E.js(a, tab + "('other')"));
+        // Closed and opened again: その他, at the top.
+        closeAa(a, bars);
+        openAa(a, bars);
+        assertEquals("true", E2E.js(a, shown + "('#info .ah')"));
+        assertEquals("true", E2E.js(a, "document.querySelector('#info .tab[data-tab=\"other\"]').classList.contains('on')"));
+    }
+
     private static void openAa(Activity a, String bars) throws Exception {
         E2E.tapMiddle();
         E2E.waitFor(a, bars, "true");
