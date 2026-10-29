@@ -136,13 +136,28 @@ final class KakuyomuSite {
      * @return whether the place is this episode now
      */
     static boolean place(Shelf.Work w, String id, JSONObject listNow) {
+        return place(w, id, listNow, false);
+    }
+
+    /**
+     * @param keptOffList the episode is kept though no longer listed, and the build keeps such text (personal): it is
+     *     read from the end of the 目次 (ReaderActivity.offList), so it takes the place, after the list (codex on #29)
+     */
+    static boolean place(Shelf.Work w, String id, JSONObject listNow, boolean keptOffList) {
         int n = listNow == null ? 0 : numberOf(listNow, id);
         if (n > 0) {
             w.lastEpisodeId = id;
             w.lastEpisode = n;
             return true;
         }
-        return id.equals(w.lastEpisodeId);
+        if (id.equals(w.lastEpisodeId)) return true;                  // the slot remap keeps
+        if (keptOffList) {
+            JSONArray eps = listNow == null ? null : listNow.optJSONArray("eps");
+            w.lastEpisodeId = id;
+            w.lastEpisode = (eps == null ? 0 : eps.length()) + 1;
+            return true;
+        }
+        return false;
     }
 
     /** Every episode of the kept list counts as seen (the work was opened, or just added). */
