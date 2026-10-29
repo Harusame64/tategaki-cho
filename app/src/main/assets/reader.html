@@ -829,7 +829,9 @@ span.sesame{text-emphasis-position:over right}
     // めくりの振動 (off by default): a tick when a tap or a volume key turns the page, into the next episode too, not a
     // swipe, which the finger already feels (the user's choice). At either end of the episode only a tap that reaches
     // the app ticks, not one dropped while the next episode is on its way (review on 0.1.5).
-    if(n>=pages()||n<0){if(from)slide(0,d,150,settle);if(edge(d)&&!from)buzz();return;}
+    // The bounce at an end is a slide like any other: busy until it settles, or a swipe started during it is put back
+    // under the finger when it does (review on 0.1.6).
+    if(n>=pages()||n<0){if(from){busy=true;slide(0,d,150,settle);}if(edge(d)&&!from)buzz();return;}
     if(!from){buzz();go(n);return;}                                  // a tap turns at once
     busy=true;
     slide(d*W,d,180,function(){book.scrollTop=n*STEP;show();settle();});
@@ -1163,7 +1165,9 @@ span.sesame{text-emphasis-position:over right}
   }
   document.getElementById('tocx').addEventListener('click',function(){toc.classList.remove('on');delete toc.dataset.scrolled;if(window.Android)Android.tocClosed();});
   tocLs.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('.ep');if(!a)return;
-    if(a.dataset.id?a.dataset.id===curId:Number(a.dataset.n)===curNo){toc.classList.remove('on');go(0);return;}
+    // Closed as 閉じる closes it: the next 目次 scrolls to the episode again and the app stops its fetch (review on 0.1.6).
+    if(a.dataset.id?a.dataset.id===curId:Number(a.dataset.n)===curNo){toc.classList.remove('on');delete toc.dataset.scrolled;
+      if(window.Android)Android.tocClosed();go(0);return;}
     tocSt.textContent='開いています…'; if(window.Android)Android.open(String(a.dataset.id||a.dataset.n));});
   // A sheet closed some other way in the middle of a pull (Back, the next episode, its button) opens again in place.
   function unpull(){info.querySelectorAll('.sheet').forEach(function(sh){sh.style.transition='';sh.style.transform='';});}
@@ -1369,7 +1373,9 @@ span.sesame{text-emphasis-position:over right}
   var overlayWas=false;
   function tellOverlay(){var o=anyOverlay();if(o!==overlayWas){overlayWas=o;if(window.Android)Android.overlay(o);}}
   new MutationObserver(tellOverlay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
-  function key(d){if(guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on'))return;turn(d);}
+  // Not with a finger down: a key during a swipe turned the page under it, and the swipe then turned past the page
+  // beside it, never shown (review on 0.1.6).
+  function key(d){if(x0!==null||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on'))return;turn(d);}
   window.__reader={swap:swap,end:end,key:key,closeOverlays:closeOverlays,go:go,cur:cur,pages:pages,turn:turn,ticks:function(){return ticks;},vol:function(){return prefs.vol&&!info.classList.contains('on')&&!guide.classList.contains('on');},toc:renderToc};
   function start(){if(window.Android)Android.overlay(false);layout();starting=false;if(!prefs.guided)showGuide();go(SHARE>=0?Math.round(SHARE*(pages()-1)):START<0?pages()-1:START);}
   document.fonts&&document.fonts.ready?document.fonts.ready.then(start):start();
