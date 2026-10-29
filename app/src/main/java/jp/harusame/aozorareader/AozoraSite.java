@@ -117,9 +117,7 @@ final class AozoraSite {
             for (int i = 0; i < f.length; i++) sb.append(i == 0 ? "" : "\t").append(f[i].replace('\t', ' ').replace('\n', ' '));
             sb.append('\n');
         }
-        File tmp = new File(dir(c), "index.tsv.tmp");
-        Files.write(tmp.toPath(), sb.toString().getBytes(StandardCharsets.UTF_8));
-        if (!tmp.renameTo(indexFile(c))) throw new IOException("rename");
+        Atomic.write(indexFile(c), sb.toString().getBytes(StandardCharsets.UTF_8));
         Log.i(Shelf.TAG, "aozora index: " + books.size() + " works");
     }
 
@@ -170,7 +168,7 @@ final class AozoraSite {
     /** The access ranking's works, by card URL number, in order (fetched once and kept). */
     static List<String[]> ranking(Context c) throws Exception {
         File f = new File(dir(c), "ranking.html");
-        if (!f.isFile()) Files.write(f.toPath(), get(RANKING_URL));
+        if (!f.isFile()) Atomic.write(f, get(RANKING_URL));
         String html = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
         List<String[]> out = new ArrayList<>();
         Matcher m = Pattern.compile("<tr[^>]*>(.*?)</tr>", Pattern.DOTALL).matcher(html);
@@ -200,7 +198,7 @@ final class AozoraSite {
     static void saveMeta(Context c, String key, Book b) throws Exception {
         JSONObject o = new JSONObject().put("zip", b.zip).put("card", b.card).put("title", b.title)
                 .put("subtitle", b.subtitle).put("author", b.author).put("translator", b.translator);
-        Files.write(new File(worksDir(c), key + ".json").toPath(), o.toString().getBytes(StandardCharsets.UTF_8));
+        Atomic.write(new File(worksDir(c), key + ".json"), o.toString().getBytes(StandardCharsets.UTF_8));
     }
 
     static JSONObject meta(Context c, String key) throws Exception {
@@ -247,11 +245,8 @@ final class AozoraSite {
         JSONArray a = new JSONArray();
         for (String s : sections) a.put(s);
         File f = sectionsFile(c, key);
-        f.getParentFile().mkdirs();
         // Whole or not at all: a file cut short would fail the work on every open.
-        File tmp = new File(f.getPath() + ".tmp");
-        Files.write(tmp.toPath(), a.toString().getBytes(StandardCharsets.UTF_8));
-        Files.move(tmp.toPath(), f.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        Atomic.write(f, a.toString().getBytes(StandardCharsets.UTF_8));
     }
 
     /** 日本十進分類 to a shelf name, by its first digits (K is 児童書). */

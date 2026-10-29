@@ -54,11 +54,7 @@ final class Episodes {
         synchronized (Shelf.class) {
             // Taken off the shelf while it was being fetched: nothing is kept for it.
             if (Shelf.load(c).find(key) != null) {
-                cache.getParentFile().mkdirs();
-                File tmp = new File(cache.getPath() + ".tmp");
-                Files.write(tmp.toPath(), bytes);
-                Files.move(tmp.toPath(), cache.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                Atomic.write(cache, bytes);
             }
         }
         return new String(bytes, StandardCharsets.UTF_8);

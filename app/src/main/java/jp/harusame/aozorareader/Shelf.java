@@ -239,22 +239,17 @@ final class Shelf {
         return new JSONObject().put("checked", checked).put("works", a).toString();
     }
 
-    /** Written whole to a tmp file and synced, the old file kept as shelf.json.bak, then renamed into place. */
+    /** Written whole (Atomic), the old file kept as shelf.json.bak first. */
     void save() {
         if (unread) { Log.e(TAG, "shelf not saved: it was not read"); return; }
         synchronized (Shelf.class) {
             try {
-                File tmp = new File(file.getPath() + ".tmp");
-                try (java.io.FileOutputStream out = new java.io.FileOutputStream(tmp)) {
-                    out.write(toJson().getBytes(StandardCharsets.UTF_8));
-                    out.getFD().sync();
-                }
+                byte[] json = toJson().getBytes(StandardCharsets.UTF_8);
                 // The copy is made first and the new file renamed over the old in one step: shelf.json is never
                 // missing, whenever the app stops.
                 if (file.isFile()) Files.copy(file.toPath(), new File(file.getPath() + ".bak").toPath(),
                         java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                Files.move(tmp.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                Atomic.write(file, json);
             } catch (Exception e) {
                 Log.e(TAG, "shelf not saved", e);
             }
