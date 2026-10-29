@@ -692,7 +692,7 @@ public class ReadingTest {
         E2E.waitReady(a);
         d.click(d.getDisplayWidth() / 10, d.getDisplayHeight() / 10);
         E2E.waitFor(a, bars, "true");
-        // 上のバー 触るとメニュー: a tap at the top right, in the strip where Aa sits, shows the bars, though the zone
+        // 上端のタップ メニューを表示: a tap at the top right, in the strip where Aa sits, shows the bars, though the zone
         // there turns to the next page; just below the strip it still turns. The guide draws the strip.
         SystemClock.sleep(600);
         E2E.js(a, "document.getElementById('dispb').click();document.querySelector('.tk[data-tb=\"1\"]').click()");
@@ -715,6 +715,13 @@ public class ReadingTest {
         E2E.js(a, "document.getElementById('dispb').click();document.querySelector('#info button[data-guide]').click()");
         E2E.waitFor(a, "document.getElementById('guide').classList.contains('on')", "true");
         assertEquals("\"メニュー\"", E2E.js(a, "document.querySelector('#guide .tb').textContent"));
+        // Opened again, before any bars are up (the strip measured with them hidden): the strip still shows them (codex).
+        reader.close();
+        a = open(1, 2);
+        E2E.waitReady(a);
+        d.click(d.getDisplayWidth() * 90 / 100, sh / 2);
+        E2E.waitFor(a, bars, "true");
+        assertEquals("2", E2E.js(a, "__reader.cur()"));
     }
 
     private static void openAa(Activity a, String bars) throws Exception {

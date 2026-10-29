@@ -138,7 +138,7 @@ and the backup limit is 25 MB).
   middle row 20, 34 or 50 % high (`zh`). The default is the layout before zones: left 40 % next page, right 40 %
   previous, middle 20 % the bars. Presets 標準, 左右反転, 片手 (all next, the bars in the middle, the bottom
   corners nothing) and 上下 (the top row previous); a zone tapped in Aa's small screen cycles.
-  上のバー 触るとメニュー (`tb`, off at first) makes a tap in the strip where the top bar is drawn show the bars, whatever
+  上端のタップ メニューを表示 (`tb`, off at first) makes a tap in the strip where the top bar is drawn show the bars, whatever
   the zone under it, so a reach for Aa before the bars are up does not turn the page; the guide draws the strip. Swipes turn with the
   finger; volume keys turn when chosen. One finger owns a gesture; a new finger takes it over only from
   one resting still for 0.3 s or more, so a resting palm does not keep the thumb's tap, and a tap or a

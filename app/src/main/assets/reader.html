@@ -901,7 +901,7 @@ span.sesame{text-emphasis-position:over right}
     var c=x<w*a?0:x>w*(1-a)?2:1, r=y<hh*b?0:y>hh*(1-b)?2:1;
     return prefs.zones.charAt(r*3+c);
   }
-  // With 上のバー set to show the menu, a tap where the top bar sits, as tall as it is drawn, shows the bars whatever
+  // With 上端のタップ set to show the menu, a tap where the top bar sits, as tall as it is drawn, shows the bars whatever
   // the zone below: a reader who reaches for Aa before the bars are up gets them, not a page back.
   var tbH=0;
   function barH(){if(!tbH){var on=info.classList.contains('on');info.style.visibility='hidden';info.classList.add('on');
@@ -936,7 +936,7 @@ span.sesame{text-emphasis-position:over right}
     +'<div class="row"><span class="k">ひな形</span><div class="opts">'+ZPRESETS.map(function(z){return '<button class="zp" data-zp="'+z[2]+'">'+z[1]+'</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">真ん中の幅</span><div class="opts">'+sml('zw')+'</div></div>'
     +'<div class="row"><span class="k">真ん中の高さ</span><div class="opts">'+sml('zh',['低い','普通','高い'])+'</div></div>'
-    +'<div class="row"><span class="k">上のバー</span><div class="opts"><button class="tk" data-tb="1">触るとメニュー</button><button class="tk" data-tb="0">区画どおり</button></div></div>'
+    +'<div class="row"><span class="k">上端のタップ</span><div class="opts"><button class="tk" data-tb="1">メニューを表示</button><button class="tk" data-tb="0">区画どおり</button></div></div>'
     +'<div class="row"><span class="k">端の誤タッチ</span><div class="opts"><button class="ek" data-edge="1">防ぐ</button><button class="ek" data-edge="0">防がない</button></div></div>'
     +'<div class="row"><span class="k">先読み</span><div class="opts">'
     +AHEAD.map(function(n){return '<button class="ah" data-ahead="'+n+'">'+n+'話</button>';}).join('')+'</div></div>'
@@ -1260,7 +1260,9 @@ span.sesame{text-emphasis-position:over right}
   // and one label, in the region's largest zone (a label in the bottom row is lifted clear of the footer).
   function showGuide(){
     var z=prefs.zones, tr=zoneTracks(0), a=(100-ZW[prefs.zw])/2, b=(100-ZH[prefs.zh])/2;
-    var cw=[a,ZW[prefs.zw],a], rh=[b,ZH[prefs.zh],b], reg=[], best={}, out='';
+    // A label goes in its region's largest zone, counting only what the top strip (上端のタップ) leaves of the top row.
+    var sp=prefs.tb?barH()*100/Math.max(1,window.innerHeight):0;
+    var cw=[a,ZW[prefs.zw],a], rh=[Math.max(0,b-sp),ZH[prefs.zh],b], reg=[], best={}, out='';
     guide.style.gridTemplateColumns=tr.cols; guide.style.gridTemplateRows=tr.rows;
     for(var i=0;i<9;i++){if(reg[i]!==undefined)continue;
       var st=[i]; reg[i]=i;
