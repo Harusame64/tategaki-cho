@@ -12,7 +12,7 @@ THEMES=${2:-kinari}
 # name:size:density:font scale — widths 360dp (AQUOS sense), 384dp (Galaxy A, measured on an A25), 411dp (Pixel),
 # a 1.3x system font on the two narrow ones, and a 1920x1200 tablet both ways.
 PROFILES=${PROFILES:-"p360:1080x2340:480:1.0 p384:720x1600:300:1.0 p411:1080x2424:420:1.0 p360f13:1080x2340:480:1.3 p384f13:720x1600:300:1.3 t800:1200x1920:240:1.0 t1280:1920x1200:240:1.0"}
-SCREENS=${SCREENS:-"shelf search aozora page bars work aa aa2 zones guide guidetb toc toc2 toc3 epbar epp log"}
+SCREENS=${SCREENS:-"shelf search aozora page bars work aa aa2 aaother aatouch zones guide guidetb toc toc2 toc3 epbar epp log"}
 
 # Put the device back as it was, also when the run is cut short: on a phone the user's own display size, density and
 # font scale come back, not the defaults.

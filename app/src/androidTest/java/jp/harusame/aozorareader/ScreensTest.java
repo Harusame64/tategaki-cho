@@ -71,8 +71,13 @@ public class ScreensTest {
             mark(t + "_aa");
             E2E.js(a.get(), "document.querySelector('#info .sheet.d').scrollTop=9999");
             mark(t + "_aa2");
-            // The tap zones' editor in Aa, then the guide drawn from them
-            E2E.js(a.get(), "var sh=document.querySelector('#info .sheet.d');sh.scrollTop=sh.querySelector('.zrow').offsetTop-20");
+            // Aa's other tabs: 操作 (the tap zones' editor first) scrolled to its end, and その他
+            E2E.js(a.get(), "document.querySelector('#info .tab[data-tab=\\'other\\']').click()");
+            mark(t + "_aaother");
+            E2E.js(a.get(), "document.querySelector('#info .tab[data-tab=\\'touch\\']').click();document.querySelector('#info .sheet.d').scrollTop=9999");
+            mark(t + "_aatouch");
+            // The tap zones' editor, then the guide drawn from them
+            E2E.js(a.get(), "document.querySelector('#info .sheet.d').scrollTop=0");
             mark(t + "_zones");
             E2E.js(a.get(), "document.querySelector('#info button[data-guide]').click()");
             mark(t + "_guide");

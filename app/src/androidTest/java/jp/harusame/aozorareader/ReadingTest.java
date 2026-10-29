@@ -557,7 +557,8 @@ public class ReadingTest {
         E2E.waitFor(a, "document.querySelector('#info .sheet.d').style.transform", "\"\"");
         assertEquals("true", E2E.js(a, bars));
         // A touch that starts at the top, scrolls the sheet and comes back past the top a long way: a scroll, not a
-        // pull, so the sheet stays open (review on 0.1.5).
+        // pull, so the sheet stays open (review on 0.1.5). On 操作, the tab long enough to scroll.
+        E2E.js(a, "document.querySelector('#info .tab[data-tab=\"touch\"]').click()");
         assertEquals("a scroll back past the top", "\"open\"", E2E.js(a, "var sh=document.querySelector('#info .sheet.d'),r=sh.getBoundingClientRect(),"
                 + "x=r.left+r.width/2,y=r.top+200;function t(type,yy,list){var o=new Touch({identifier:1,target:sh,clientX:x,clientY:yy});"
                 + "sh.dispatchEvent(new TouchEvent(type,{touches:list?[o]:[],changedTouches:[o],bubbles:true}));}"
@@ -759,6 +760,55 @@ public class ReadingTest {
         E2E.tapMiddle();
         E2E.waitFor(a, bars, "true");
         assertEquals("2", E2E.js(a, "__reader.cur()"));
+    }
+
+    /**
+     * R23: Aa opens on 見た目 with only its rows; 操作 and その他 show theirs, the sheet as tall as they are; the tabs
+     * stay where they were (at the sheet's foot, on the screen's edge) and stay there over a scrolled sheet; the tab
+     * last open comes back.
+     */
+    @Test
+    public void theAaSheetIsInTabs() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(3, 40);
+        Activity a = open(1, 0);
+        E2E.waitReady(a);
+        String bars = "document.getElementById('info').classList.contains('on')";
+        String shown = "(function(s){var e=document.querySelector(s);return !!(e&&e.offsetParent);})";
+        // Where the tab is drawn, and whether a tap there reaches it rather than something over it.
+        String tab = "(function(t){var b=document.querySelector('#info .tab[data-tab=\"'+t+'\"]'),r=b.getBoundingClientRect();"
+                + "return Math.round(r.top)+(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===b?'':' covered');})";
+        openAa(a, bars);
+        assertEquals("true", E2E.js(a, shown + "('#info .sw')"));
+        assertEquals("false", E2E.js(a, shown + "('#info .zg')"));
+        assertEquals("false", E2E.js(a, shown + "('#info .ah')"));
+        String top = E2E.js(a, tab + "('look')");
+        assertFalse(top, top.contains("covered"));
+        E2E.js(a, "document.querySelector('#info .tab[data-tab=\"touch\"]').click()");
+        assertEquals("true", E2E.js(a, shown + "('#info .zg')"));
+        assertEquals("false", E2E.js(a, shown + "('#info .sw')"));
+        assertEquals("true", E2E.js(a, "document.querySelector('#info .tab[data-tab=\"touch\"]').getAttribute('aria-selected')==='true'"));
+        assertEquals("the tabs did not move", top, E2E.js(a, tab + "('touch')"));
+        // Scrolled to the end, the tabs are still there to tap.
+        E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop=9999");
+        assertEquals("true", E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop>0"));
+        assertEquals(top, E2E.js(a, tab + "('other')"));
+        // A tab opens at its top, also the one already open.
+        E2E.js(a, "document.querySelector('#info .tab[data-tab=\"touch\"]').click()");
+        assertEquals("0", E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop"));
+        E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop=9999");
+        E2E.js(a, "document.querySelector('#info .tab[data-tab=\"other\"]').click()");
+        assertEquals("true", E2E.js(a, shown + "('#info .ah')"));
+        assertEquals("false", E2E.js(a, shown + "('#info .zg')"));
+        assertEquals("0", E2E.js(a, "document.querySelector('#info .sheet.d').scrollTop"));
+        assertEquals(top, E2E.js(a, tab + "('other')"));
+        // その他's two rows: the sheet is short and the page shows above it.
+        assertEquals("true", E2E.js(a, "document.querySelector('#info .sheet.d').getBoundingClientRect().top>window.innerHeight/2"));
+        // Closed and opened again: その他, at the top.
+        closeAa(a, bars);
+        openAa(a, bars);
+        assertEquals("true", E2E.js(a, shown + "('#info .ah')"));
+        assertEquals("true", E2E.js(a, "document.querySelector('#info .tab[data-tab=\"other\"]').classList.contains('on')"));
     }
 
     private static void openAa(Activity a, String bars) throws Exception {
