@@ -346,7 +346,7 @@ public class AozoraActivity extends ThemedActivity {
                 runOnUiThread(() -> {
                     onShelf.add(key);
                     if (w != null) startActivity(new Intent(this, ReaderActivity.class)
-                            .putExtra("url", Shelf.episodeUrl(key, Math.max(1, w.lastEpisode))).putExtra("page", w.lastPage));
+                            .putExtra("url", Shelf.episodeUrl(key, Math.max(1, w.lastEpisode))).putExtra("page", w.lastPage).putExtra("pages", w.lastPages));
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> android.widget.Toast.makeText(this, "入れられませんでした（" + e.getMessage() + "）", android.widget.Toast.LENGTH_SHORT).show());

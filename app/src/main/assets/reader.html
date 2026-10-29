@@ -1061,7 +1061,8 @@ span.sesame{text-emphasis-position:over right}
       // Keep the place: the same share of the episode read, at the new size.
       var f=cur()/Math.max(1,pages()-1); prefs.fs=SIZES[i]; applyTheme(); layout(); go(Math.round(f*(pages()-1)));
     }
-    markDisp(); save();
+    // A relayout changes the page count: the page bar under the sheet counts again.
+    markDisp(); if(!eps)markSeek(); save();
   });
   applyTheme(); markDisp();
   var openedAt=0;
@@ -1272,7 +1273,10 @@ span.sesame{text-emphasis-position:over right}
   document.addEventListener('touchcancel',function(e){for(var k=0;k<e.changedTouches.length;k++)delete based[e.changedTouches[k].identifier];
     if(x0===null||!owned(e.changedTouches))return;
     if(dir&&!busy){busy=true;slide(0,dir,150,settle);}x0=null;own=null;});
-  window.addEventListener('resize',function(){tbH=0;if(info.classList.contains('disp'))showTab(aaTab);var c=cur();layout();go(c);markDisp();if(guide.classList.contains('on'))showGuide();});
+  // Turned, or the status bar shown or hidden: the same share of the episode read, as for a new size; a page index
+  // would point at other text once the pages are a different size (review on 0.1.6).
+  window.addEventListener('resize',function(){tbH=0;if(info.classList.contains('disp'))showTab(aaTab);var f=cur()/Math.max(1,pages()-1);
+    layout();go(Math.round(f*(pages()-1)));markDisp();if(info.classList.contains('on')&&!eps)markSeek();if(guide.classList.contains('on'))showGuide();});
     // The next episode, formatted ahead by the app, replaces this one in place: no page load between them.
   function swap(body,i,start){
     settle(); book.innerHTML=body; peer.innerHTML=body; setInfo(i); edgeAt=0;
