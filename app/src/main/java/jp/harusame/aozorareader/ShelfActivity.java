@@ -799,7 +799,7 @@ public class ShelfActivity extends ThemedActivity {
                 Shelf.Work cur = s.find(w.ncode);
                 if (cur == null) return;
                 runOnUiThread(() -> startActivity(new Intent(this, ReaderActivity.class)
-                        .putExtra("url", cur.startUrl()).putExtra("page", cur.lastPage)));
+                        .putExtra("url", cur.startUrl()).putExtra("page", cur.lastPage).putExtra("pages", cur.lastPages)));
             } catch (Exception e) {
                 Log.e(Shelf.TAG, "open", e);
             }

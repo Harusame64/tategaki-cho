@@ -119,16 +119,20 @@ public class ReaderActivity extends Activity {
         // An episode from the shelf, at its saved page; without one, the bundled sample.
         String url = getIntent().getStringExtra("url");
         int start = getIntent().getIntExtra("page", 0);
+        int pages = getIntent().getIntExtra("pages", 0);
         // Made again (a system setting changed, or the process came back): go on from where the shelf says the
         // work was left, not from where it was first opened.
         if (savedInstanceState != null && url != null) {
             String key = Shelf.ncodeOf(url);
             Shelf.Work w = key == null ? null : Shelf.load(this).find(key);
-            if (w != null && w.lastEpisode > 0 && !w.shortStory) { url = w.startUrl(); start = w.lastPage; }
+            if (w != null && w.lastEpisode > 0 && !w.shortStory) { url = w.startUrl(); start = w.lastPage; pages = w.lastPages; }
         }
         String u0 = url;
         int s0 = start;
-        run(work, () -> load(u0, s0));
+        // The page saved with the episode's page count then: as a share, so a size or a turn changed since (the
+        // settings are the same for every work) opens at the same place in the text, not at the same page number.
+        double share = pages > 1 && start >= 0 && start < pages ? (double) start / (pages - 1) : -1;
+        run(work, () -> load(u0, s0, share));
     }
 
     @Override

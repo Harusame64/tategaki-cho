@@ -811,6 +811,56 @@ public class ReadingTest {
         assertEquals("true", E2E.js(a, "document.querySelector('#info .tab[data-tab=\"other\"]').classList.contains('on')"));
     }
 
+    /**
+     * R24: the place is the share of the episode read. Turned to landscape and back, the reader stays at the same
+     * share, not the same page number; opened from a place saved at another page count (a size changed since), it
+     * opens at the same share; a larger size under the bars counts the page bar again.
+     */
+    @Test
+    public void thePlaceIsTheShareRead() throws Exception {
+        E2E.reset();
+        E2E.seedNarou(3, 120);
+        androidx.test.uiautomator.UiDevice d = E2E.device();
+        try {
+            d.setOrientationPortrait();
+            Activity a = open(1, 0);
+            E2E.waitReady(a);
+            String share = "__reader.cur()/Math.max(1,__reader.pages()-1)";
+            int pages = Integer.parseInt(E2E.js(a, "__reader.pages()"));
+            assertTrue("pages " + pages, pages >= 8);
+            E2E.js(a, "__reader.go(" + (pages * 3 / 4) + ")");
+            double before = Double.parseDouble(E2E.js(a, share));
+            d.setOrientationLandscape();
+            E2E.waitUntil(() -> { try { return Integer.parseInt(E2E.js(a, "__reader.pages()")) != pages; } catch (Exception e) { return false; } }, "relaid out");
+            SystemClock.sleep(500);
+            int lp = Integer.parseInt(E2E.js(a, "__reader.pages()"));
+            double after = Double.parseDouble(E2E.js(a, share));
+            assertTrue("landscape " + before + " -> " + after + " of " + lp, Math.abs(after - before) <= 1.0 / Math.max(1, lp - 1) + 1e-9);
+            d.setOrientationPortrait();
+            E2E.waitUntil(() -> { try { return Integer.parseInt(E2E.js(a, "__reader.pages()")) == pages; } catch (Exception e) { return false; } }, "back");
+            SystemClock.sleep(500);
+            int back = Integer.parseInt(E2E.js(a, "__reader.cur()"));
+            assertTrue("portrait again at " + back + ", was " + (pages * 3 / 4), Math.abs(back - pages * 3 / 4) <= 1);
+            // A larger size with the bars up: the page bar counts the new pages.
+            String bars = "document.getElementById('info').classList.contains('on')";
+            openAa(a, bars);
+            E2E.js(a, "document.querySelector('#info [data-fs=\"1\"]').click();document.querySelector('#info [data-fs=\"1\"]').click()");
+            assertEquals(E2E.js(a, "String(__reader.pages())"), E2E.js(a, "document.getElementById('seek').max"));
+            reader.close();
+            // Saved at page 30 of 40 (a smaller size then): opened at 75 % of the pages now.
+            Intent i = new Intent(E2E.ctx(), ReaderActivity.class).putExtra("url", Shelf.episodeUrl(E2E.NCODE, 1))
+                    .putExtra("page", 30).putExtra("pages", 41);
+            reader = ActivityScenario.launch(i);
+            AtomicReference<Activity> r = new AtomicReference<>();
+            reader.onActivity(r::set);
+            E2E.waitReady(r.get());
+            int now = Integer.parseInt(E2E.js(r.get(), "__reader.pages()"));
+            assertEquals(Math.round(0.75 * (now - 1)), Long.parseLong(E2E.js(r.get(), "__reader.cur()")));
+        } finally {
+            d.unfreezeRotation();
+        }
+    }
+
     private static void openAa(Activity a, String bars) throws Exception {
         E2E.tapMiddle();
         E2E.waitFor(a, bars, "true");
