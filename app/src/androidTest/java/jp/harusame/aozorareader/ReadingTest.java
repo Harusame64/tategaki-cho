@@ -618,6 +618,14 @@ public class ReadingTest {
         E2E.waitFor(a, "__reader.cur()", "2");
         // 左右反転: the left now goes back, the right forward.
         openAa(a, bars);
+        // Every row of choices in Aa shows its choice the same way: a row whose class the stylesheet does not list keeps
+        // the chosen button looking like the others (上端のタップ did, until the screen matrix showed it). The swatches
+        // (an outline) and the size steps (A− A＋, no choice) are not rows of choices.
+        assertEquals("\"\"", E2E.js(a, "(function(){var on=getComputedStyle(document.querySelector('#info .zp.on')).color,out=[];"
+                + "document.querySelectorAll('#info .sheet.d .opts').forEach(function(o){if(o.querySelector('.sw,[data-fs]'))return;"
+                + "var b=o.querySelectorAll('button.on');"
+                + "if(b.length!==1||getComputedStyle(b[0]).color!==on)out.push(o.parentNode.textContent.slice(0,8)+':'+b.length);});"
+                + "return out.join(' ');})()"));
         E2E.js(a, "document.querySelector('.zp[data-zp=\"pmnpmnpmn\"]').click()");
         assertEquals("true", E2E.js(a, "document.querySelector('.zp[data-zp=\"pmnpmnpmn\"]').classList.contains('on')"));
         assertEquals("\"前へ\"", E2E.js(a, "document.querySelector('.zc[data-zc=\"0\"]').textContent"));

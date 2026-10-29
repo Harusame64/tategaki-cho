@@ -77,6 +77,10 @@ public class ScreensTest {
             E2E.js(a.get(), "document.querySelector('#info button[data-guide]').click()");
             mark(t + "_guide");
             E2E.js(a.get(), "document.getElementById('guide').click()");
+            // With 上端のタップ on the top bar's strip: the guide draws the strip and the top row's labels go below it
+            E2E.js(a.get(), "document.querySelector('#info [data-tb=\\'1\\']').click();document.querySelector('#info button[data-guide]').click()");
+            mark(t + "_guidetb");
+            E2E.js(a.get(), "document.getElementById('guide').click();document.querySelector('#info [data-tb=\\'0\\']').click()");
             E2E.tapMiddle(); SystemClock.sleep(600);
             E2E.js(a.get(), "document.getElementById('dispb').click()");
             E2E.js(a.get(), "document.getElementById('dispb').click();document.getElementById('tocb').click()");
