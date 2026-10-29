@@ -962,14 +962,16 @@ public class ReadingTest {
         openAa(a, bars);
         E2E.js(a, "window.__before=1;document.querySelector('.ik[data-indent=\"1\"]').click()");
         E2E.waitFor(a, "typeof window.__before", "\"undefined\"");                 // a new page
+        // The moment Aa is open again, on 見た目: a tab picked then is taken, as Aa was opened by the app, not by a tap
+        // whose click the bars drop for 500 ms (codex on #27).
+        E2E.js(a, "window.__t=null;var iv=setInterval(function(){var i=document.getElementById('info');"
+                + "if(!i||!i.classList.contains('disp'))return;clearInterval(iv);var was=i.querySelector('.tab.on').dataset.tab;"
+                + "i.querySelector('.tab[data-tab=\"touch\"]').click();window.__t=was+' '+i.querySelector('.tab.on').dataset.tab;},5);0");
+        E2E.waitFor(a, "window.__t", "\"look touch\"");
         E2E.waitReady(a);
-        E2E.waitFor(a, "document.getElementById('info').className", "\"on disp\"");
-        assertEquals("\"look\"", E2E.js(a, "document.querySelector('#info .tab.on').dataset.tab"));
+        assertEquals("\"on disp\"", E2E.js(a, "document.getElementById('info').className"));
         assertEquals("true", E2E.js(a, "document.querySelector('.ik[data-indent=\"1\"]').classList.contains('on')"));
         assertTrue(E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"indent\":true"));
-        // Opened by the app, not a tap: a tab picked at once is taken (codex on #27).
-        E2E.js(a, "document.querySelector('#info .tab[data-tab=\"touch\"]').click()");
-        assertEquals("\"touch\"", E2E.js(a, "document.querySelector('#info .tab.on').dataset.tab"));
         // Only that page: the next one loaded (an episode picked in the 目次) opens without Aa.
         E2E.js(a, "__reader.closeOverlays();window.__before=1;Android.open('3');0");
         E2E.waitFor(a, "typeof window.__before", "\"undefined\"");
