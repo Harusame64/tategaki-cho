@@ -1283,7 +1283,9 @@ span.sesame{text-emphasis-position:over right}
     layout();go(Math.round(f*(pages()-1)));markDisp();if(info.classList.contains('on')&&!eps)markSeek();if(guide.classList.contains('on'))showGuide();});
     // The next episode, formatted ahead by the app, replaces this one in place: no page load between them.
   function swap(body,i,start){
-    settle(); book.innerHTML=body; peer.innerHTML=body; setInfo(i); edgeAt=0;
+    // The text under a finger is replaced, and its lift no longer reaches the document: the gesture ends here
+    // (codex on #25: a volume key waited on it).
+    settle(); x0=null; own=null; dir=0; book.innerHTML=body; peer.innerHTML=body; setInfo(i); edgeAt=0;
     if(toc.classList.contains('on')&&window.Android)Android.tocClosed();
     toc.classList.remove('on'); delete toc.dataset.scrolled; info.classList.remove('on'); endEl.classList.remove('on'); unpull();
     book.scrollTop=0; layout(); go(start<0?pages()-1:start);
@@ -1373,9 +1375,9 @@ span.sesame{text-emphasis-position:over right}
   var overlayWas=false;
   function tellOverlay(){var o=anyOverlay();if(o!==overlayWas){overlayWas=o;if(window.Android)Android.overlay(o);}}
   new MutationObserver(tellOverlay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
-  // Not with a finger down: a key during a swipe turned the page under it, and the swipe then turned past the page
-  // beside it, never shown (review on 0.1.6).
-  function key(d){if(x0!==null||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on'))return;turn(d);}
+  // Not during a swipe: a key then turned the page under it, and the swipe turned past the page beside it, never
+  // shown (review on 0.1.6).
+  function key(d){if((x0!==null&&dir)||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on'))return;turn(d);}
   window.__reader={swap:swap,end:end,key:key,closeOverlays:closeOverlays,go:go,cur:cur,pages:pages,turn:turn,ticks:function(){return ticks;},vol:function(){return prefs.vol&&!info.classList.contains('on')&&!guide.classList.contains('on');},toc:renderToc};
   function start(){if(window.Android)Android.overlay(false);layout();starting=false;if(!prefs.guided)showGuide();go(SHARE>=0?Math.round(SHARE*(pages()-1)):START<0?pages()-1:START);}
   document.fonts&&document.fonts.ready?document.fonts.ready.then(start):start();

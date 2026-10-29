@@ -863,8 +863,8 @@ public class ReadingTest {
 
     /**
      * R25: small things from the review of 0.1.6. The episode being read, picked in the 目次, closes it as 閉じる does;
-     * the bounce at an end is busy until it settles, so a swipe started during it waits; a volume key with a finger
-     * down does nothing.
+     * the bounce at an end is busy until it settles, so a swipe started during it waits; a volume key during a swipe
+     * does nothing.
      */
     @Test
     public void smallThingsFromTheReview() throws Exception {
@@ -881,17 +881,27 @@ public class ReadingTest {
         E2E.js(a, "__reader.go(0);__reader.turn(-1,true);__reader.turn(1,true);0");
         SystemClock.sleep(600);
         assertEquals("0", E2E.js(a, "__reader.cur()"));
-        // A finger down: the volume key does nothing; lifted, it turns.
-        E2E.js(a, "var o=new Touch({identifier:7,target:document.body,clientX:200,clientY:400});"
-                + "document.dispatchEvent(new TouchEvent('touchstart',{touches:[o],changedTouches:[o],bubbles:true}));__reader.key(1);0");
+        // A finger swiping: the volume key does nothing; lifted, it turns.
+        E2E.js(a, "var o=new Touch({identifier:7,target:document.body,clientX:200,clientY:400}),m=new Touch({identifier:7,target:document.body,clientX:240,clientY:400});"
+                + "document.dispatchEvent(new TouchEvent('touchstart',{touches:[o],changedTouches:[o],bubbles:true}));"
+                + "document.dispatchEvent(new TouchEvent('touchmove',{touches:[m],changedTouches:[m],bubbles:true}));__reader.key(1);0");
         assertEquals("0", E2E.js(a, "__reader.cur()"));
-        E2E.js(a, "var o=new Touch({identifier:7,target:document.body,clientX:200,clientY:400});"
+        E2E.js(a, "var o=new Touch({identifier:7,target:document.body,clientX:205,clientY:400});"
                 + "document.dispatchEvent(new TouchEvent('touchend',{touches:[],changedTouches:[o],bubbles:true}));0");
         SystemClock.sleep(600);                                      // the lift was a tap: whatever it opened is closed
         E2E.js(a, "__reader.closeOverlays();0");
         int at = Integer.parseInt(E2E.js(a, "__reader.cur()"));
         E2E.js(a, "__reader.key(1)");
         E2E.waitFor(a, "__reader.cur()", String.valueOf(at + 1));
+        // A swipe whose text is swapped from under it (the next episode came in): its lift never reaches the document,
+        // and the keys still turn after it (codex on #25).
+        E2E.js(a, "var o=new Touch({identifier:8,target:document.body,clientX:200,clientY:400}),m=new Touch({identifier:8,target:document.body,clientX:240,clientY:400});"
+                + "document.dispatchEvent(new TouchEvent('touchstart',{touches:[o],changedTouches:[o],bubbles:true}));"
+                + "document.dispatchEvent(new TouchEvent('touchmove',{touches:[m],changedTouches:[m],bubbles:true}));"
+                + "__reader.swap(document.getElementById('book').innerHTML,INFO,0);0");
+        SystemClock.sleep(400);
+        E2E.js(a, "__reader.key(1)");
+        E2E.waitFor(a, "__reader.cur()", "1");
     }
 
     private static void openAa(Activity a, String bars) throws Exception {
