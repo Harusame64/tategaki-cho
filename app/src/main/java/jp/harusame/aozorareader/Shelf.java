@@ -30,21 +30,21 @@ import jp.harusame.aozorareader.core.KakuyomuWork;
 final class Shelf {
     static final String TAG = "AozoraReader";
     static final String USER_AGENT = "Tategakicho/0.1 (Android; personal vertical reader)";
-    static final Pattern NCODE = Pattern.compile("ncode\\.syosetu\\.com/(n\\d{4}[a-z]{1,3})", Pattern.CASE_INSENSITIVE);
-    static final Pattern EPISODE = Pattern.compile("ncode\\.syosetu\\.com/(n\\d{4}[a-z]{1,3})/(\\d{1,9})(?!\\d)/?", Pattern.CASE_INSENSITIVE);
+    static final Pattern NCODE = Pattern.compile("ncode\\.syosetu\\.com/(n[0-9]{4}[a-z]{1,3})", Pattern.CASE_INSENSITIVE);
+    static final Pattern EPISODE = Pattern.compile("ncode\\.syosetu\\.com/(n[0-9]{4}[a-z]{1,3})/([0-9]{1,9})(?![0-9])/?", Pattern.CASE_INSENSITIVE);
     /** カクヨム works are kept under "kakuyomu-&lt;work id&gt;"; see KakuyomuSite. */
     static final String KK = "kakuyomu-";
-    static final Pattern KK_WORK = Pattern.compile("kakuyomu(?:\\.jp/works|:/)/(\\d{6,30})(?!\\d)");
+    static final Pattern KK_WORK = Pattern.compile("kakuyomu(?:\\.jp/works|:/)/([0-9]{6,30})(?![0-9])");
     /** an older, positional form (the n-th of the work's list), still accepted on the way in and resolved to an id */
-    static final Pattern KK_EPISODE = Pattern.compile("^kakuyomu://(\\d{6,30})/(\\d{1,9})$");
+    static final Pattern KK_EPISODE = Pattern.compile("^kakuyomu://([0-9]{6,30})/([0-9]{1,9})$");
     /** a カクヨム episode inside the app: kakuyomu://&lt;work&gt;/e/&lt;episode id&gt;, the same episode whatever the list does */
-    static final Pattern KK_ID_EPISODE = Pattern.compile("^kakuyomu://(\\d{6,30})/e/(\\d{1,30})$");
+    static final Pattern KK_ID_EPISODE = Pattern.compile("^kakuyomu://([0-9]{6,30})/e/([0-9]{1,30})$");
     /** 青空文庫 works are kept under "aozora-&lt;work id&gt;"; see AozoraSite. */
     static final String AO = "aozora-";
     // Bounded digit runs: a longer number is not a work, and must not overflow a parse.
-    static final Pattern AO_WORK = Pattern.compile("(?:aozora\\.gr\\.jp/cards/\\d{1,9}/card(\\d{1,9})\\.html|^aozora://(\\d{1,9})(?!\\d))");
-    static final Pattern AO_EPISODE = Pattern.compile("^aozora://(\\d{1,9})/(\\d{1,9})$");
-    static final Pattern KK_REAL_EPISODE = Pattern.compile("kakuyomu\\.jp/works/\\d{6,}/episodes/(\\d{6,})");
+    static final Pattern AO_WORK = Pattern.compile("(?:aozora\\.gr\\.jp/cards/[0-9]{1,9}/card([0-9]{1,9})\\.html|^aozora://([0-9]{1,9})(?![0-9]))");
+    static final Pattern AO_EPISODE = Pattern.compile("^aozora://([0-9]{1,9})/([0-9]{1,9})$");
+    static final Pattern KK_REAL_EPISODE = Pattern.compile("kakuyomu\\.jp/works/[0-9]{6,}/episodes/([0-9]{6,})");
 
     static final class Work {
         String ncode;
@@ -365,7 +365,7 @@ final class Shelf {
 
     /** n of "n.html", or null. */
     static Integer number(String name) {
-        Matcher m = Pattern.compile("(\\d{1,9})\\.html").matcher(name);
+        Matcher m = Pattern.compile("([0-9]{1,9})\\.html").matcher(name);
         return m.matches() ? Integer.valueOf(m.group(1)) : null;
     }
 
@@ -495,7 +495,7 @@ final class Shelf {
      */
     static Work add(Context c, String text) throws Exception {
         String ncode = ncodeOf(text);
-        if (ncode == null && text != null && text.trim().matches("(?i)n\\d{4}[a-z]{1,3}")) ncode = text.trim().toLowerCase(Locale.ROOT);
+        if (ncode == null && text != null && text.trim().matches("(?i)n[0-9]{4}[a-z]{1,3}")) ncode = text.trim().toLowerCase(Locale.ROOT);
         if (ncode == null) throw new IllegalArgumentException("なろう・カクヨムの作品の URL ではありません");
         if (load(c).find(ncode) != null) return null;
         if (isAozora(ncode)) {

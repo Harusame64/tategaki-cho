@@ -174,7 +174,7 @@ final class AozoraSite {
         String html = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
         List<String[]> out = new ArrayList<>();
         Matcher m = Pattern.compile("<tr[^>]*>(.*?)</tr>", Pattern.DOTALL).matcher(html);
-        Pattern card = Pattern.compile("card(\\d+)\\.html"), count = Pattern.compile(">\\s*(\\d{3,})\\s*<");
+        Pattern card = Pattern.compile("card([0-9]+)\\.html"), count = Pattern.compile(">\\s*([0-9]{3,})\\s*<");
         while (m.find()) {
             Matcher cm = card.matcher(m.group(1));
             if (!cm.find()) continue;

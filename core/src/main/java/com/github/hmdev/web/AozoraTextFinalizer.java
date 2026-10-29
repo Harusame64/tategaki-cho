@@ -441,7 +441,7 @@ public class AozoraTextFinalizer {
 
 	private String convertNumsInSegment(String segment) {
 		StringBuilder sb = new StringBuilder();
-		Matcher m = Pattern.compile("[\\d０-９,，]+").matcher(segment);
+		Matcher m = Pattern.compile("[0-9０-９,，]+").matcher(segment);
 		int lastEnd = 0;
 		while (m.find()) {
 			sb.append(segment, lastEnd, m.start());

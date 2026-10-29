@@ -38,7 +38,7 @@ public final class KakuyomuWork {
 	public final List<Episode> episodes;
 
 	/** An episode id as カクヨム writes it: digits only. */
-	public static final java.util.regex.Pattern EPISODE_ID = java.util.regex.Pattern.compile("\\d{1,30}");
+	public static final java.util.regex.Pattern EPISODE_ID = java.util.regex.Pattern.compile("[0-9]{1,30}");
 
 	private KakuyomuWork(String id, String title, String author, String authorUrl, boolean finished, List<Episode> episodes) {
 		this.id = id;

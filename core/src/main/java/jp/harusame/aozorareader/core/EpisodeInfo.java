@@ -45,7 +45,7 @@ public final class EpisodeInfo {
 		if (box != null) {
 			for (Element a : box.select("a[href]")) {
 				String href = a.absUrl("href");
-				if (workUrl == null && href.matches("https://ncode\\.syosetu\\.com/n\\w+/?")) {
+				if (workUrl == null && href.matches("https://ncode\\.syosetu\\.com/n[a-zA-Z0-9_]+/?")) {
 					workUrl = href;
 					workTitle = a.text().trim();
 				} else if (authorUrl == null && href.startsWith("https://mypage.syosetu.com/")) {

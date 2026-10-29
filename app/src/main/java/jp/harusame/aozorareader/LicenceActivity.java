@@ -112,7 +112,7 @@ public class LicenceActivity extends ThemedActivity {
         String prev = null;
         for (String l : text.replace("\r\n", "\n").split("\n", -1)) {
             String line = l.matches("\\s*[=-]{8,}\\s*") ? l.trim().substring(0, 8) : l;
-            boolean plain = !line.isEmpty() && !Character.isWhitespace(line.charAt(0)) && !line.matches("([-*•]|\\d+\\.|\\(?[a-z0-9]\\)) .*")
+            boolean plain = !line.isEmpty() && !Character.isWhitespace(line.charAt(0)) && !line.matches("([-*•]|[0-9]+\\.|\\(?[a-z0-9]\\)) .*")
                     && !line.matches("[=-]{8}");
             // Only a long line was wrapped; a short one (a title, a copyright line) ends where it ends.
             boolean joins = plain && prev != null && prev.trim().length() >= 60 && !prev.endsWith(":");

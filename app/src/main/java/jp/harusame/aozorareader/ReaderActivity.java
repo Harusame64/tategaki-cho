@@ -309,7 +309,7 @@ public class ReaderActivity extends Activity {
         public void open(String ref) {
             EpisodeInfo c = current;
             String ncode = c == null ? null : Shelf.ncodeOf(c.url);
-            if (ncode == null || ref == null || !ref.matches("\\d{1,30}")) return;
+            if (ncode == null || ref == null || !ref.matches("[0-9]{1,30}")) return;
             String to;
             if (Shelf.isKakuyomu(ncode)) to = Shelf.kkEpisodeUrl(ncode, ref);
             else if (ref.length() <= 9 && Integer.parseInt(ref) >= 1) to = Shelf.episodeUrl(ncode, Integer.parseInt(ref));
@@ -933,7 +933,7 @@ public class ReaderActivity extends Activity {
                 JSONObject e = kept.getJSONObject(i);
                 // An entry without an id (a list kept before ids were checked) cannot be opened by id, and its
                 // position is not an id: no episode slider for that work (review on #12).
-                if (!e.optString("id").matches("\\d{1,30}")) return "null";
+                if (!e.optString("id").matches("[0-9]{1,30}")) return "null";
                 JSONObject o = new JSONObject().put("n", i + 1).put("id", e.optString("id")).put("t", e.optString("t"));
                 if (Episodes.cacheFile(this, Shelf.kkEpisodeUrl(key, e.optString("id"))).isFile()) o.put("k", 1);
                 eps.put(o);
@@ -951,7 +951,7 @@ public class ReaderActivity extends Activity {
             }
             Shelf.Work w = Shelf.load(this).find(key);
             int n = Math.max(w == null ? 0 : w.episodes, titles.size());
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^\\s*(\\d+)\\s*/\\s*(\\d+)\\s*$").matcher(c.number == null ? "" : c.number);
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^\\s*([0-9]+)\\s*/\\s*([0-9]+)\\s*$").matcher(c.number == null ? "" : c.number);
             if (m.find()) n = Math.max(n, Integer.parseInt(m.group(2)));
             Object[] ep = Shelf.episodeOf(c.url);
             if (ep != null) n = Math.max(n, (Integer) ep[1]);

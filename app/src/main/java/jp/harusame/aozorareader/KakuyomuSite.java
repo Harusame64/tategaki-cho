@@ -66,7 +66,7 @@ final class KakuyomuSite {
         f.getParentFile().mkdirs();
         Files.write(f.toPath(), o.toString().getBytes(StandardCharsets.UTF_8));
         // Episodes are kept by their id (k<id>.html); files kept by position before that are dropped.
-        File[] old = f.getParentFile().listFiles((d, n) -> n.matches("\\d+\\.html"));
+        File[] old = f.getParentFile().listFiles((d, n) -> n.matches("[0-9]+\\.html"));
         if (old != null) for (File x : old) x.delete();
         if (before != null) {
             // The shelf keeps カクヨム places as positions in this list: follow each episode to where it is now.
