@@ -636,7 +636,7 @@ public class ReadingTest {
         E2E.js(a, "document.querySelector('.zw[data-zw=\"m\"]').click()");
         assertEquals("\"\"", E2E.js(a, "document.querySelector('.zmsg').textContent"));
         E2E.js(a, "document.querySelector('.zc[data-zc=\"7\"]').click()");
-        assertTrue(E2E.js(a, "document.querySelector('.zmsg').textContent").contains("1 つは残して"));
+        assertTrue(E2E.js(a, "document.querySelector('.zmsg').textContent").contains("1 つ残して"));
         E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"zones\":\"n0pn0pnmp\""),
                 "zones saved");
         // The guide is drawn from them: each zone in its colour, one label per region of zones that do the same.
@@ -672,6 +672,11 @@ public class ReadingTest {
         a = open(1, 2);
         E2E.waitReady(a);
         d.click(d.getDisplayWidth() / 2, d.getDisplayHeight() / 2);
+        SystemClock.sleep(700);
+        assertEquals("false", E2E.js(a, bars));
+        assertEquals("2", E2E.js(a, "__reader.cur()"));
+        // At 70 % down, still the middle row with 広い (with 普通 it would be the bottom row's menu): nothing (codex).
+        d.click(d.getDisplayWidth() * 35 / 100, d.getDisplayHeight() * 70 / 100);
         SystemClock.sleep(700);
         assertEquals("false", E2E.js(a, bars));
         assertEquals("2", E2E.js(a, "__reader.cur()"));

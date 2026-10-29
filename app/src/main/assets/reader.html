@@ -693,11 +693,10 @@ span.sesame{text-emphasis-position:over right}
 #guide.on{display:grid}
 #guide .z{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;box-sizing:border-box;padding:0 6px;
   overflow:hidden}
-/* A label in the bottom row stays clear of the footer. */
-#guide .z.lo{padding-bottom:120px}
-/* A label never breaks mid-word: it shrinks to its zone, and where even that is too narrow only the name stays, upright. */
+/* A label never breaks mid-word: it shrinks to its zone, and where even that is too small only the name stays, upright.
+   A label in the bottom row (.lo) is lifted clear of the footer as far as its zone has room (showGuide). */
 #guide .z>*{white-space:nowrap}
-#guide .z.v>span{display:none}
+#guide .z.q>span{display:none}
 #guide .z.v>b{writing-mode:vertical-rl}
 #guide .z b{font-size:19px}
 #guide .n{background:rgba(26,95,180,.93)}
@@ -876,15 +875,16 @@ span.sesame{text-emphasis-position:over right}
   // At least one zone is the menu, or the bars could not be shown.
   var ZW={s:10,m:20,l:34}, ZH={s:20,m:34,l:50};
   var ZPRESETS=[['std','標準','nmpnmpnmp'],['flip','左右反転','pmnpmnpmn'],['one','片手','nnnnmn0n0'],['ud','上下','pppnmnnnn']];
+  var ZPOS=['左上','上','右上','左','真ん中','右','左下','下','右下'];
   var ZNAMES={n:'次のページ',p:'前のページ',m:'メニュー','0':'なし'}, ZSHORT={n:'次へ',p:'前へ',m:'メニュー','0':'なし'};
   // A saved value that names one of the choices (not "constructor" or the like, inherited by every object: codex).
   function hasKey(o,k){return typeof k==='string'&&Object.prototype.hasOwnProperty.call(o,k);}
   var SML=[['s','狭い'],['m','普通'],['l','広い']];
-  function sml(cls){return SML.map(function(m){return '<button class="'+cls+'" data-'+cls+'="'+m[0]+'">'+m[1]+'</button>';}).join('');}
+  function sml(cls,names){return SML.map(function(m,i){return '<button class="'+cls+'" data-'+cls+'="'+m[0]+'">'+(names?names[i]:m[1])+'</button>';}).join('');}
   var prefs={theme:'kinari',fs:19,ahead:1,vol:false,bar:false,font:'serif',pack:true,indent:false,upright:false,lh:2,mx:'m',my:'m',guided:false,ephint:0,edge:true,buzz:false,
     zones:'nmpnmpnmp',zw:'m',zh:'m'};
-  if(PREFS){if(THEMES[PREFS.theme])prefs.theme=PREFS.theme;if(SIZES.indexOf(PREFS.fs)>=0)prefs.fs=PREFS.fs;
-    if(AHEAD.indexOf(PREFS.ahead)>=0)prefs.ahead=PREFS.ahead;else if(PREFS.ahead>20)prefs.ahead=20;if(PREFS.vol===true)prefs.vol=true;if(PREFS.bar===true)prefs.bar=true;if(FONTS[PREFS.font])prefs.font=PREFS.font;if(PREFS.pack===false)prefs.pack=false;if(PREFS.indent===true)prefs.indent=true;if(PREFS.upright===true)prefs.upright=true;
+  if(PREFS){if(hasKey(THEMES,PREFS.theme))prefs.theme=PREFS.theme;if(SIZES.indexOf(PREFS.fs)>=0)prefs.fs=PREFS.fs;
+    if(AHEAD.indexOf(PREFS.ahead)>=0)prefs.ahead=PREFS.ahead;else if(PREFS.ahead>20)prefs.ahead=20;if(PREFS.vol===true)prefs.vol=true;if(PREFS.bar===true)prefs.bar=true;if(hasKey(FONTS,PREFS.font))prefs.font=PREFS.font;if(PREFS.pack===false)prefs.pack=false;if(PREFS.indent===true)prefs.indent=true;if(PREFS.upright===true)prefs.upright=true;
     if(LHS.indexOf(PREFS.lh)>=0)prefs.lh=PREFS.lh;if(hasKey(MX,PREFS.mx))prefs.mx=PREFS.mx;if(hasKey(MY,PREFS.my))prefs.my=PREFS.my;if(PREFS.guided===true)prefs.guided=true;
     if(typeof PREFS.ephint==='number'&&PREFS.ephint>0)prefs.ephint=Math.min(3,Math.floor(PREFS.ephint));
     if(PREFS.edge===false)prefs.edge=false;if(PREFS.buzz===true)prefs.buzz=true;
@@ -924,15 +924,15 @@ span.sesame{text-emphasis-position:over right}
     +'<span class="zmsg"></span><button class="lk" data-guide="1">説明を見る</button></div></div></div>'
     +'<div class="row"><span class="k">ひな形</span><div class="opts">'+ZPRESETS.map(function(z){return '<button class="zp" data-zp="'+z[2]+'">'+z[1]+'</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">真ん中の幅</span><div class="opts">'+sml('zw')+'</div></div>'
-    +'<div class="row"><span class="k">真ん中の高さ</span><div class="opts">'+sml('zh')+'</div></div>'
+    +'<div class="row"><span class="k">真ん中の高さ</span><div class="opts">'+sml('zh',['低い','普通','高い'])+'</div></div>'
     +'<div class="row"><span class="k">端の誤タッチ</span><div class="opts"><button class="ek" data-edge="1">防ぐ</button><button class="ek" data-edge="0">防がない</button></div></div>'
     +'<div class="row"><span class="k">先読み</span><div class="opts">'
     +AHEAD.map(function(n){return '<button class="ah" data-ahead="'+n+'">'+n+'話</button>';}).join('')+'</div></div>'
     +'<div class="row"><span class="k">時計</span><div class="opts"><button class="bk" data-bar="1">時刻・通知を出す</button><button class="bk" data-bar="0">隠す</button></div></div>'
     +'<div class="row"><span class="k">音量キー</span><div class="opts"><button class="vk" data-vol="1">ページをめくる</button><button class="vk" data-vol="0">使わない</button></div></div>'
     +'<div class="row"><span class="k">めくりの振動</span><div class="opts"><button class="zk" data-buzz="1">震わせる</button><button class="zk" data-buzz="0">震わせない</button></div></div></div></div>';
-  // As in Kindle, a tap in the middle shows only the bars: the work and its buttons on top, the page bar
-  // below. The settings (Aa) and the work's links each open from their button, never from that tap.
+  // As in Kindle, a tap on a menu zone (the middle, as first set: prefs.zones, zoneAt) shows only the bars: the
+  // work and its buttons on top, the page bar below. The settings (Aa) and the work's links each open from their button, never from that tap.
   h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
     +'<div class="botbar"><div class="ephint">数字を長押しすると、話を選べます</div><div class="row bar"><input id="seek" type="range" min="1" value="1"><span id="seekv"></span></div></div>'
     +'<div class="sheet w"><div class="head"></div></div>'+h;
@@ -962,8 +962,7 @@ span.sesame{text-emphasis-position:over right}
     zg.style.gridTemplateColumns=tr.cols; zg.style.gridTemplateRows=tr.rows;
     zg.style.height=Math.max(210,Math.min(340,Math.round(200*window.innerHeight/Math.max(1,window.innerWidth))))+'px';
     zg.querySelectorAll('.zc').forEach(function(c){var z=prefs.zones.charAt(Number(c.dataset.zc)), cls='zc '+(z==='0'?'o':z);
-      if(c.className!==cls){c.className=cls;c.textContent=ZSHORT[z];}});
-    info.querySelector('.zmsg').textContent='';
+      if(c.className!==cls){c.className=cls;c.textContent=ZSHORT[z];c.setAttribute('aria-label',ZPOS[c.dataset.zc]+'：'+ZNAMES[z]);}});
   }
   info.addEventListener('click',function(e){
     var b=e.target.closest&&e.target.closest('button'); if(!b)return;
@@ -999,10 +998,11 @@ span.sesame{text-emphasis-position:over right}
       if(eps){eps=null;markSeek();}                                    // the title page would cover the sheet's effect on the text (review on #12)
       unpull(); info.classList.remove('work','disp');if(!o)info.classList.add(k);return;}
     if(b.dataset.guide){info.classList.remove('on','work','disp');showGuide();return;}
+    info.querySelector('.zmsg').textContent='';                        // shown until the next change only
     if(b.dataset.zc){
-      var zi=Number(b.dataset.zc), z0=prefs.zones.charAt(zi), z1={n:'p',p:'m',m:'0','0':'n'}[z0];
+      var zi=Number(b.dataset.zc), z0=prefs.zones.charAt(zi), z1={n:'p',p:'m',m:'0','0':'n'}[z0]||'n';
       var zs=prefs.zones.slice(0,zi)+z1+prefs.zones.slice(zi+1), msg=info.querySelector('.zmsg');
-      if(zs.indexOf('m')<0){msg.textContent='メニューの区画は、1 つは残してください。';return;}
+      if(zs.indexOf('m')<0){msg.textContent='メニューの区画は、少なくとも 1 つ残してください。';return;}
       prefs.zones=zs;
     }
     if(b.dataset.zp)prefs.zones=b.dataset.zp;
@@ -1160,7 +1160,7 @@ span.sesame{text-emphasis-position:over right}
   // slider spans episodes, and a tap there meant to go back to reading: the user on the A25 read it as frozen).
   info.addEventListener('click',function(e){if(e.target===info||epp.contains(e.target))toggleInfo(false);});
   // A swipe drags the page with the finger (rightwards = next); let go past a fifth of the width, or
-  // flick, and it turns, otherwise it slides back. A tap turns by the side it lands on.
+  // flick, and it turns, otherwise it slides back. A tap does what its zone does (zoneAt).
   // One finger owns a gesture. A new finger takes it over only from one resting still for 0.3 s or more (a firm
   // grip's palm, further in than the edge rule sees): the user on the A25 found the thumb's taps ignored while
   // gripping firmly when the first finger always kept the gesture. A finger swiping, or one in the middle of a
@@ -1261,9 +1261,18 @@ span.sesame{text-emphasis-position:over right}
         +(lab?'<b>'+ZNAMES[k]+'</b>'+(k==='m'?'<span>目次<br>設定<br>作品</span>':k==='0'?'':'<span>ここをタップ</span>'):'')+'</div>';}
     guide.innerHTML=out+'<div class="foot">右へスワイプで次のページ、左へスワイプで前のページ<br>どこかをタップすると閉じます<br>Aa の「触る場所」で変えられます</div>';
     guide.classList.add('on');
-    guide.querySelectorAll('.z>*').forEach(function(l){var w=l.parentNode.clientWidth-12, f=parseFloat(getComputedStyle(l).fontSize);
-      while(l.offsetWidth>w&&f>11)l.style.fontSize=(--f)+'px';
-      if(l.offsetWidth>w)l.parentNode.classList.add('v');});
+    guide.querySelectorAll('.z').forEach(function(z){
+      var ls=Array.prototype.filter.call(z.children,function(l){return getComputedStyle(l).display!=='none';});
+      function need(){var w=0,h=0;ls.forEach(function(l){w=Math.max(w,l.offsetWidth);h+=l.offsetHeight;});
+        return {w:w,h:h+8*Math.max(0,ls.length-1)};}
+      function fits(){var n=need();return n.w<=z.clientWidth-12&&n.h<=z.clientHeight-8;}
+      function shrink(min){for(var more=true;more&&!fits();){more=false;
+        ls.forEach(function(l){var f=parseFloat(getComputedStyle(l).fontSize);if(f>min){l.style.fontSize=(f-1)+'px';more=true;}});}}
+      if(!ls.length)return;
+      shrink(11);
+      if(!fits()&&ls.length>1){z.classList.add('q');ls=ls.slice(0,1);shrink(11);}
+      if(!fits()){z.classList.add('q','v');shrink(9);}
+      if(z.classList.contains('lo'))z.style.paddingBottom=Math.max(0,Math.min(120,z.clientHeight-need().h-16))+'px';});
   }
   function closeGuide(){if(!guide.classList.contains('on'))return;guide.classList.remove('on');if(!prefs.guided){prefs.guided=true;save();}}
   guide.addEventListener('click',closeGuide);
