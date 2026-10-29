@@ -666,7 +666,7 @@ public class ReadingTest {
                 + "document.querySelector('.zh[data-zh=\"l\"]').click()");
         E2E.waitUntil(() -> E2E.ctx().getSharedPreferences("reader", 0).getString("display", "").contains("\"zh\":\"l\""), "zw, zh saved");
         // Opened again, the reader reads them back: at 35 % across and 78 % down, the middle column (広い starts it at
-        // 33 %) and the bottom row (広い makes the middle row 25 % to 75 %), the menu; the middle of the screen still
+        // 33 %) and the bottom row (高い makes the middle row 25 % to 75 %), the menu; the middle of the screen still
         // does nothing.
         reader.close();
         a = open(1, 2);
@@ -675,7 +675,7 @@ public class ReadingTest {
         SystemClock.sleep(700);
         assertEquals("false", E2E.js(a, bars));
         assertEquals("2", E2E.js(a, "__reader.cur()"));
-        // At 70 % down, still the middle row with 広い (with 普通 it would be the bottom row's menu): nothing (codex).
+        // At 70 % down, still the middle row with 真ん中の高さ 高い (with 普通 it would be the bottom row's menu): nothing (codex).
         d.click(d.getDisplayWidth() * 35 / 100, d.getDisplayHeight() * 70 / 100);
         SystemClock.sleep(700);
         assertEquals("false", E2E.js(a, bars));

@@ -1272,7 +1272,9 @@ span.sesame{text-emphasis-position:over right}
       shrink(11);
       if(!fits()&&ls.length>1){z.classList.add('q');ls=ls.slice(0,1);shrink(11);}
       if(!fits()){z.classList.add('q','v');shrink(9);}
-      if(z.classList.contains('lo'))z.style.paddingBottom=Math.max(0,Math.min(120,z.clientHeight-need().h-16))+'px';});
+      if(!z.classList.contains('lo'))return;
+      if(z.clientHeight-need().h-16<120&&ls.length>1){z.classList.add('q');ls=ls.slice(0,1);}  // the hint would sit under the footer
+      z.style.paddingBottom=Math.max(0,Math.min(120,z.clientHeight-need().h-16))+'px';});
   }
   function closeGuide(){if(!guide.classList.contains('on'))return;guide.classList.remove('on');if(!prefs.guided){prefs.guided=true;save();}}
   guide.addEventListener('click',closeGuide);
