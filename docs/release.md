@@ -112,10 +112,13 @@ and the shelf stays. A version whose build does not match is not published on F-
 - What has to hold: the APK on GitHub is built from the tagged commit with `assemblePublicRelease`, and the build
   writes no dependency list into the signing block (`dependenciesInfo` in `app/build.gradle`). 0.1.7 and earlier
   carry that list, so F-Droid starts at 0.1.8.
-- Before publishing, check the match on this machine: build the tag again with
-  `./gradlew :app:assemblePublicRelease -Punsigned` in a clean checkout and compare its entries with the signed
-  APK's (`unzip` both; only `META-INF/` signature files may differ, and `version-control-info.textproto` only when
-  the checkout has no `.git`).
+- Build the signed APK in a plain clone at the tag (not a `git worktree`: AGP then cannot read the commit and writes
+  `NO_VALID_GIT_FOUND` into `META-INF/version-control-info.textproto`, where F-Droid's clone writes the commit).
+- Before publishing, check the match the way F-Droid does: build the tag again with
+  `./gradlew :app:assemblePublicRelease -Punsigned` in a second clean clone, then
+  `apksigcopier compare <signed>.apk --unsigned app/build/outputs/apk/public/release/app-public-release-unsigned.apk`
+  (`pipx install apksigcopier`). It copies our signature onto the unsigned build and verifies it, so the ZIP's order,
+  metadata and compression must match too; comparing unzipped entries does not show those.
 - The listing (name, descriptions, icon, screenshots, and `changelogs/<versionCode>.txt`) is read from
   `fastlane/metadata/android/`. Add the changelog for each new `versionCode` before tagging; the text is public.
 - F-Droid notices a new tag `v<versionName>` on its own (it checks the tags) and builds it within a few days.

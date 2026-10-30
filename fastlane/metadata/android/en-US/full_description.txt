@@ -26,10 +26,10 @@ Tategaki-cho is a reader for Japanese web novels in vertical text (tategaki). Ep
 
 <b>For the works and their authors</b>
 <ul>
-<li>Text is fetched only for works on your shelf: the episode you are reading and as many after it as you chose (at most 20), one at a time, with a pause between.</li>
+<li>From Narou and Kakuyomu, text is fetched only for works on your shelf: the episode you are reading and as many after it as you chose (at most 20), one at a time, with a pause between. An Aozora Bunko work is fetched whole.</li>
 <li>Kept text can be read only in this app. There is no export to text or e-book files.</li>
 <li>The author and a link to the original page are always one tap away. Leave comments and ratings on the original site.</li>
-<li>When a work is deleted from its site, its kept text is deleted from the app.</li>
+<li>When a work is deleted from Narou or Kakuyomu, its kept text is deleted from the app.</li>
 </ul>
 
 No ads, no purchases, no account. The developer collects no information about you.
