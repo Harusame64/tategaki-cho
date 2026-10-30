@@ -123,7 +123,8 @@ and the shelf stays. A version whose build does not match is not published on F-
 - The listing (name, descriptions, icon, screenshots, and `changelogs/<versionCode>.txt`) is read from
   `fastlane/metadata/android/`. Images are in `en-US` only (F-Droid shows them for every language). Before tagging,
   write or reread the changelog for the new `versionCode` in both languages; the text is public.
-- F-Droid builds on Linux with Debian's OpenJDK, not Temurin. For 0.1.7 the unsigned build on GitHub Actions (Ubuntu,
-  its OpenJDK) was byte-identical to the one on mac (Temurin 21), and that one passed `apksigcopier compare` against
-  the published APK.
+- The match needs JDK 21 on both sides: javac 17 makes different classes. For 0.1.8 the unsigned build on GitHub
+  Actions (Ubuntu) with OpenJDK 21 was byte-identical to the one on mac (Temurin 21) and passed `apksigcopier compare`
+  against the published APK; with OpenJDK 17 it did not verify. So the F-Droid recipe installs OpenJDK 21 (`sudo:`)
+  and the signed APK is built with JDK 21.
 - F-Droid notices a new tag `v<versionName>` on its own (it checks the tags) and builds it within a few days.
