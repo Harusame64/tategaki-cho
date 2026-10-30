@@ -32,6 +32,8 @@ Tategaki-cho is a reader for Japanese web novels in vertical text (tategaki). Ep
 <li>When a work is deleted from Narou or Kakuyomu, its kept text is deleted from the app.</li>
 </ul>
 
-No ads, no purchases, no account. The developer collects no information about you.
+No ads, no purchases, no account. The developer collects no information about you (privacy policy: https://harusame64.github.io/tategaki-cho/privacy.html, in Japanese).
+
+The source code is published under GPLv3: https://github.com/Harusame64/tategaki-cho
 
 This app is unofficial and not affiliated with Shōsetsuka ni Narō, Kakuyomu or Aozora Bunko.

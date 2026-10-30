@@ -36,8 +36,9 @@ The build reads four values, from environment variables or from `local.propertie
 | `TGC_KEY_ALIAS` | `tategaki-cho` |
 | `TGC_KEY_PASSWORD` | the key's password (the same as the keystore's for PKCS12) |
 
-A release build without all four stops and names the missing ones. Debug and E2E builds do not need
-them.
+A release build without all four stops and names the missing ones, except F-Droid's: `assemblePublicRelease` with
+`-Punsigned=true` builds that one APK unsigned (and nothing else; see F-Droid below). Debug and E2E builds do not
+need them.
 
 ```
 ./gradlew :app:assemblePublicRelease
@@ -104,7 +105,7 @@ Releases are full releases marked Latest since 0.1.1 (0.1.0 went out as a pre-re
 
 ## F-Droid
 
-F-Droid builds the `public` release from the tag with `-Punsigned`, compares it with the signed APK of the same
+F-Droid builds the `public` release from the tag with `-Punsigned=true`, compares it with the signed APK of the same
 version on GitHub, and, when they match apart from the signature, publishes the GitHub APK itself, signed with our
 key (a reproducible build). So the two ways in, the download page and F-Droid, are one app: either updates the other
 and the shelf stays. A version whose build does not match is not published on F-Droid.
@@ -115,10 +116,14 @@ and the shelf stays. A version whose build does not match is not published on F-
 - Build the signed APK in a plain clone at the tag (not a `git worktree`: AGP then cannot read the commit and writes
   `NO_VALID_GIT_FOUND` into `META-INF/version-control-info.textproto`, where F-Droid's clone writes the commit).
 - Before publishing, check the match the way F-Droid does: build the tag again with
-  `./gradlew :app:assemblePublicRelease -Punsigned` in a second clean clone, then
+  `./gradlew :app:assemblePublicRelease -Punsigned=true` in a second clean clone, then
   `apksigcopier compare <signed>.apk --unsigned app/build/outputs/apk/public/release/app-public-release-unsigned.apk`
   (`pipx install apksigcopier`). It copies our signature onto the unsigned build and verifies it, so the ZIP's order,
   metadata and compression must match too; comparing unzipped entries does not show those.
 - The listing (name, descriptions, icon, screenshots, and `changelogs/<versionCode>.txt`) is read from
-  `fastlane/metadata/android/`. Add the changelog for each new `versionCode` before tagging; the text is public.
+  `fastlane/metadata/android/`. Images are in `en-US` only (F-Droid shows them for every language). Before tagging,
+  write or reread the changelog for the new `versionCode` in both languages; the text is public.
+- F-Droid builds on Linux with Debian's OpenJDK, not Temurin. For 0.1.7 the unsigned build on GitHub Actions (Ubuntu,
+  its OpenJDK) was byte-identical to the one on mac (Temurin 21), and that one passed `apksigcopier compare` against
+  the published APK.
 - F-Droid notices a new tag `v<versionName>` on its own (it checks the tags) and builds it within a few days.

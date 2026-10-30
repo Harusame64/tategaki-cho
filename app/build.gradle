@@ -10,9 +10,9 @@ if (localFile.exists()) localFile.withInputStream { localProps.load(it) }
 def signingValue = { String key -> System.getenv(key) ?: localProps.getProperty(key) }
 def signingKeys = ["TGC_KEYSTORE", "TGC_KEYSTORE_PASSWORD", "TGC_KEY_ALIAS", "TGC_KEY_PASSWORD"]
 def signingMissing = signingKeys.findAll { !signingValue(it) }
-// F-Droid builds the release from source without the key (-Punsigned) and checks it against the signed APK on
-// GitHub, byte for byte apart from the signature (docs/release.md, F-Droid).
-def unsignedRelease = project.hasProperty("unsigned")
+// F-Droid builds the public release from source without the key (-Punsigned=true) and checks it against the signed
+// APK on GitHub, byte for byte apart from the signature (docs/release.md, F-Droid). Only that APK may go unsigned.
+def unsignedRelease = project.findProperty("unsigned") == "true"
 
 android {
     namespace "jp.harusame.aozorareader"
@@ -108,9 +108,15 @@ def copyLicences = tasks.register("copyLicences", Sync) {
 tasks.named("preBuild") { dependsOn(copyLicences) }
 
 gradle.taskGraph.whenReady { graph ->
-    def release = graph.allTasks.find { it.project == project && it.name ==~ /(assemble|bundle|package)\w*Release/ }
-    if (release && !signingMissing.isEmpty() && !unsignedRelease) {
-        throw new GradleException("${release.path} needs the release key. Set ${signingMissing.join(', ')} " +
+    def releases = graph.allTasks.findAll { it.project == project && it.name ==~ /(assemble|bundle|package)\w*Release/ }
+    if (unsignedRelease) {
+        def other = releases.find { !(it.name ==~ /(assemble|package)PublicRelease/) }
+        if (other) {
+            throw new GradleException("-Punsigned=true builds only :app:assemblePublicRelease (F-Droid's build); " +
+                    "${other.path} is built signed, without it.")
+        }
+    } else if (releases && !signingMissing.isEmpty()) {
+        throw new GradleException("${releases[0].path} needs the release key. Set ${signingMissing.join(', ')} " +
                 "as environment variables or in local.properties (see docs/release.md).")
     }
 }
