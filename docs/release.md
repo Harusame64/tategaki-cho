@@ -101,3 +101,21 @@ Then point the download page at the new APK: in `site/index.html`, the button's 
 name carries the version, so no fixed link reaches it). A push to main that touches `site/` deploys the page.
 Releases are full releases marked Latest since 0.1.1 (0.1.0 went out as a pre-release); GitHub's
 `/releases/latest` skips pre-releases.
+
+## F-Droid
+
+F-Droid builds the `public` release from the tag with `-Punsigned`, compares it with the signed APK of the same
+version on GitHub, and, when they match apart from the signature, publishes the GitHub APK itself, signed with our
+key (a reproducible build). So the two ways in, the download page and F-Droid, are one app: either updates the other
+and the shelf stays. A version whose build does not match is not published on F-Droid.
+
+- What has to hold: the APK on GitHub is built from the tagged commit with `assemblePublicRelease`, and the build
+  writes no dependency list into the signing block (`dependenciesInfo` in `app/build.gradle`). 0.1.7 and earlier
+  carry that list, so F-Droid starts at 0.1.8.
+- Before publishing, check the match on this machine: build the tag again with
+  `./gradlew :app:assemblePublicRelease -Punsigned` in a clean checkout and compare its entries with the signed
+  APK's (`unzip` both; only `META-INF/` signature files may differ, and `version-control-info.textproto` only when
+  the checkout has no `.git`).
+- The listing (name, descriptions, icon, screenshots, and `changelogs/<versionCode>.txt`) is read from
+  `fastlane/metadata/android/`. Add the changelog for each new `versionCode` before tagging; the text is public.
+- F-Droid notices a new tag `v<versionName>` on its own (it checks the tags) and builds it within a few days.

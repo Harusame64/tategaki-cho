@@ -10,6 +10,9 @@ if (localFile.exists()) localFile.withInputStream { localProps.load(it) }
 def signingValue = { String key -> System.getenv(key) ?: localProps.getProperty(key) }
 def signingKeys = ["TGC_KEYSTORE", "TGC_KEYSTORE_PASSWORD", "TGC_KEY_ALIAS", "TGC_KEY_PASSWORD"]
 def signingMissing = signingKeys.findAll { !signingValue(it) }
+// F-Droid builds the release from source without the key (-Punsigned) and checks it against the signed APK on
+// GitHub, byte for byte apart from the signature (docs/release.md, F-Droid).
+def unsignedRelease = project.hasProperty("unsigned")
 
 android {
     namespace "jp.harusame.aozorareader"
@@ -41,7 +44,7 @@ android {
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            if (!unsignedRelease) signingConfig signingConfigs.release
         }
         e2e {
             initWith debug
@@ -67,6 +70,12 @@ android {
             buildConfigField "boolean", "FULL_SAVE", "true"
             buildConfigField "boolean", "DROP_GONE", "false"
         }
+    }
+    // AGP writes the dependency list into the signing block encrypted with Google's key; F-Droid cannot read it
+    // and refuses an APK that carries it.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
     buildFeatures {
         buildConfig true
@@ -100,7 +109,7 @@ tasks.named("preBuild") { dependsOn(copyLicences) }
 
 gradle.taskGraph.whenReady { graph ->
     def release = graph.allTasks.find { it.project == project && it.name ==~ /(assemble|bundle|package)\w*Release/ }
-    if (release && !signingMissing.isEmpty()) {
+    if (release && !signingMissing.isEmpty() && !unsignedRelease) {
         throw new GradleException("${release.path} needs the release key. Set ${signingMissing.join(', ')} " +
                 "as environment variables or in local.properties (see docs/release.md).")
     }

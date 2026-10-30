@@ -1,0 +1,37 @@
+Tategaki-cho is a reader for Japanese web novels in vertical text (tategaki). Episodes you have opened stay on the phone, so you can keep reading where there is no signal, on the subway or on a plane. The app is in Japanese.
+
+<b>Vertical text</b>
+<ul>
+<li>Ruby, emphasis dots and two-digit numbers set across the line, close to a printed book.</li>
+<li>Turn pages by tapping or swiping, or with the volume keys. What a tap does can be set for each of nine areas of the screen.</li>
+<li>A slider moves within an episode, or to another episode.</li>
+<li>Five background colours, four typefaces, and adjustable text size, line spacing and margins. Blank lines between paragraphs can be tightened, and paragraphs without an indent can be indented.</li>
+</ul>
+
+<b>Your shelf</b>
+<ul>
+<li>Shōsetsuka ni Narō: search by title or author, or browse the rankings (through the official API).</li>
+<li>Kakuyomu: open a work in the browser and share it to the app.</li>
+<li>Aozora Bunko: browse the official catalogue by popularity, author or category.</li>
+<li>Or paste a work's URL.</li>
+</ul>
+
+<b>Offline</b>
+<ul>
+<li>An episode you open is kept in the app and can be read without a connection.</li>
+<li>The episodes after the one you are reading can be fetched ahead: 1, 3, 5, 15 or 20.</li>
+<li>The table of contents marks the episodes kept.</li>
+<li>New episodes are shown on the shelf, and can be checked in the background with a notification (off by default).</li>
+</ul>
+
+<b>For the works and their authors</b>
+<ul>
+<li>Text is fetched only for works on your shelf: the episode you are reading and as many after it as you chose (at most 20), one at a time, with a pause between.</li>
+<li>Kept text can be read only in this app. There is no export to text or e-book files.</li>
+<li>The author and a link to the original page are always one tap away. Leave comments and ratings on the original site.</li>
+<li>When a work is deleted from its site, its kept text is deleted from the app.</li>
+</ul>
+
+No ads, no purchases, no account. The developer collects no information about you.
+
+This app is unofficial and not affiliated with Shōsetsuka ni Narō, Kakuyomu or Aozora Bunko.
