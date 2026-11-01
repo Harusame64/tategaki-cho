@@ -31,7 +31,7 @@ jobs:
       # The runner image ships the Android SDK (ANDROID_HOME); the Android Gradle plugin installs
       # platform 36 if it is missing.
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       - name: Test and build
         run: ./gradlew :core:test :app:testPublicE2eUnitTest :app:assemblePublicDebug :app:assemblePersonalDebug
