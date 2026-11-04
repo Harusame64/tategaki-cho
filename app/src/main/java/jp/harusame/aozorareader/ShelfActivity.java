@@ -825,7 +825,7 @@ public class ShelfActivity extends ThemedActivity {
             for (int col = 0; col < 2; col++) {
                 int i = row * 2 + col;
                 View c = i < ws.size() ? yomikakeCard(d, sh, ws.get(i)) : emptyPlace();
-                LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, dp(112), 1);
+                LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, dp(136), 1);
                 if (col > 0) cp.leftMargin = dp(10);
                 line2.addView(c, cp);
             }
@@ -859,7 +859,14 @@ public class ShelfActivity extends ThemedActivity {
         t.setMaxLines(2);
         t.setEllipsize(TextUtils.TruncateAt.END);
         t.setPadding(0, 0, dp(30), 0);
-        c.addView(t, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+        c.addView(t);
+        // A few lines where it was left, in the space under the title.
+        TextView ex = text(Yomikake.excerpt(this, w), 11, sub);
+        ex.setLineSpacing(0, 1.15f);
+        ex.setEllipsize(TextUtils.TruncateAt.END);
+        ex.setPadding(0, dp(4), 0, 0);
+        ex.setMaxLines(3);
+        c.addView(ex, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         LinearLayout bot = new LinearLayout(this);
         bot.setGravity(Gravity.CENTER_VERTICAL);
         bot.addView(text(Yomikake.where(w), 12, sub), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));

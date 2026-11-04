@@ -98,6 +98,50 @@ final class Yomikake {
         return Math.max(1, w.lastEpisode) + " / " + Math.max(1, w.episodes) + " 話";
     }
 
+    private static final java.util.regex.Pattern PARA = java.util.regex.Pattern.compile(
+            "<p( id=\"[Lp][0-9]+\")?[^>]*>(.*?)</p>", java.util.regex.Pattern.DOTALL);
+
+    /**
+     * A few lines of the text where the work was left, to tell the cards apart at a glance (the user: the cards'
+     * empty space, "本文入れる？"). Only from what is kept on the phone: nothing is fetched for it, and a work whose
+     * place is not kept (a new episode not fetched yet, say) has none.
+     */
+    static String excerpt(Context c, Shelf.Work w) {
+        // Where a tap opens it: past the last page of an episode, the head of the next one, if it is kept.
+        boolean next = finishedWithMore(w);
+        int ep = next ? w.lastEpisode + 1 : w.lastEpisode;
+        try {
+            java.io.File f = Episodes.cacheFile(c, next ? Shelf.episodeUrl(w.ncode, ep) : w.startUrl());
+            if (!f.isFile() || f.length() > 4_000_000) return "";
+            String html = new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            boolean site = !Shelf.isAozora(w.ncode) && !Guide.is(w.ncode);
+            if (!site) {
+                JSONArray secs = new JSONArray(html);
+                int i = Math.max(0, Math.min(secs.length() - 1, ep - 1));
+                html = secs.optString(i, "");
+            }
+            List<String> ps = new ArrayList<>();
+            java.util.regex.Matcher m = PARA.matcher(html);
+            while (m.find()) {
+                if (site && m.group(1) == null) continue;              // the site's own paragraphs, not the text
+                String t = m.group(2).replaceAll("(?s)<r[tp]>.*?</r[tp]>", "").replaceAll("<[^>]+>", "")
+                        .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
+                        .replace("&#39;", "'").replace("&nbsp;", " ").trim().replaceAll("^[\u3000 ]+", "");
+                if (!t.isEmpty()) ps.add(t);
+            }
+            if (ps.isEmpty()) return "";
+            double at = !next && w.lastPages > 1 ? (double) w.lastPage / (w.lastPages - 1) : 0;
+            StringBuilder b = new StringBuilder();
+            for (int i = Math.min(ps.size() - 1, (int) (at * ps.size())); i < ps.size() && b.length() < 90; i++) {
+                if (b.length() > 0) b.append('\u3000');
+                b.append(ps.get(i));
+            }
+            return b.length() > 90 ? b.substring(0, 90) : b.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     /** {url, page, pages} to open the work at. */
     static Object[] start(Shelf.Work w) {
         if (finishedWithMore(w)) return new Object[]{Shelf.episodeUrl(w.ncode, w.lastEpisode + 1), 0, 0};
@@ -118,6 +162,7 @@ final class Yomikake {
                         .put("title", w.title == null || w.title.isEmpty() ? w.ncode : w.title)
                         .put("author", w.author == null ? "" : w.author)
                         .put("sub", sub)
+                        .put("text", excerpt(c, w))
                         .put("pct", Math.max(0, Math.min(1, pct)))
                         .put("fresh", fresh(w))
                         .put("current", w.ncode.equals(currentKey)));

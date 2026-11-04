@@ -759,6 +759,8 @@ span.sesame{text-emphasis-position:over right}
 #yk .cd.cur{border:2px solid var(--link)}
 #yk .cd .ti{font-weight:bold;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding-right:30px}
 #yk .cd .su{font-size:12px;color:var(--sub);margin-top:4px}
+#yk .ex{font-size:11px;line-height:1.45;color:var(--sub);margin-top:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#yk .bc .ex{font-size:13px;-webkit-line-clamp:4}
 #yk .nw{display:inline-block;margin-top:6px;font-size:11px;color:#fff;background:var(--link);border-radius:9px;padding:0 7px}
 #yk .pr{height:3px;background:var(--line);border-radius:2px;margin-top:8px}
 #yk .pr i{display:block;height:3px;background:var(--link);border-radius:2px}
@@ -1183,7 +1185,7 @@ span.sesame{text-emphasis-position:over right}
     try{d=JSON.parse(window.Android?Android.yomikake():'{}');}catch(e){}
     ykData=d&&d.items?d:{view:'c',max:6,items:[]};yk.classList.add('on');drawYk();}
   function closeYk(){if(!yk.classList.contains('on'))return;yk.classList.remove('on','big');yk.innerHTML='';}
-  function ykInfo(w){return '<div class="su">'+ykEsc(w.sub)+'</div>'+(w.fresh?'<span class="nw">新着</span>':'')+
+  function ykInfo(w){return (w.text?'<div class="ex">'+ykEsc(w.text)+'</div>':'')+'<div class="su">'+ykEsc(w.sub)+'</div>'+(w.fresh?'<span class="nw">新着</span>':'')+
     '<div class="pr"><i style="width:'+Math.round(w.pct*100)+'%"></i></div>';}
   function drawYk(){var d=ykData,big=d.view==='a',it=d.items,h='<div class="dim" data-yk="close"></div>',i;
     yk.classList.toggle('big',big);
