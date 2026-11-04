@@ -739,6 +739,8 @@ span.sesame{text-emphasis-position:over right}
   background:transparent;color:var(--fg);font:15px sans-serif;text-align:center;text-decoration:none}
 #end .main{background:var(--link);border-color:var(--link);color:var(--card)}
 #info .topbar .home{font-weight:bold}
+#info .topbar .ic{padding:0;display:flex;align-items:center;justify-content:center}
+#info .topbar .ic svg{display:block}
 
 /* よみかけ (SPIKE, 2026-11-04): the works being read, from the bars. C = a sheet of two columns (six places),
    A = large cards in a row like the system's recent apps; the view last used is kept. */
@@ -993,7 +995,7 @@ span.sesame{text-emphasis-position:over right}
     +'</div></div>';
   // As in Kindle, a tap on a menu zone (the middle, as first set: prefs.zones, zoneAt) shows only the bars: the
   // work and its buttons on top, the page bar below. The settings (Aa) and the work's links each open from their button, never from that tap.
-  h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="ykb">よみかけ</button><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
+  h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="ykb" class="ic" aria-label="よみかけ"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M3,3v8h8V3H3zM9,9H5V5h4V9zM3,13v8h8v-8H3zM9,19H5v-4h4V19zM13,3v8h8V3H13zM19,9h-4V5h4V9zM13,13v8h8v-8H13zM19,19h-4v-4h4V19z"/></svg></button><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
     +'<div class="botbar"><div class="ephint">数字を長押しすると、話を選べます</div><div class="row bar"><input id="seek" type="range" min="1" value="1"><span id="seekv"></span></div></div>'
     +'<div class="sheet w"><div class="head"></div></div>'+h;
   info.innerHTML=h;
