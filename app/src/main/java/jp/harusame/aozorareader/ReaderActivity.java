@@ -267,6 +267,51 @@ public class ReaderActivity extends Activity {
         @JavascriptInterface
         public void overlay(boolean open) { ReaderActivity.this.overlay(open); }
 
+        /** よみかけ (SPIKE): the row of works being read, as JSON (Yomikake.json). */
+        @JavascriptInterface
+        public String yomikake() {
+            Prepared p = shown;
+            return Yomikake.json(ReaderActivity.this, workKeyOf(p == null ? null : p.url)).toString();
+        }
+
+        /**
+         * Switches to another work of the row, where it was left, without going through the shelf. The place in the
+         * work being read is written first, on the saver, so the switch sees it.
+         */
+        @JavascriptInterface
+        public void yomikakeOpen(String key) {
+            run(saver, () -> {
+                savePlace();
+                try {
+                    Shelf s = Shelf.update(ReaderActivity.this, sh -> {
+                        Shelf.Work cur = sh.find(key);
+                        if (cur == null) return;
+                        cur.seen = cur.episodes;
+                        if (Shelf.isKakuyomu(cur.ncode)) KakuyomuSite.seeAll(ReaderActivity.this, cur);
+                    });
+                    Shelf.Work w = s.find(key);
+                    if (w == null) return;
+                    Object[] at = Yomikake.start(w);
+                    runOnUiThread(() -> {
+                        startActivity(new Intent(ReaderActivity.this, ReaderActivity.class)
+                                .putExtra("url", (String) at[0]).putExtra("page", (Integer) at[1]).putExtra("pages", (Integer) at[2]));
+                        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+                        finish();
+                    });
+                } catch (Exception e) {
+                    Log.e(TAG, "yomikake open", e);
+                }
+            });
+        }
+
+        /** Sweeps a work out of the row (it stays on the shelf, and comes back when read again). */
+        @JavascriptInterface
+        public void yomikakeDrop(String key) { Yomikake.drop(ReaderActivity.this, key); }
+
+        /** The view last used: "c" (sheet) or "a" (large cards). */
+        @JavascriptInterface
+        public void yomikakeView(String v) { Yomikake.setView(ReaderActivity.this, v); }
+
         /** The display settings as the page keeps them (theme, text size), as JSON. */
         @JavascriptInterface
         public void savePrefs(String json) {
@@ -391,6 +436,16 @@ public class ReaderActivity extends Activity {
     /** the episode last written: its number, or for カクヨム its id (a list change moves the number, not the reader) */
     String loggedEpisode;
     int loggedPage = -1;
+
+    /** The work an episode URL belongs to (なろう, カクヨム by number or id, 青空文庫, a short story's page). */
+    static String workKeyOf(String url) {
+        if (url == null) return null;
+        String[] kk = Shelf.kkEpisodeOf(url);
+        if (kk != null) return kk[0];
+        Object[] ep = Shelf.episodeOf(url);
+        if (ep != null) return (String) ep[0];
+        return Shelf.ncodeOf(url);
+    }
 
     void savePlace() {
         Object[] pl = place.getAndSet(null);

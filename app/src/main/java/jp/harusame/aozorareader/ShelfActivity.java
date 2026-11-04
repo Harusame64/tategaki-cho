@@ -659,11 +659,12 @@ public class ShelfActivity extends ThemedActivity {
         boolean onlyGuide = true;
         for (Shelf.Work w : shelf.works) if (!Guide.is(w.ncode)) { onlyGuide = false; break; }
         if (onlyGuide && picked == null) list.addView(startCard());
-        // 続きを読む: the work read last.
-        Shelf.Work last = null;
-        for (Shelf.Work w : shelf.works) if (w.lastRead > 0 && (last == null || w.lastRead > last.lastRead)) last = w;
+        // よみかけ (SPIKE, design E): the works being read, newest first, in a row at the head of the shelf.
         boolean narrowing = filter.getText().toString().trim().length() > 0 || tag != null;
-        if (last != null && picked == null && !narrowing) resume.addView(resumeCard(last));
+        if (picked == null && !narrowing) {
+            List<Shelf.Work> yk = Yomikake.list(this);
+            if (!yk.isEmpty()) resume.addView(yomikakeRow(yk));
+        }
         List<Shelf.Work> ws = shown();
         if (narrowing && ws.isEmpty()) {
             TextView t = text("当てはまる作品がありません", 14, sub);
@@ -691,28 +692,82 @@ public class ShelfActivity extends ThemedActivity {
         m.show();
     }
 
-    View resumeCard(Shelf.Work w) {
-        LinearLayout c = new LinearLayout(this);
-        c.setOrientation(LinearLayout.VERTICAL);
-        c.setPadding(dp(16), dp(14), dp(16), dp(16));
-        c.setBackground(round(card, dp(14)));
-        TextView k = text("▶  続きを読む", 13, accent);
-        k.setTypeface(Typeface.DEFAULT_BOLD);
-        c.addView(k);
-        TextView t = text(w.title, 17, fg);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
-        t.setMaxLines(2);
-        t.setEllipsize(TextUtils.TruncateAt.END);
-        t.setPadding(0, dp(6), 0, dp(2));
-        c.addView(t);
-        String where = w.shortStory ? "短編" : "第" + Math.max(1, w.lastEpisode) + "話";
-        if (w.lastPages > 0) where += "　" + (w.lastPage + 1) + " / " + w.lastPages + " ページ";
-        c.addView(text(where, 13, sub));
-        c.setOnClickListener(v -> open(w));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dp(16);
-        c.setLayoutParams(lp);
-        return c;
+    /** よみかけ at the head of the shelf: a card each, tapped to read on where it was left, long pressed to take out. */
+    View yomikakeRow(List<Shelf.Work> ws) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout hd = new LinearLayout(this);
+        hd.setGravity(Gravity.CENTER_VERTICAL);
+        TextView h = text("よみかけ", 15, fg);
+        h.setTypeface(Typeface.DEFAULT_BOLD);
+        hd.addView(h, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        hd.addView(text("続きから開く・長押しで外す", 12, sub));
+        hd.setPadding(0, dp(16), 0, dp(8));
+        box.addView(hd);
+        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        for (int i = 0; i < ws.size(); i++) {
+            Shelf.Work w = ws.get(i);
+            LinearLayout c = new LinearLayout(this);
+            c.setOrientation(LinearLayout.VERTICAL);
+            c.setPadding(dp(12), dp(12), dp(12), dp(12));
+            c.setBackground(round(card, dp(12)));
+            c.setMinimumHeight(dp(124));
+            boolean fresh = Yomikake.fresh(w);
+            if (fresh) {
+                TextView n = text("新着", 11, 0xFFFFFFFF);
+                n.setTypeface(Typeface.DEFAULT_BOLD);
+                n.setPadding(dp(7), dp(1), dp(7), dp(1));
+                n.setBackground(round(0xFFD0453A, dp(9)));
+                LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                np.bottomMargin = dp(4);
+                c.addView(n, np);
+            }
+            TextView t = text(w.title == null || w.title.isEmpty() ? w.ncode : w.title, 14, fg);
+            t.setTypeface(Typeface.DEFAULT_BOLD);
+            t.setMaxLines(3);
+            t.setEllipsize(TextUtils.TruncateAt.END);
+            c.addView(t, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+            TextView m = text(Yomikake.where(w), 12, sub);
+            m.setPadding(0, dp(6), 0, 0);
+            c.addView(m);
+            c.setOnClickListener(v -> openYomikake(w));
+            c.setOnLongClickListener(v -> {
+                PopupMenu pm = new PopupMenu(this, v);
+                pm.getMenu().add(0, 0, 0, "よみかけから外す（本棚には残る）");
+                pm.setOnMenuItemClickListener(it -> { Yomikake.drop(this, w.ncode); render(); return true; });
+                pm.show();
+                return true;
+            });
+            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(dp(132), LinearLayout.LayoutParams.WRAP_CONTENT);
+            if (i > 0) cp.leftMargin = dp(10);
+            row.addView(c, cp);
+        }
+        hs.addView(row);
+        box.addView(hs);
+        return box;
+    }
+
+    /** As {@link #open}, but where よみかけ opens it: past the last page of an older episode, the next one. */
+    void openYomikake(Shelf.Work w) {
+        BG.execute(() -> {
+            try {
+                Shelf s = Shelf.update(this, sh -> {
+                    Shelf.Work cur = sh.find(w.ncode);
+                    if (cur == null) return;
+                    cur.seen = cur.episodes;
+                    if (Shelf.isKakuyomu(cur.ncode)) KakuyomuSite.seeAll(this, cur);
+                });
+                Shelf.Work cur = s.find(w.ncode);
+                if (cur == null) return;
+                Object[] at = Yomikake.start(cur);
+                runOnUiThread(() -> startActivity(new Intent(this, ReaderActivity.class)
+                        .putExtra("url", (String) at[0]).putExtra("page", (Integer) at[1]).putExtra("pages", (Integer) at[2])));
+            } catch (Exception e) {
+                Log.e(Shelf.TAG, "open yomikake", e);
+            }
+        });
     }
 
     View row(Shelf.Work w) {
