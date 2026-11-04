@@ -751,6 +751,7 @@ span.sesame{text-emphasis-position:over right}
 #yk button{font:15px sans-serif;border:1px solid var(--edge);border-radius:6px;background:transparent;color:var(--fg);min-width:48px;min-height:48px;padding:4px 10px;white-space:nowrap}
 #yk .hd{display:flex;align-items:center;gap:8px;margin:4px 0 12px}
 #yk .hd .t{flex:1;font-size:17px;font-weight:bold}
+#yk .sh .hd{position:sticky;top:-10px;z-index:1;background:var(--card);margin:-10px 0 12px;padding:10px 0 0}
 #yk .nt{font-size:12px;color:var(--sub);margin-top:12px}
 #yk .sh{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:18px 18px 0 0;box-shadow:0 -2px 10px rgba(0,0,0,.25);padding:10px 16px 22px;max-height:88%;overflow-y:auto;box-sizing:border-box}
 #yk .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -1188,7 +1189,8 @@ span.sesame{text-emphasis-position:over right}
     yk.classList.toggle('big',big);
     if(!big){
       h+='<div class="sh"><div class="hd"><span class="t">机</span><button data-yk="a">大きく</button><button data-yk="close">閉じる</button></div><div class="grid">';
-      for(i=0;i<d.max;i++){var w=it[i];
+      var n=Math.max(d.max,it.length+it.length%2);
+      for(i=0;i<n;i++){var w=it[i];
         if(!w){h+='<div class="empty">空き</div>';continue;}
         h+='<div class="cd'+(w.current?' cur':'')+'" data-key="'+ykEsc(w.key)+'">'+(w.current?'':'<button class="x" data-drop="'+ykEsc(w.key)+'" aria-label="本棚に戻す">✕</button>')+
           '<div class="ti">'+ykEsc(w.title)+'</div>'+ykInfo(w)+(w.current?'<div class="now">いま読んでいる</div>':'')+'</div>';}
@@ -1214,6 +1216,24 @@ span.sesame{text-emphasis-position:over right}
         setTimeout(function(){if(window.Android)Android.yomikakeDrop(k);ykData.items=ykData.items.filter(function(w){return w.key!==k;});drawYk();},180);}
       else{c.style.transform='';c.style.opacity='';}
       setTimeout(function(){ykSwiped=false;},50);});}
+  // The desk's sheet (C) closes as Aa's does: pulled down from its top past a third of its height (at least 120 px);
+  // short of that it slides back. Not once scrolled, so a scroll never ends in a close.
+  (function(){var sh=null,y0=null,dy=0;
+    function back(){if(!sh)return;sh.style.transition='transform 150ms ease-out';sh.style.transform='';}
+    yk.addEventListener('touchstart',function(e){
+      if(e.touches.length!==1){if(y0!==null)back();y0=null;dy=0;return;}
+      sh=e.target.closest&&e.target.closest('.sh');y0=sh&&sh.scrollTop<=0?e.touches[0].clientY:null;dy=0;if(sh)sh.style.transition='';},{passive:true});
+    yk.addEventListener('touchmove',function(e){
+      if(y0===null)return;
+      if(sh.scrollTop>0){y0=null;dy=0;sh.style.transform='';return;}
+      dy=Math.max(0,e.touches[0].clientY-y0-10);if(dy>0)ykSwiped=true;
+      sh.style.transform=dy>0?'translateY('+dy+'px)':'';},{passive:true});
+    yk.addEventListener('touchend',function(){
+      if(y0===null)return;y0=null;
+      if(dy>Math.max(120,sh.offsetHeight/3))closeYk();else back();
+      dy=0;setTimeout(function(){ykSwiped=false;},50);},{passive:true});
+    yk.addEventListener('touchcancel',function(){y0=null;dy=0;back();},{passive:true});
+  })();
   yk.addEventListener('click',function(e){
     if(ykSwiped)return;
     var t=e.target, a=t.closest&&t.closest('[data-yk]'), x=t.closest&&t.closest('[data-drop]'), k=t.closest&&t.closest('[data-key]');

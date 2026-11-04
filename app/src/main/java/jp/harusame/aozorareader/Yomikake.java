@@ -18,7 +18,10 @@ import java.util.List;
  * reader's preferences ({@code yomikakeOut}); a work counts as out while that time is not older than its lastRead.
  */
 final class Yomikake {
-    static final int MAX = 6;
+    /** At most this many works on the desk (2026-11-05, the user: "机ならスクロールで20個"); the sheet scrolls. */
+    static final int MAX = 20;
+    /** Places drawn at the least: the empty ones are shown up to this many, never twenty. */
+    static final int PLACES = 6;
     private static final String OUT = "yomikakeOut";
     private static final String VIEW = "yomikakeView";
 
@@ -119,7 +122,7 @@ final class Yomikake {
                         .put("fresh", fresh(w))
                         .put("current", w.ncode.equals(currentKey)));
             }
-            o.put("view", view(c)).put("max", MAX).put("items", items);
+            o.put("view", view(c)).put("max", PLACES).put("items", items);
         } catch (Exception ignored) {
         }
         return o;

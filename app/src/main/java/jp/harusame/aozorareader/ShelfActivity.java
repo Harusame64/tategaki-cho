@@ -725,7 +725,42 @@ public class ShelfActivity extends ThemedActivity {
     void openYomikakeSheet() {
         android.app.Dialog d = new android.app.Dialog(this, android.R.style.Theme_DeviceDefault_NoActionBar);
         d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
-        LinearLayout sh = new LinearLayout(this);
+        d.setCanceledOnTouchOutside(true);
+        // As Aa's sheet in the reader: pulled down from its top past a third of its height (at least 120 dp) it
+        // closes, short of that it slides back; not while its places are scrolled down.
+        LinearLayout sh = new LinearLayout(this) {
+            float y0 = -1, dy;
+            boolean pulling;
+
+            boolean atTop() {
+                Object sc = getTag();
+                return !(sc instanceof ScrollView) || ((ScrollView) sc).getScrollY() == 0;
+            }
+
+            @Override
+            public boolean onInterceptTouchEvent(android.view.MotionEvent ev) {
+                int a = ev.getActionMasked();
+                if (a == android.view.MotionEvent.ACTION_DOWN) { y0 = atTop() ? ev.getRawY() : -1; dy = 0; pulling = false; }
+                else if (a == android.view.MotionEvent.ACTION_MOVE && y0 >= 0 && ev.getRawY() - y0 > dp(10)) pulling = true;
+                return pulling;
+            }
+
+            @Override
+            public boolean onTouchEvent(android.view.MotionEvent ev) {
+                int a = ev.getActionMasked();
+                if (a == android.view.MotionEvent.ACTION_DOWN) { y0 = atTop() ? ev.getRawY() : -1; dy = 0; return true; }
+                if (y0 < 0) return true;
+                if (a == android.view.MotionEvent.ACTION_MOVE) {
+                    dy = Math.max(0, ev.getRawY() - y0 - dp(10));
+                    setTranslationY(dy);
+                } else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) {
+                    if (a == android.view.MotionEvent.ACTION_UP && dy > Math.max(dp(120), getHeight() / 3f)) d.dismiss();
+                    else animate().translationY(0).setDuration(150).start();
+                    y0 = -1; dy = 0; pulling = false;
+                }
+                return true;
+            }
+        };
         sh.setOrientation(LinearLayout.VERTICAL);
         int pad = sidePad(16);
         sh.setPadding(pad, dp(12), pad, dp(22));
@@ -771,7 +806,21 @@ public class ShelfActivity extends ThemedActivity {
         hp.bottomMargin = dp(8);
         sh.addView(hd, hp);
         List<Shelf.Work> ws = Yomikake.list(this);
-        for (int row = 0; row < Yomikake.MAX / 2; row++) {
+        // Up to twenty works: the places scroll under the heading, no taller than most of the screen.
+        int maxH = Math.round(getResources().getDisplayMetrics().heightPixels * 0.62f);
+        ScrollView sc = new ScrollView(this) {
+            @Override
+            protected void onMeasure(int w, int h) {
+                super.onMeasure(w, View.MeasureSpec.makeMeasureSpec(maxH, View.MeasureSpec.AT_MOST));
+            }
+        };
+        LinearLayout grid = new LinearLayout(this);
+        grid.setOrientation(LinearLayout.VERTICAL);
+        sc.addView(grid);
+        sh.addView(sc);
+        sh.setTag(sc);
+        int places = Math.max(Yomikake.PLACES, ws.size() + ws.size() % 2);
+        for (int row = 0; row < places / 2; row++) {
             LinearLayout line2 = new LinearLayout(this);
             for (int col = 0; col < 2; col++) {
                 int i = row * 2 + col;
@@ -782,7 +831,7 @@ public class ShelfActivity extends ThemedActivity {
             }
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             if (row > 0) lp.topMargin = dp(10);
-            sh.addView(line2, lp);
+            grid.addView(line2, lp);
         }
         TextView nt = text("✕ で机から本棚に戻します", 12, sub);
         nt.setPadding(0, dp(12), 0, 0);
