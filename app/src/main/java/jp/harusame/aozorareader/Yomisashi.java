@@ -99,8 +99,9 @@ final class Yomisashi {
         return Math.max(1, w.lastEpisode) + " / " + Math.max(1, w.episodes) + " 話";
     }
 
-    private static final java.util.regex.Pattern PARA = java.util.regex.Pattern.compile(
-            "<p( id=\"[Lp][0-9]+\")?[^>]*>(.*?)</p>", java.util.regex.Pattern.DOTALL);
+    private static final java.util.regex.Pattern PARA = java.util.regex.Pattern.compile("<p[^>]*>(.*?)</p>", java.util.regex.Pattern.DOTALL);
+    /** Where a site's page has its text: なろう's js-novel-text, カクヨム's widget-episodeBody. */
+    private static final java.util.regex.Pattern BODY = java.util.regex.Pattern.compile("class=\"[^\"]*\\b(js-novel-text|widget-episodeBody)\\b");
 
     /**
      * A few lines of the text where the work was left, to tell the cards apart at a glance (the user: the cards'
@@ -121,11 +122,16 @@ final class Yomisashi {
                 int i = Math.max(0, Math.min(secs.length() - 1, ep - 1));
                 html = secs.optString(i, "");
             }
+            if (site) {
+                // From the text on, past the site's own paragraphs before it; a page without it has none.
+                java.util.regex.Matcher b = BODY.matcher(html);
+                if (!b.find()) return "";
+                html = html.substring(b.start());
+            }
             List<String> ps = new ArrayList<>();
             java.util.regex.Matcher m = PARA.matcher(html);
             while (m.find()) {
-                if (site && m.group(1) == null) continue;              // the site's own paragraphs, not the text
-                String t = m.group(2).replaceAll("(?s)<r[tp]>.*?</r[tp]>", "").replaceAll("<[^>]+>", "")
+                String t = m.group(1).replaceAll("(?s)<r[tp]>.*?</r[tp]>", "").replaceAll("<[^>]+>", "")
                         .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
                         .replace("&#39;", "'").replace("&nbsp;", " ").trim().replaceAll("^[\u3000 ]+", "");
                 if (!t.isEmpty()) ps.add(t);

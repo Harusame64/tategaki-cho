@@ -78,6 +78,9 @@ final class YomisashiOverlay {
 
     boolean shown() { return web.getVisibility() == View.VISIBLE; }
 
+    /** the page, for the tests */
+    WebView web() { return web; }
+
     /** Shows the sheet, drawn afresh, in the reader's theme as it is now. */
     void show() {
         if (shown()) return;

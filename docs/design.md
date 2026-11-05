@@ -198,6 +198,35 @@ and the backup limit is 25 MB).
   本棚から外す. Taking a work off the shelf deletes its kept text.
 - ⋮: 選んで本棚から外す, 保存容量の整理 (per work: read episodes or all), 読書の記録, 新着の確認, ライセンス.
 
+## 読みさし (`Yomisashi`)
+
+The works being read, for switching between them without the shelf (the user reads three or four books at
+once, 2026-11-04). Named 読みさし by the user (2026-11-05, after trying よみかけ and 机).
+
+- **What is in it:** the works read, newest `lastRead` first, at most 20, the sheet scrolling past six
+  places (the user: 机ならスクロールで20個). A work never read is not in it. ✕ (or a sweep up on a large card)
+  takes a work out — the time is kept in the reader's preferences (`yomisashiOut`), and the work is out while
+  that time is not older than its `lastRead`: it stays on the shelf and comes back when read again. The work
+  being read has no ✕ and only closes the sheet.
+- **Where it opens a work:** where it was left; past the last page of an episode that is no longer the
+  newest (なろう, 青空文庫 sections; not カクヨム, whose places are episode ids), the head of the next one (`Yomisashi.start`). Its new
+  episodes count as seen, as when opened from the shelf. A work with news shows 新着; 青空文庫 and the guide
+  never do (their next section is not news).
+- **A card:** the title, a few lines of the text where a tap opens it (`Yomisashi.excerpt`, from what is kept
+  on the phone only — nothing is fetched for it), where it was left, how far in.
+- **Two views,** the last used kept (`yomisashiView`): C, a sheet of two columns (empty places drawn up to
+  six); A, large cards in a row like the system's recent apps, the title upright. The sheet closes as Aa's
+  does: a tap outside, 閉じる, Back, or pulled down from its top past a third of its height (120 px at least);
+  not once scrolled.
+- **One page for both screens:** `assets/yomisashi.js` and `yomisashi.css`, with the themes and fonts in
+  `themes.js`. The reader's bar has its icon (Material Icons grid_view, as on the shelf's toolbar); over the
+  shelf, `YomisashiOverlay` lays a see-through WebView over the window, loaded with the shelf and only shown
+  and hidden after — a screen of its own drew nothing for about a second on the Galaxy A25. While the sheet is
+  open the reader's page turns take no touch (a tap on a card on the right once turned the page back, and each
+  switch lost a page).
+- **The shelf's head** keeps its one 続きを読む card: a row of 読みさし there repeated the list sorted by
+  recent reading (the user).
+
 ## 全話を保存 (`FullSave`)
 
 - Every episode of one なろう or カクヨム work not kept yet, one at a time, 3 s apart (plus Net's

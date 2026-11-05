@@ -125,10 +125,14 @@ final class E2E {
 
     /** Runs a script in the reader's page and returns its JSON result ("null" until the page is ready). */
     static String js(Activity a, String expr) throws Exception {
+        return js(((ReaderActivity) a).web, expr);
+    }
+
+    /** Runs a script in a page (the reader's, or 読みさし's over the shelf) and returns its JSON result. */
+    static String js(WebView w, String expr) throws Exception {
         AtomicReference<String> out = new AtomicReference<>();
         CountDownLatch done = new CountDownLatch(1);
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
-            WebView w = ((ReaderActivity) a).web;
             w.evaluateJavascript(expr, v -> { out.set(v); done.countDown(); });
         });
         if (!done.await(10, TimeUnit.SECONDS)) throw new AssertionError("no answer from the page: " + expr);
@@ -201,6 +205,25 @@ final class E2E {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> ((ReaderActivity) a).web.getLocationOnScreen(at));
         double dpr = Double.parseDouble(v[2]);
         device().click(at[0] + (int) Math.round(Double.parseDouble(v[0]) * dpr), at[1] + (int) Math.round(Double.parseDouble(v[1]) * dpr));
+    }
+
+    /** Where on the screen the middle of the page's first element matching the selector is, or null. */
+    static int[] onScreen(WebView w, String selector) throws Exception {
+        String r = js(w, "(function(){var e=document.querySelector(" + JSONObject.quote(selector) + ");if(!e)return '';"
+                + "var r=e.getBoundingClientRect();return [(r.left+r.right)/2,(r.top+r.bottom)/2,devicePixelRatio].join()})()");
+        String[] v = r.replace("\"", "").split(",");
+        if (v.length != 3) return null;
+        int[] at = new int[2];
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> w.getLocationOnScreen(at));
+        double dpr = Double.parseDouble(v[2]);
+        return new int[]{at[0] + (int) Math.round(Double.parseDouble(v[0]) * dpr), at[1] + (int) Math.round(Double.parseDouble(v[1]) * dpr)};
+    }
+
+    /** A real tap (through the screen, so every listener of the page sees it) on the element. */
+    static void tapIn(WebView w, String selector) throws Exception {
+        int[] p = onScreen(w, selector);
+        if (p == null) throw new AssertionError("nothing on the page is " + selector);
+        device().click(p[0], p[1]);
     }
 
     static Shelf.Work work() {

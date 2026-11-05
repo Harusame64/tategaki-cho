@@ -128,6 +128,17 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | C7 | If the running check ends without finishing, the shelf's check takes its own turn | theShelfsCheckRunsWhenTheOtherDidNotFinish |
 | C8 | The background check tests the last check time again once it has its turn | theBackgroundCheckReadsTheTimeAgainWithItsTurn |
 
+## 読みさし (YomisashiTest) — done
+
+| | Scenario | Test |
+|---|---|---|
+| W1 | Newest first, twenty at most, never-read works left out; a work taken out stays on the shelf and comes back when read again | newestFirstTwentyAtMostAndTakenOutUntilReadAgain |
+| W2 | A card shows a few lines where it opens, from the kept text without ruby readings (なろう, カクヨム by episode id); past the last page of an older episode it opens the next one, says so and marks 新着; nothing is fetched | aCardShowsTheTextWhereItOpens |
+| W3 | From the reader, a real tap on another work's card (on the right, under the page-back zone) opens it where it was left, and the place in the work left does not move | aCardSwitchesWorksAndLeavesThePlaceAlone |
+| W4 | A tap on the work being read, 閉じる and Back only close it; none turns the page or closes the reader | theCurrentCardCloseAndBackOnlyClose |
+| W5 | Pulled down from its top past a third of its height the sheet closes; a short pull slides back | aPullDownClosesTheSheet |
+| W6 | Over the shelf, the toolbar's icon shows it (no work marked as being read); Back hides it and leaves the shelf; a card opens the work where it was left and the overlay goes | overTheShelfTheIconShowsItAndACardOpensTheWork |
+
 ## Next
 
 | | Scenario |
