@@ -289,6 +289,14 @@ public class ReaderActivity extends Activity {
             });
         }
 
+        /** ⟳ in 読みさし: the shelf's check; the page is told when it is over. */
+        @JavascriptInterface
+        public void yomisashiCheck() {
+            Yomisashi.check(ReaderActivity.this, msg -> runOnUiThread(() -> {
+                if (!isDestroyed()) web.evaluateJavascript("window.Yomisashi&&Yomisashi.checked(" + JSONObject.quote(msg) + ")", null);
+            }));
+        }
+
         /** Takes a work out of 読みさし (it stays on the shelf, and comes back when read again). */
         @JavascriptInterface
         public void yomisashiDrop(String key) { Yomisashi.drop(ReaderActivity.this, key); }

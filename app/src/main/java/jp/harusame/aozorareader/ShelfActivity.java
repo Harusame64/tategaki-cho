@@ -192,7 +192,11 @@ public class ShelfActivity extends ThemedActivity {
     YomisashiOverlay yomisashi;
 
     YomisashiOverlay yomisashi() {
-        if (yomisashi == null && !isDestroyed()) yomisashi = new YomisashiOverlay(this, BG);
+        if (yomisashi == null && !isDestroyed())
+            yomisashi = new YomisashiOverlay(this, BG, () -> ReaderActivity.run(work, () -> {
+                Shelf s = Shelf.load(this);
+                runOnUiThread(() -> { shelf = s; render(); });
+            }));
         return yomisashi;
     }
 

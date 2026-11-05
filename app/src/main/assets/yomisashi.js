@@ -7,16 +7,23 @@
 // this); ✕ (C) or a sweep up (A) takes it out of 読みさし, not off the shelf. The sheet closes as Aa's does: a tap
 // outside, 閉じる, Back, or pulled down from its top past a third of its height (at least 120 px).
 //
-// Yomisashi.init(el, host): host = {list() -> JSON string, open(key), drop(key), view(v), closed()}.
+// ⟳ asks the sites about the whole shelf, as the shelf's 新着を確認 does (only when pressed: opening the sheet or a
+// card asks nothing), and draws the cards again with what it found.
+//
+// Yomisashi.init(el, host): host = {list() -> JSON string, open(key), drop(key), view(v), check(), closed()};
+// the app answers check() with Yomisashi.checked(message).
 var Yomisashi=(function(){
-  var el=null, host=null, data=null, swiped=false, opening=false;
+  var el=null, host=null, data=null, swiped=false, opening=false, checking=false, note='';
+  var REFRESH='<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M17.65,6.35C16.2,4.9 14.21,4 12,4c-4.42,0 -7.99,3.58 -7.99,8s3.57,8 7.99,8c3.73,0 6.84,-2.55 7.73,-6h-2.08c-0.82,2.33 -3.04,4 -5.65,4 -3.31,0 -6,-2.69 -6,-6s2.69,-6 6,-6c1.66,0 3.14,0.69 4.22,1.78L13,11h7V4l-2.35,2.35z"/></svg>';
+  function check(){return '<button class="ck" data-ys="check" aria-label="新着を確認"'+(checking?' disabled':'')+'>'+REFRESH+'</button>';}
+  function said(){return note?'<div class="said" role="status">'+esc(note)+'</div>':'';}
   function esc(t){return String(t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function isOpen(){return !!el&&el.classList.contains('on');}
   function open(){
     var d=null;
     try{d=JSON.parse(host.list());}catch(e){}
     data=d&&d.items?d:{view:'c',max:6,items:[]};
-    swiped=false;opening=false;
+    swiped=false;opening=false;if(!checking)note='';
     el.classList.add('on');draw();
   }
   function close(){if(!isOpen())return;el.classList.remove('on','big');el.innerHTML='';if(host.closed)host.closed();}
@@ -28,7 +35,7 @@ var Yomisashi=(function(){
     var d=data, big=d.view==='a', it=d.items, h='<div class="dim" data-ys="close"></div>', i;
     el.classList.toggle('big',big);
     if(!big){
-      h+='<div class="sh"><div class="hd"><span class="t">読みさし</span><button data-ys="a">大きく</button><button data-ys="close">閉じる</button></div><div class="grid">';
+      h+='<div class="sh"><div class="hd"><span class="t">読みさし</span>'+check()+'<button data-ys="a">大きく</button><button data-ys="close">閉じる</button></div>'+said()+'<div class="grid">';
       var n=Math.max(d.max,it.length+it.length%2);
       for(i=0;i<n;i++){var w=it[i];
         if(!w){h+='<div class="empty">空き</div>';continue;}
@@ -36,8 +43,8 @@ var Yomisashi=(function(){
           '<div class="ti">'+esc(w.title)+'</div>'+info(w)+(w.current?'<div class="now">いま読んでいる</div>':''));}
       h+='</div><div class="nt">✕ で読みさしから外します（本棚には残ります）</div></div>';
     }else{
-      h+='<div class="bg"><div class="hd"><span class="t">読みさし</span><button data-ys="c">小さく</button><button data-ys="close">閉じる</button></div>'+
-        '<div class="nt">上に払うと読みさしから外します（本棚には残ります）</div><div class="row">';
+      h+='<div class="bg"><div class="hd"><span class="t">読みさし</span>'+check()+'<button data-ys="c">小さく</button><button data-ys="close">閉じる</button></div>'+
+        said()+'<div class="nt">上に払うと読みさしから外します（本棚には残ります）</div><div class="row">';
       if(!it.length)h+='<div class="bc"><div class="su">まだありません</div></div>';
       it.forEach(function(w){h+=card('bc',w,'<div class="vt">'+esc(w.title)+'</div>'+info(w));});
       h+='</div></div>';
@@ -82,10 +89,16 @@ var Yomisashi=(function(){
       if(swiped)return;
       var t=ev.target, a=t.closest&&t.closest('[data-ys]'), x=t.closest&&t.closest('[data-drop]'), k=t.closest&&t.closest('[data-key]');
       if(x){drop(x.dataset.drop);return;}
-      if(a){var v=a.dataset.ys;if(v==='close'){close();return;}data.view=v;host.view(v);draw();return;}
+      if(a){var v=a.dataset.ys;if(v==='close'){close();return;}
+        if(v==='check'){if(checking)return;checking=true;note='新着を確認しています…';draw();host.check();return;}
+        data.view=v;host.view(v);draw();return;}
       // One work opens: a second tap (or another card) while it does would start a second reader.
       if(k){if(k.classList.contains('cur')){close();return;}if(opening)return;opening=true;k.style.opacity='.6';host.open(k.dataset.key);}
     });
   }
-  return {init:init,open:open,close:close,isOpen:isOpen};
+  // The check is over: the cards drawn again from the shelf as it now is, in the view open, with what was found.
+  function checked(msg){checking=false;note=msg||'';if(!isOpen())return;var v=data.view,d=null;
+    try{d=JSON.parse(host.list());}catch(e){}
+    if(d&&d.items){d.view=v;data=d;}draw();}
+  return {init:init,open:open,close:close,isOpen:isOpen,checked:checked};
 })();

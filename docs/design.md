@@ -212,6 +212,12 @@ once, 2026-11-04). Named 読みさし by the user (2026-11-05, after trying よ�
   newest (なろう, 青空文庫 sections; not カクヨム, whose places are episode ids), the head of the next one (`Yomisashi.start`). Its new
   episodes count as seen, as when opened from the shelf. A work with news shows 新着; 青空文庫 and the guide
   never do (their next section is not news).
+- **New episodes:** a switch asks nothing; 読みさし goes by what the shelf's last check found (opening the
+  shelf, at most hourly, or the background check). Asking the site on each switch was the first idea
+  (2026-11-04); it was dropped (2026-11-05): a switch on a weak signal would wait, or fail, and the reader does not
+  ask at the end of the newest episode either. ⟳ in its heading runs the shelf's own check (新着を確認) of the
+  whole shelf — not only the works shown, as a check stamps the shelf as checked — on a thread of its own, then
+  draws the cards again and says what it found; over the shelf, the shelf behind is drawn again too.
 - **A card:** the title, a few lines of the text where a tap opens it (`Yomisashi.excerpt`, from what is kept
   on the phone only — nothing is fetched for it; on a site's page only the episode's own text, not its 前書き,
   後書き or the site around it; kept by file and place, so the sheet does not read twenty files each time), where

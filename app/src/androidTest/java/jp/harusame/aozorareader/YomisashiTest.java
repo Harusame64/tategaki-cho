@@ -32,7 +32,7 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** docs/e2e.md W1–W6 (and W2b): 読みさし, from the reader's bar and over the shelf. */
+/** docs/e2e.md W1–W7: 読みさし, from the reader's bar and over the shelf. */
 @RunWith(AndroidJUnit4.class)
 public class YomisashiTest {
     static final String OTHER = "n9998zz";
@@ -312,6 +312,51 @@ public class YomisashiTest {
         assertEquals("the card goes back", "\"\"", E2E.js(a, touchesOnly(OTHER, "touchstart:300", "touchmove:240", "touchcancel:240")));
         E2E.js(a, touches(OTHER, "touchstart:300", "touchmove:240", "touchcancel:240"));
         opens(a);
+    }
+
+    /** The newest episode (2 of 2) read to its last page; the site has a third. */
+    static void finishedNewest() throws Exception {
+        seed(E2E.NCODE, E2E.TITLE, 2, 2, 9, 10, System.currentTimeMillis());
+        E2E.net.put(ShelfFlowTest.API, E2E.narouApi(3));
+    }
+
+    /**
+     * W7: ⟳ asks the site (the shelf's check) and the card then says a newer episode is out; opening the sheet
+     * asked nothing.
+     */
+    @Test
+    public void theRefreshButtonFindsANewEpisode() throws Exception {
+        finishedNewest();
+        Activity a = reader(E2E.NCODE, 2, 9);
+        openFromBar(a);
+        assertEquals("\"2 / 2 話\"", E2E.js(a, "document.querySelector('#ys .cd .su').textContent"));
+        assertFalse("opening the sheet asks nothing", Net.asked.contains(ShelfFlowTest.API));
+        E2E.tapIn(((ReaderActivity) a).web, "#ys [data-ys=\"check\"]");
+        E2E.waitFor(a, "document.querySelector('#ys .cd .su').textContent", "\"2話を読み終え\"");
+        assertTrue(Net.asked.toString(), Net.asked.contains(ShelfFlowTest.API));
+        assertEquals("1", E2E.js(a, "document.querySelectorAll('#ys .cd .nw').length"));
+        assertTrue(E2E.js(a, "document.querySelector('#ys .said').textContent"), E2E.js(a, "document.querySelector('#ys .said').textContent").contains("新着を確認しました"));
+        assertEquals(3, Shelf.load(E2E.ctx()).find(E2E.NCODE).episodes);
+    }
+
+    /** W7b: the same over the shelf, and the shelf behind it shows what the check found. */
+    @Test
+    public void theRefreshButtonOverTheShelfUpdatesTheShelf() throws Exception {
+        finishedNewest();
+        Shelf.update(E2E.ctx(), sh -> sh.find(E2E.NCODE).seen = 2);
+        scenario = ActivityScenario.launch(ShelfActivity.class);
+        ShelfActivity s = (ShelfActivity) ShelfFlowTest.resumed(ShelfActivity.class);
+        UiDevice d = E2E.device();
+        UiObject2 icon = d.wait(Until.findObject(By.desc("読みさし")), 10_000);
+        WebView w = s.yomisashi().web();
+        E2E.waitUntil(() -> "true".equals(E2E.js(w, "typeof Yomisashi==='object'")), "the page is loaded");
+        icon.click();
+        E2E.waitUntil(() -> "1".equals(E2E.js(w, "document.querySelectorAll('#ys .cd').length")), "the card is shown");
+        assertFalse(Net.asked.contains(ShelfFlowTest.API));
+        E2E.tapIn(w, "#ys [data-ys=\"check\"]");
+        E2E.waitUntil(() -> "1".equals(E2E.js(w, "document.querySelectorAll('#ys .cd .nw').length")), "the card marked 新着");
+        d.pressBack();
+        assertNotNull("the shelf shows the news", d.wait(Until.findObject(By.text("新着 1")), 10_000));
     }
 
     /**

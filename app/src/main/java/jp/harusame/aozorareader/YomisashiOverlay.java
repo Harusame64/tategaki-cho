@@ -34,9 +34,13 @@ final class YomisashiOverlay {
     private boolean ready, wanted;
     private final OnBackInvokedCallback back = this::close;
 
-    YomisashiOverlay(Activity a, ExecutorService bg) {
+    /** run on the UI thread after ⟳'s check, so the shelf behind shows what it found */
+    private final Runnable checked;
+
+    YomisashiOverlay(Activity a, ExecutorService bg, Runnable checked) {
         this.a = a;
         this.bg = bg;
+        this.checked = checked;
         web = new WebView(a);
         web.setBackgroundColor(Color.TRANSPARENT);
         web.setVisibility(View.GONE);
@@ -144,6 +148,15 @@ final class YomisashiOverlay {
 
         @JavascriptInterface
         public void yomisashiView(String v) { Yomisashi.setView(a, v); }
+
+        @JavascriptInterface
+        public void yomisashiCheck() {
+            Yomisashi.check(a, msg -> a.runOnUiThread(() -> {
+                if (a.isDestroyed()) return;
+                web.evaluateJavascript("window.Yomisashi&&Yomisashi.checked(" + JSONObject.quote(msg) + ")", null);
+                if (checked != null) checked.run();
+            }));
+        }
 
         @JavascriptInterface
         public void closed() { a.runOnUiThread(YomisashiOverlay.this::hide); }

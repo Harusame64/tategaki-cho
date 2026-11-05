@@ -142,6 +142,8 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | W5b | On a large card, a tap whose finger drifts a few px up still opens the work | aTapThatDriftsStillOpensALargeCard |
 | W5c | A sweep the system takes away (touchcancel) puts the card back and the next tap is taken | aCancelledSweepLeavesTapsWorking |
 | W6 | Over the shelf, the toolbar's icon shows it (no work marked as being read); Back hides it and leaves the shelf; a card opens the work where it was left and the overlay goes | overTheShelfTheIconShowsItAndACardOpensTheWork |
+| W7 | ⟳ runs the shelf's check: the card then says a newer episode is out, 新着 is marked and the result is said; opening the sheet asked nothing | theRefreshButtonFindsANewEpisode |
+| W7b | ⟳ over the shelf does the same, and the shelf behind it shows the news | theRefreshButtonOverTheShelfUpdatesTheShelf |
 
 ## Next
 

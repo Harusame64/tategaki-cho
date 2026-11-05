@@ -225,6 +225,30 @@ final class Yomisashi {
         return new Object[]{w.startUrl(), w.lastPage, w.lastPages};
     }
 
+    /** The check ⟳ starts: on a thread of its own, so a slow site holds up neither turning nor read-ahead. */
+    private static final java.util.concurrent.ExecutorService CHECKER = java.util.concurrent.Executors.newSingleThreadExecutor();
+
+    /**
+     * ⟳: the shelf's own check (新着を確認) of the whole shelf, not only of the works here — a check stamps the
+     * shelf as checked, which would be untrue for the works left out. {@code done} gets what to say, on the
+     * checker's thread.
+     */
+    static void check(Context c, java.util.function.Consumer<String> done) {
+        CHECKER.execute(() -> {
+            String msg;
+            try {
+                Shelf s = Shelf.load(c);
+                List<Shelf.Work> gone = s.refresh(new ArrayList<>(s.works), c);
+                msg = gone.isEmpty() ? "新着を確認しました（" + android.text.format.DateFormat.format("HH:mm", System.currentTimeMillis()) + "）"
+                        : gone.size() + " 作品が見つかりません（削除か非公開）";
+            } catch (Exception e) {
+                Log.w(Shelf.TAG, "読みさし: check", e);
+                msg = "確認できませんでした。電波の届く所で、もう一度お試しください";
+            }
+            done.accept(msg);
+        });
+    }
+
     /** What the page draws: {view, max, items: [{key, title, author, sub, text, pct, fresh, current}]}. */
     static JSONObject json(Context c, String currentKey) {
         JSONObject o = new JSONObject();
