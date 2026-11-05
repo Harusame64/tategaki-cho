@@ -288,13 +288,8 @@ final class Yomisashi {
      */
     static boolean open(android.app.Activity a, String key, boolean next, java.util.function.BooleanSupplier wanted, Runnable then) {
         try {
-            Shelf s = Shelf.update(a, sh -> {
-                Shelf.Work cur = sh.find(key);
-                if (cur == null) return;
-                cur.seen = cur.episodes;
-                if (Shelf.isKakuyomu(cur.ncode)) KakuyomuSite.seeAll(a, cur);
-            });
-            Shelf.Work w = s.find(key);
+            if (wanted != null && !wanted.getAsBoolean()) return true;       // closed already: nothing, and not failed
+            Shelf.Work w = Shelf.load(a).find(key);
             if (w == null) return false;
             Object[] at = next ? start(w) : new Object[]{w.startUrl(), w.lastPage, w.lastPages};
             a.runOnUiThread(() -> {
@@ -302,6 +297,21 @@ final class Yomisashi {
                 a.startActivity(new android.content.Intent(a, ReaderActivity.class)
                         .putExtra("url", (String) at[0]).putExtra("page", (Integer) at[1]).putExtra("pages", (Integer) at[2]));
                 if (then != null) then.run();
+                // Its new episodes count as seen once it is opened, not before: an open called off (the sheet closed
+                // on its way) left its 新着 cleared (review).
+                android.content.Context c = a.getApplicationContext();
+                SEEN.execute(() -> {
+                    try {
+                        Shelf.update(c, sh -> {
+                            Shelf.Work cur = sh.find(key);
+                            if (cur == null) return;
+                            cur.seen = cur.episodes;
+                            if (Shelf.isKakuyomu(cur.ncode)) KakuyomuSite.seeAll(c, cur);
+                        });
+                    } catch (Exception e) {
+                        android.util.Log.w(Shelf.TAG, "seen", e);
+                    }
+                });
             });
             return true;
         } catch (Exception e) {
@@ -309,6 +319,9 @@ final class Yomisashi {
             return false;
         }
     }
+
+    /** Marks a work opened as seen, off the UI thread, one at a time. */
+    private static final java.util.concurrent.ExecutorService SEEN = java.util.concurrent.Executors.newSingleThreadExecutor();
 
     /** {url, page, pages} to open the work at. */
     static Object[] start(Shelf.Work w) {

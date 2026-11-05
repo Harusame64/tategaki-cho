@@ -255,6 +255,20 @@ public class YomisashiTest {
         assertEquals("one reader open", 1, (int) readers.get());
     }
 
+    /**
+     * A tap on the other work's card, then the sheet closed before the open is under way: the reader's saver (where
+     * the open waits its turn) is held until the close is in, as a person's Back always comes after the tap.
+     */
+    static void calledOff(Activity a) throws Exception {
+        java.util.concurrent.CountDownLatch hold = new java.util.concurrent.CountDownLatch(1);
+        ((ReaderActivity) a).saver.execute(() -> { try { hold.await(); } catch (InterruptedException ignored) { } });
+        E2E.js(a, "document.querySelector('#ys .cd[data-key=\"" + OTHER + "\"] .ti').click()");
+        E2E.js(a, "Yomisashi.close()");
+        SystemClock.sleep(300);
+        hold.countDown();
+        SystemClock.sleep(2500);
+    }
+
     /** W3c: a card tapped, then the sheet closed (Back) before the work came up: nothing opens. */
     @Test
     public void aSheetClosedAfterATapOpensNothing() throws Exception {
@@ -263,10 +277,25 @@ public class YomisashiTest {
         seed(OTHER, "もう一つの作品", 3, 2, 1, 0, now - 2000);
         Activity a = reader(E2E.NCODE, 1, 2);
         openFromBar(a);
-        E2E.js(a, "(function(){document.querySelector('#ys .cd[data-key=\"" + OTHER + "\"] .ti').click();Yomisashi.close();})()");
-        SystemClock.sleep(2500);
+        calledOff(a);
         assertFalse("the reader stays", a.isFinishing());
         assertTrue(E2E.js(a, "INFO.url"), E2E.js(a, "INFO.url").contains(E2E.NCODE + "/1/"));
+    }
+
+    /** W3d: an open called off leaves the work's 新着 as it was; an open that happens counts them as seen. */
+    @Test
+    public void onlyAnOpenThatHappensCountsTheNewAsSeen() throws Exception {
+        long now = System.currentTimeMillis();
+        seed(E2E.NCODE, E2E.TITLE, 3, 1, 2, 0, now - 1000);
+        seed(OTHER, "もう一つの作品", 3, 2, 1, 0, now - 2000);
+        Shelf.update(E2E.ctx(), s -> s.find(OTHER).seen = 1);              // two new episodes
+        Activity a = reader(E2E.NCODE, 1, 2);
+        openFromBar(a);
+        calledOff(a);
+        assertEquals("called off: still new", 2, Shelf.load(E2E.ctx()).find(OTHER).newEpisodes());
+        openFromBar(a);
+        E2E.js(a, "document.querySelector('#ys .cd[data-key=\"" + OTHER + "\"] .ti').click()");
+        E2E.waitUntil(() -> Shelf.load(E2E.ctx()).find(OTHER).newEpisodes() == 0, "opened: seen");
     }
 
     /** W4: a tap on the work being read only closes 読みさし; so do 閉じる and Back, and none turns the page. */
