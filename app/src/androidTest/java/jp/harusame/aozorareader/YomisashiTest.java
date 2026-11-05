@@ -419,7 +419,58 @@ public class YomisashiTest {
         assertTrue("the sheet scrolls", top > 0);
         E2E.js(a, "document.querySelector('#ys .cd[data-key=\"n0000zy\"] .x').click()");
         E2E.waitFor(a, "document.querySelectorAll('#ys .cd[data-key=\"n0000zy\"]').length", "0");
-        assertTrue(E2E.js(a, "document.querySelector('#ys .sh').scrollTop"), E2E.num(a, "document.querySelector('#ys .sh').scrollTop") > top / 2);
+        int kept = E2E.num(a, "document.querySelector('#ys .sh').scrollTop");
+        assertTrue("after ✕: " + kept, kept > top / 2);
+        // ⟳ too (the site answers nothing here: the shelf's own words for a failed check).
+        E2E.js(a, "document.querySelector('#ys [data-ys=\"check\"]').click()");
+        E2E.waitFor(a, "(document.querySelector('#ys .said')||{}).textContent", "\"確認できませんでした（HTTP 404）\"");
+        assertTrue("after ⟳", E2E.num(a, "document.querySelector('#ys .sh').scrollTop") > top / 2);
+    }
+
+    /** W1c: the time a work was taken out is forgotten once it is read again, or gone from the shelf. */
+    @Test
+    public void theTimesTakenOutAreForgottenWhenNoLongerNeeded() throws Exception {
+        long now = System.currentTimeMillis();
+        seed(E2E.NCODE, E2E.TITLE, 1, 1, 0, 0, now - 2000);
+        seed(OTHER, "もう一つの作品", 1, 1, 0, 0, now - 1000);
+        Yomisashi.drop(E2E.ctx(), E2E.NCODE);
+        Yomisashi.drop(E2E.ctx(), OTHER);
+        assertTrue(outKept().contains(E2E.NCODE));
+        Shelf.update(E2E.ctx(), s -> { s.find(E2E.NCODE).lastRead = System.currentTimeMillis() + 1000; s.works.removeIf(w -> w.ncode.equals(OTHER)); });
+        Yomisashi.list(E2E.ctx());
+        assertEquals("{}", outKept());
+    }
+
+    static String outKept() {
+        return E2E.ctx().getSharedPreferences("reader", Context.MODE_PRIVATE).getString("yomisashiOut", "{}");
+    }
+
+    /** W9: two taps on a shelf row before the reader comes up open one reader (counted as they are made). */
+    @Test
+    public void twoTapsOnAShelfRowOpenOneReader() throws Exception {
+        seed(E2E.NCODE, E2E.TITLE, 3, 1, 2, 0, System.currentTimeMillis());
+        java.util.concurrent.atomic.AtomicInteger made = new java.util.concurrent.atomic.AtomicInteger();
+        android.app.Application app = (android.app.Application) E2E.ctx().getApplicationContext();
+        android.app.Application.ActivityLifecycleCallbacks count = new android.app.Application.ActivityLifecycleCallbacks() {
+            @Override public void onActivityCreated(Activity x, android.os.Bundle b) { if (x instanceof ReaderActivity) made.incrementAndGet(); }
+            @Override public void onActivityStarted(Activity x) { }
+            @Override public void onActivityResumed(Activity x) { }
+            @Override public void onActivityPaused(Activity x) { }
+            @Override public void onActivityStopped(Activity x) { }
+            @Override public void onActivitySaveInstanceState(Activity x, android.os.Bundle b) { }
+            @Override public void onActivityDestroyed(Activity x) { }
+        };
+        app.registerActivityLifecycleCallbacks(count);
+        try {
+            scenario = ActivityScenario.launch(ShelfActivity.class);
+            ShelfActivity s = (ShelfActivity) ShelfFlowTest.resumed(ShelfActivity.class);
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> { Shelf.Work w = s.shelf.find(E2E.NCODE); s.open(w); s.open(w); });
+            ShelfFlowTest.resumed(ReaderActivity.class);
+            SystemClock.sleep(2000);
+            assertEquals("one reader made", 1, made.get());
+        } finally {
+            app.unregisterActivityLifecycleCallbacks(count);
+        }
     }
 
     /**

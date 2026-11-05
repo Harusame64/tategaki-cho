@@ -133,7 +133,8 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | | Scenario | Test |
 |---|---|---|
 | W1 | Newest first, twenty at most, never-read works left out; a work taken out stays on the shelf and comes back when read again | newestFirstTwentyAtMostAndTakenOutUntilReadAgain |
-| W1b | With many works, ✕ on a card far down leaves the sheet scrolled where it was | takingOneOutKeepsTheSheetScrolled |
+| W1b | With many works, ✕ on a card far down, and ⟳, leave the sheet scrolled where it was; a failed check says what the shelf's says | takingOneOutKeepsTheSheetScrolled |
+| W1c | The time a work was taken out is forgotten once it is read again or gone from the shelf | theTimesTakenOutAreForgottenWhenNoLongerNeeded |
 | W2 | A card shows a few lines where it opens, from the kept text without ruby readings (なろう, カクヨム by episode id); past the last page of an older episode it opens the next one, says so and marks 新着; nothing is fetched | aCardShowsTheTextWhereItOpens |
 | W2b | A card's text is the episode's own: not the 前書き before it, nor the 後書き, the site's footer or an icon's `<path>` after it; character references are read once each, numbers too | aCardsTextIsTheEpisodesOwn |
 | W2c | The cards' text comes in after they are drawn and moves nothing: ⟳ in the heading stays where it was | theTextComingInMovesNothing |
@@ -148,6 +149,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | W7 | ⟳ runs the shelf's check: the card then says a newer episode is out, 新着 is marked and the result is said; opening the sheet asked nothing | theRefreshButtonFindsANewEpisode |
 | W7b | ⟳ over the shelf does the same, and the shelf behind it shows the news | theRefreshButtonOverTheShelfUpdatesTheShelf |
 | W8 | A card whose work has gone from the shelf meanwhile says 開けませんでした, and another card still opens | aCardThatCannotOpenLeavesTheOthersWorking |
+| W9 | Two taps on a shelf row before the reader comes up open one reader, counted as readers are made (without the guard it failed 2 runs of 3: the system sometimes folds the second start itself) | twoTapsOnAShelfRowOpenOneReader |
 
 ## Next
 

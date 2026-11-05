@@ -1134,9 +1134,7 @@ span.sesame{text-emphasis-position:over right}
 
   // 読みさし (yomisashi.js), from the bar's icon: a card opens another work where it was left, without the shelf.
   var ys=document.getElementById('ys');
-  Yomisashi.init(ys,{list:function(t){return window.Android?Android.yomisashi(!!t):'{}';},
-    open:function(k){if(window.Android)Android.yomisashiOpen(k);},drop:function(k){if(window.Android)Android.yomisashiDrop(k);},
-    view:function(v){if(window.Android)Android.yomisashiView(v);},check:function(){if(window.Android)Android.yomisashiCheck();},closed:function(){}});
+  Yomisashi.init(ys,window.YS?YS:{list:function(){return '{}';},texts:function(){},open:function(){},drop:function(){},view:function(){},check:function(){},closed:function(){}});
   var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0, tocPast=true, tocSec=null;
   function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocPast=true;tocSec=null;tocLs.innerHTML='';tocSt.textContent='目次を読み込み中…';
     if(window.Android)Android.toc();}

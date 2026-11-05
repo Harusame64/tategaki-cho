@@ -45,13 +45,35 @@ final class Yomisashi {
     static List<Shelf.Work> list(Context c) {
         JSONObject out = out(c);
         List<Shelf.Work> all = new ArrayList<>();
-        for (Shelf.Work w : Shelf.load(c).works) {
+        Shelf shelf = Shelf.load(c);
+        for (Shelf.Work w : shelf.works) {
             if (w.lastRead <= 0) continue;
             if (out.optLong(w.ncode, 0) >= w.lastRead) continue;
             all.add(w);
         }
+        if (!shelf.unread) prune(c, shelf, out);
         all.sort((a, b) -> Long.compare(b.lastRead, a.lastRead));
         return all.size() > MAX ? new ArrayList<>(all.subList(0, MAX)) : all;
+    }
+
+    /**
+     * Forgets the times kept for works read again since (they are back) or gone from the shelf: else one is kept for
+     * every work ever taken out, and read again with each list (review).
+     */
+    private static synchronized void prune(Context c, Shelf shelf, JSONObject out) {
+        List<String> stale = new ArrayList<>();
+        for (java.util.Iterator<String> i = out.keys(); i.hasNext(); ) {
+            String k = i.next();
+            Shelf.Work w = shelf.find(k);
+            if (w == null || w.lastRead > out.optLong(k, 0)) stale.add(k);
+        }
+        if (stale.isEmpty()) return;
+        JSONObject now = out(c);                                            // as written now, not as read before
+        for (String k : stale) {
+            Shelf.Work w = shelf.find(k);
+            if (w == null || w.lastRead > now.optLong(k, 0)) now.remove(k);
+        }
+        prefs(c).edit().putString(OUT, now.toString()).apply();
     }
 
     static synchronized void drop(Context c, String key) {
@@ -123,17 +145,18 @@ final class Yomisashi {
         int ep = next ? w.lastEpisode + 1 : w.lastEpisode;
         try {
             java.io.File f = Episodes.cacheFile(c, next ? Shelf.episodeUrl(w.ncode, ep) : w.startUrl());
-            if (!f.isFile() || f.length() > 4_000_000) return "";
+            boolean book = Shelf.isAozora(w.ncode) || Guide.is(w.ncode);
+            if (!f.isFile() || f.length() > (book ? 32_000_000 : 4_000_000)) return "";
             double at = !next && w.lastPages > 1 ? (double) w.lastPage / (w.lastPages - 1) : 0;
             String key = f.getPath() + "|" + f.lastModified() + "|" + f.length() + "|" + ep + "|" + at;
             String kept = EXCERPTS.get(key);
             if (kept != null) return kept;
-            String html = new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8);
-            if (Shelf.isAozora(w.ncode) || Guide.is(w.ncode)) {
-                JSONArray secs = new JSONArray(html);
+            String html;
+            if (book) {
+                JSONArray secs = sections(f);
                 html = secs.optString(Math.max(0, Math.min(secs.length() - 1, ep - 1)), "");
             } else {
-                html = siteText(html);
+                html = siteText(new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8));
             }
             String out = excerptAt(html, at);
             EXCERPTS.put(key, out);
@@ -142,6 +165,23 @@ final class Yomisashi {
             Log.w(Shelf.TAG, "読みさし: no excerpt for " + w.ncode, e);
             return "";
         }
+    }
+
+    /** A 青空文庫 book's sections, read once while the file is unchanged: a whole book, for one section (review). */
+    private static final java.util.Map<String, JSONArray> SECTIONS = java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<String, JSONArray>(4, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<String, JSONArray> e) { return size() > 3; }
+            });
+
+    private static JSONArray sections(java.io.File f) throws Exception {
+        String key = f.getPath() + "|" + f.lastModified() + "|" + f.length();
+        JSONArray a = SECTIONS.get(key);
+        if (a == null) {
+            a = new JSONArray(new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8));
+            SECTIONS.put(key, a);
+        }
+        return a;
     }
 
     /**
@@ -278,13 +318,13 @@ final class Yomisashi {
                         : Shelf.goneMessage(gone.size());
             } catch (Exception e) {
                 Log.w(Shelf.TAG, "読みさし: check", e);
-                msg = "通信できず、確認できませんでした";
+                msg = Shelf.checkFailedMessage(e);
             }
             done.accept(msg);
         });
     }
 
-    /** What the page draws: {view, max, items: [{key, title, author, sub, text, pct, fresh, current}]}. */
+    /** What the page draws: {view, max, items: [{key, title, sub, text, pct, fresh, current}]}. */
     static JSONObject json(Context c, String currentKey) {
         return json(c, currentKey, true);
     }
@@ -301,7 +341,6 @@ final class Yomisashi {
                 items.put(new JSONObject()
                         .put("key", w.ncode)
                         .put("title", w.title == null || w.title.isEmpty() ? w.ncode : w.title)
-                        .put("author", w.author == null ? "" : w.author)
                         .put("sub", where(w))
                         .put("text", withText ? excerpt(c, w) : "")
                         .put("pct", Math.max(0, Math.min(1, pct)))

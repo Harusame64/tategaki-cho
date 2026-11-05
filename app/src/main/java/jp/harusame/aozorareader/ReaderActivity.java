@@ -104,6 +104,16 @@ public class ReaderActivity extends Activity {
             }
         });
         web.addJavascriptInterface(new Bridge(), "Android");
+        // 読みさし: a card switches to another work where it was left, without the shelf. The place in the work being
+        // read is written first, on the saver, so the switch sees it.
+        web.addJavascriptInterface(new YomisashiBridge(this, web, () -> { Prepared p = shown; return workKeyOf(p == null ? null : p.url); },
+                (key, failed) -> run(saver, () -> {
+                    savePlace();
+                    if (!Yomisashi.open(this, key, () -> {
+                        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+                        finish();
+                    })) failed.run();
+                }), null, null), "YS");
         // The page sits below the status bar when it is shown, and fills the screen when it is not.
         FrameLayout root = new FrameLayout(this);
         root.addView(web);
@@ -266,50 +276,6 @@ public class ReaderActivity extends Activity {
         /** An overlay (the bars, the 目次, the end card) opened or closed: Back closes it first. */
         @JavascriptInterface
         public void overlay(boolean open) { ReaderActivity.this.overlay(open); }
-
-        /** 読みさし: the works being read, as JSON (Yomisashi.json). */
-        @JavascriptInterface
-        public String yomisashi(boolean withText) {
-            Prepared p = shown;
-            return Yomisashi.json(ReaderActivity.this, workKeyOf(p == null ? null : p.url), withText).toString();
-        }
-
-        /**
-         * Switches to another work of 読みさし, where it was left, without going through the shelf. The place in the
-         * work being read is written first, on the saver, so the switch sees it.
-         */
-        @JavascriptInterface
-        public void yomisashiOpen(String key) {
-            run(saver, () -> {
-                savePlace();
-                boolean opened = Yomisashi.open(ReaderActivity.this, key, () -> {
-                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                    finish();
-                });
-                if (!opened) runOnUiThread(() -> { if (!isDestroyed()) web.evaluateJavascript("window.Yomisashi&&Yomisashi.failed()", null); });
-            });
-        }
-
-        /** ⟳ in 読みさし: the shelf's check; the page is told when it is over. */
-        @JavascriptInterface
-        public void yomisashiCheck() {
-            // Held weakly: the reader may be left while the check runs (it can wait minutes for another check).
-            java.lang.ref.WeakReference<ReaderActivity> me = new java.lang.ref.WeakReference<>(ReaderActivity.this);
-            Yomisashi.check(ReaderActivity.this, msg -> {
-                ReaderActivity r = me.get();
-                if (r != null) r.runOnUiThread(() -> {
-                    if (!r.isDestroyed()) r.web.evaluateJavascript("window.Yomisashi&&Yomisashi.checked(" + JSONObject.quote(msg) + ")", null);
-                });
-            });
-        }
-
-        /** Takes a work out of 読みさし (it stays on the shelf, and comes back when read again). */
-        @JavascriptInterface
-        public void yomisashiDrop(String key) { Yomisashi.drop(ReaderActivity.this, key); }
-
-        /** The view last used: "c" (sheet) or "a" (large cards). */
-        @JavascriptInterface
-        public void yomisashiView(String v) { Yomisashi.setView(ReaderActivity.this, v); }
 
         /** The display settings as the page keeps them (theme, text size), as JSON. */
         @JavascriptInterface

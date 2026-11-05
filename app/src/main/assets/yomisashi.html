@@ -20,9 +20,7 @@ html,body{margin:0;background:transparent}
   // Clear of the navigation and status bars: the app gives their heights (CSS px) as it learns them.
   window.__nav=function(b,t){r.setProperty('--nb',b+'px');r.setProperty('--nt',t+'px');};
   __look('kinari','serif');
-  Yomisashi.init(document.getElementById('ys'),{list:function(t){return Android.yomisashi(!!t);},
-    open:function(k){Android.yomisashiOpen(k);},drop:function(k){Android.yomisashiDrop(k);},
-    view:function(v){Android.yomisashiView(v);},check:function(){Android.yomisashiCheck();},closed:function(){Android.closed();}});
+  Yomisashi.init(document.getElementById('ys'),YS);
 })();
 </script>
 </body></html>

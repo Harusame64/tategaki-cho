@@ -222,8 +222,8 @@ once, 2026-11-04). Named 読みさし by the user (2026-11-05, after trying よ�
   on the phone only — nothing is fetched for it; on a site's page only the episode's own text, not its 前書き,
   後書き or the site around it; kept by file and place, so the sheet does not read twenty files each time), where
   it was left, how far in.
-- **One way to open a work:** the shelf and 読みさし both call `Yomisashi.open`; a second click while one opens
-  does nothing. They open a finished episode differently, on purpose: 読みさし at the next episode (the user,
+- **One way to open a work:** the shelf and 読みさし both call `Yomisashi.open`; a second tap while one opens
+  does nothing (the shelf's `opening`, cleared on resume; 読みさし's in `YomisashiBridge` and its page). They open a finished episode differently, on purpose: 読みさし at the next episode (the user,
   2026-11-04: 最終ページなら新着から), the shelf and its 続きを読む where the work was left (the user, 2026-11-05:
   まだ読んでる途中かもしれない).
 - **Two views,** the last used kept (`yomisashiView`): C, a sheet of two columns (empty places drawn up to
@@ -233,7 +233,11 @@ once, 2026-11-04). Named 読みさし by the user (2026-11-05, after trying よ�
   ✕, a sweep, ⟳ and the text draw them again where they were scrolled. A work that cannot be opened (gone from the
   shelf meanwhile) says so and leaves the other cards working.
 - **One page for both screens:** `assets/yomisashi.js` and `yomisashi.css`, with the themes and fonts in
-  `themes.js`. The reader's bar has its icon (Material Icons grid_view, as on the shelf's toolbar); over the
+  `themes.js`, talking to the app through one `YomisashiBridge` ("YS"; the two screens give only how a work is
+  opened and what a close does — two copies of these methods drifted apart between review rounds). The cards'
+  text is read off the page's thread and handed in after; a 青空文庫 book's sections are read once while the file
+  is unchanged. What runs later holds the screens weakly. The times works were taken out are forgotten once they
+  are read again or gone from the shelf. The reader's bar has its icon (Material Icons grid_view, as on the shelf's toolbar); over the
   shelf, `YomisashiOverlay` lays a see-through WebView over the window, loaded once the shelf is drawn and the
   app idle (not in the way of its first frame), and only shown and hidden after — a screen of its own drew nothing for about a second on the Galaxy A25. While the sheet is
   open the reader's page turns take no touch (a tap on a card on the right once turned the page back, and each

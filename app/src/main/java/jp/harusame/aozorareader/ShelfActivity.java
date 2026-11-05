@@ -216,6 +216,7 @@ public class ShelfActivity extends ThemedActivity {
     protected void onResume() {
         super.onResume();
         resumed = true;
+        opening.set(false);
         FullSave.listener = this::showSaving;
         // Not while a shared page is being added, nor once right after: that add has just asked the site. Decided
         // here, when the shelf comes forward, not when the worker gets to it (the add may be over by then).
@@ -371,7 +372,7 @@ public class ShelfActivity extends ThemedActivity {
                 // when it is in front to show it.
                 if (resumed) CheckWorker.clearNews(this);
             } catch (Exception e) {
-                msg = asked ? "確認できませんでした（" + e.getMessage() + "）" : null;
+                msg = asked ? Shelf.checkFailedMessage(e) : null;
             }
             String m = msg;
             runOnUiThread(() -> {
@@ -806,9 +807,13 @@ public class ShelfActivity extends ThemedActivity {
         return box;
     }
 
+    /** a work is being opened: a second tap (a double tap on a row or on 続きを読む) does nothing; reset on resume */
+    final java.util.concurrent.atomic.AtomicBoolean opening = new java.util.concurrent.atomic.AtomicBoolean();
+
     /** Opens a work where it was left; its new episodes count as seen. Not queued behind a check. */
     void open(Shelf.Work w) {
-        BG.execute(() -> Yomisashi.open(this, w.ncode, false, null));
+        if (!opening.compareAndSet(false, true)) return;
+        BG.execute(() -> { if (!Yomisashi.open(this, w.ncode, false, null)) opening.set(false); });
     }
 
     /** Long press: share the work (LINE, X, …), open its page, or take it off the shelf. */

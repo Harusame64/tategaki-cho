@@ -11,9 +11,10 @@
 // ⟳ asks the sites about the whole shelf, as the shelf's 新着を確認 does (only when pressed: opening the sheet or a
 // card asks nothing), and draws the cards again with what it found.
 //
-// Yomisashi.init(el, host): host = {list(withText) -> JSON string, open(key), drop(key), view(v), check(), closed()};
-// the app answers check() with Yomisashi.checked(message), and an open(key) it could not do with Yomisashi.failed().
-// The cards are drawn first and their text put in after (it is read from the kept episodes, up to twenty).
+// Yomisashi.init(el, host): host = YomisashiBridge {list() -> JSON string, texts(), open(key), drop(key), view(v),
+// check(), closed()}; the app answers texts() with Yomisashi.gotTexts(json), check() with Yomisashi.checked(message),
+// and an open(key) it could not do with Yomisashi.failed(). The cards are drawn first; their text is read off the
+// page's thread (up to twenty kept episodes) and written in after.
 var Yomisashi=(function(){
   var el=null, host=null, data=null, swiped=false, opening=false, checking=false, note='';
   var REFRESH='<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M17.65,6.35C16.2,4.9 14.21,4 12,4c-4.42,0 -7.99,3.58 -7.99,8s3.57,8 7.99,8c3.73,0 6.84,-2.55 7.73,-6h-2.08c-0.82,2.33 -3.04,4 -5.65,4 -3.31,0 -6,-2.69 -6,-6s2.69,-6 6,-6c1.66,0 3.14,0.69 4.22,1.78L13,11h7V4l-2.35,2.35z"/></svg>';
@@ -21,16 +22,16 @@ var Yomisashi=(function(){
   function said(){return note?'<div class="said" role="status">'+esc(note)+'</div>':'';}
   function esc(t){return String(t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function isOpen(){return !!el&&el.classList.contains('on');}
-  function list(withText){var d=null;try{d=JSON.parse(host.list(withText));}catch(e){}return d&&d.items?d:null;}
+  function list(){var d=null;try{d=JSON.parse(host.list());}catch(e){}return d&&d.items?d:null;}
   function open(){
-    data=list(false)||{view:'c',max:6,items:[]};
+    data=list()||{view:'c',max:6,items:[]};
     swiped=false;opening=false;if(!checking)note='';
     el.classList.add('on');draw();
-    setTimeout(texts,30);
+    host.texts();
   }
   // Each card's few lines, once the cards are up, written into the place kept for them: nothing is drawn again or
   // moves (a tap landing as the cards were replaced, or as the sheet grew taller, missed what it aimed at).
-  function texts(){if(!isOpen())return;var d=list(true);if(!d||!isOpen())return;var by={};
+  function gotTexts(json){if(!isOpen())return;var d=null;try{d=JSON.parse(json);}catch(e){}if(!d||!d.items)return;var by={};
     d.items.forEach(function(w){by[w.key]=w.text;});
     data.items.forEach(function(w){if(!by[w.key]||w.text)return;w.text=by[w.key];
       el.querySelectorAll('[data-key]').forEach(function(c){if(c.dataset.key!==w.key)return;
@@ -107,14 +108,14 @@ var Yomisashi=(function(){
       if(el.classList.contains('big')&&!a&&!x&&!k&&t.closest&&!t.closest('button,.hd')){close();return;}
       if(x){drop(x.dataset.drop);return;}
       if(a){var v=a.dataset.ys;if(v==='close'){close();return;}
-        if(v==='check'){if(checking)return;checking=true;note='新着を確認しています…';draw();host.check();return;}
+        if(v==='check'){if(checking)return;checking=true;note='新着を確認しています…';draw(true);host.check();return;}
         data.view=v;host.view(v);draw();return;}
       // One work opens: a second tap (or another card) while it does would start a second reader.
       if(k){if(k.classList.contains('cur')){close();return;}if(opening)return;opening=true;k.style.opacity='.6';host.open(k.dataset.key);}
     });
   }
   // The check is over: the cards drawn again from the shelf as it now is, in the view open, with what was found.
-  function checked(msg){checking=false;note=msg||'';if(!isOpen())return;var v=data.view,d=list(true);
-    if(d){d.view=v;data=d;}draw(true);}
-  return {init:init,open:open,close:close,isOpen:isOpen,checked:checked,failed:failed};
+  function checked(msg){checking=false;note=msg||'';if(!isOpen())return;var v=data.view,d=list();
+    if(d){d.view=v;data=d;}draw(true);host.texts();}
+  return {init:init,open:open,close:close,isOpen:isOpen,checked:checked,failed:failed,gotTexts:gotTexts};
 })();

@@ -7,7 +7,6 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
-import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -33,6 +32,7 @@ final class YomisashiOverlay {
     private final WebView web;
     private boolean ready, wanted;
     private final OnBackInvokedCallback back = this::close;
+    private final YomisashiBridge bridge;
 
     /** run on the UI thread after ⟳'s check, so the shelf behind shows what it found */
     private final Runnable checked;
@@ -73,7 +73,12 @@ final class YomisashiOverlay {
                 if (wanted) { wanted = false; show(); }
             }
         });
-        web.addJavascriptInterface(new Bridge(), "Android");
+        bridge = new YomisashiBridge(a, web, () -> null,
+                (key, failed) -> bg.execute(() -> { if (!Yomisashi.open(a, key, null)) failed.run(); }),   // the overlay goes as the reader comes up (the shelf's onPause)
+                checked,
+                // Only if it is still closed: Back hid it, the icon showed it again, and then this old close came in.
+                () -> { if (!a.isDestroyed()) web.evaluateJavascript("Yomisashi.isOpen()", v -> { if ("false".equals(v)) hide(); }); });
+        web.addJavascriptInterface(bridge, "YS");
         a.addContentView(web, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         try {
             web.loadDataWithBaseURL("file:///android_asset/", asset("yomisashi.html"), "text/html", "UTF-8", null);
@@ -107,6 +112,7 @@ final class YomisashiOverlay {
 
     private void hide() {
         wanted = false;
+        bridge.reset();
         if (!shown()) return;
         web.setVisibility(View.GONE);
         a.getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(back);
@@ -133,48 +139,6 @@ final class YomisashiOverlay {
     private String asset(String name) throws Exception {
         try (InputStream in = a.getAssets().open(name)) {
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
-    }
-
-    final class Bridge {
-        @JavascriptInterface
-        public String yomisashi(boolean withText) { return Yomisashi.json(a, null, withText).toString(); }
-
-        /** Opens the work; the overlay goes as the reader comes up (the shelf's onPause). */
-        @JavascriptInterface
-        public void yomisashiOpen(String key) {
-            bg.execute(() -> {
-                if (!Yomisashi.open(a, key, null))
-                    a.runOnUiThread(() -> { if (!a.isDestroyed()) web.evaluateJavascript("window.Yomisashi&&Yomisashi.failed()", null); });
-            });
-        }
-
-        @JavascriptInterface
-        public void yomisashiDrop(String key) { Yomisashi.drop(a, key); }
-
-        @JavascriptInterface
-        public void yomisashiView(String v) { Yomisashi.setView(a, v); }
-
-        @JavascriptInterface
-        public void yomisashiCheck() {
-            // Held weakly: the shelf may be gone before a check that waits for another one ends.
-            java.lang.ref.WeakReference<Activity> me = new java.lang.ref.WeakReference<>(a);
-            Yomisashi.check(a, msg -> {
-                Activity x = me.get();
-                if (x != null) x.runOnUiThread(() -> {
-                    if (x.isDestroyed()) return;
-                    web.evaluateJavascript("window.Yomisashi&&Yomisashi.checked(" + JSONObject.quote(msg) + ")", null);
-                    if (checked != null) checked.run();
-                });
-            });
-        }
-
-        @JavascriptInterface
-        public void closed() {
-            // Only if it is still closed: Back hid it, the icon showed it again, and then this old close came in.
-            a.runOnUiThread(() -> {
-                if (!a.isDestroyed()) web.evaluateJavascript("Yomisashi.isOpen()", v -> { if ("false".equals(v)) hide(); });
-            });
         }
     }
 }
