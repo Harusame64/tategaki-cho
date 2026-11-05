@@ -46,6 +46,8 @@ final class YomisashiOverlay {
         web.setVisibility(View.GONE);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
+        // No file: URLs, which does not cover file:///android_asset/ (the page's css and scripts, as in the
+        // reader): "doesn't affect access to assets and resources" (WebSettings). W6 and W7b draw the sheet.
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         s.setBlockNetworkLoads(true);
