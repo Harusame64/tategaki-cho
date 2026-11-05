@@ -744,6 +744,11 @@ final class Shelf {
         return missing;
     }
 
+    /** What a check says of the works it did not find: the shelf's 新着を確認 and ⟳ in 読みさし say the same. */
+    static String goneMessage(int n) {
+        return n + " 作品が見つかりません（削除か非公開）" + (DROP_GONE ? "。1日たっても見つからなければ、保存した話を消します" : "");
+    }
+
     /** なろう works' details from the official API, in one request (up to 500), by ncode. */
     static Map<String, Work> narouInfo(List<String> ncodes) throws Exception {
         Map<String, Work> out = new java.util.HashMap<>();

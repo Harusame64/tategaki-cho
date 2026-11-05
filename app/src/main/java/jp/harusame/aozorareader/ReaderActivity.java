@@ -269,9 +269,9 @@ public class ReaderActivity extends Activity {
 
         /** 読みさし: the works being read, as JSON (Yomisashi.json). */
         @JavascriptInterface
-        public String yomisashi() {
+        public String yomisashi(boolean withText) {
             Prepared p = shown;
-            return Yomisashi.json(ReaderActivity.this, workKeyOf(p == null ? null : p.url)).toString();
+            return Yomisashi.json(ReaderActivity.this, workKeyOf(p == null ? null : p.url), withText).toString();
         }
 
         /**
@@ -282,19 +282,25 @@ public class ReaderActivity extends Activity {
         public void yomisashiOpen(String key) {
             run(saver, () -> {
                 savePlace();
-                Yomisashi.open(ReaderActivity.this, key, () -> {
+                boolean opened = Yomisashi.open(ReaderActivity.this, key, () -> {
                     overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
                     finish();
                 });
+                if (!opened) runOnUiThread(() -> { if (!isDestroyed()) web.evaluateJavascript("window.Yomisashi&&Yomisashi.failed()", null); });
             });
         }
 
         /** ⟳ in 読みさし: the shelf's check; the page is told when it is over. */
         @JavascriptInterface
         public void yomisashiCheck() {
-            Yomisashi.check(ReaderActivity.this, msg -> runOnUiThread(() -> {
-                if (!isDestroyed()) web.evaluateJavascript("window.Yomisashi&&Yomisashi.checked(" + JSONObject.quote(msg) + ")", null);
-            }));
+            // Held weakly: the reader may be left while the check runs (it can wait minutes for another check).
+            java.lang.ref.WeakReference<ReaderActivity> me = new java.lang.ref.WeakReference<>(ReaderActivity.this);
+            Yomisashi.check(ReaderActivity.this, msg -> {
+                ReaderActivity r = me.get();
+                if (r != null) r.runOnUiThread(() -> {
+                    if (!r.isDestroyed()) r.web.evaluateJavascript("window.Yomisashi&&Yomisashi.checked(" + JSONObject.quote(msg) + ")", null);
+                });
+            });
         }
 
         /** Takes a work out of 読みさし (it stays on the shelf, and comes back when read again). */

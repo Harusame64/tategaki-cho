@@ -155,8 +155,29 @@ public class YomisashiTest {
         Files.write(new File(E2E.ctx().getFilesDir(), "episodes/" + E2E.NCODE + "/1.html").toPath(), page.getBytes(StandardCharsets.UTF_8));
         String text = item(E2E.NCODE).getString("text");
         assertEquals("本文の20段落。", text);
+        // Character references once each, numbers too.
+        assertEquals("&lt;\u3000\u2015\u2026", Yomisashi.unescape("&amp;lt;&#12288;&#x2015;&hellip;"));
         Shelf.update(E2E.ctx(), s -> s.find(E2E.NCODE).lastPage = 0);
         assertTrue(item(E2E.NCODE).getString("text"), item(E2E.NCODE).getString("text").startsWith("本文の1段落。"));
+    }
+
+    /** W2c: the cards' text comes in after they are drawn, and moves nothing: the heading's ⟳ stays where it was. */
+    @Test
+    public void theTextComingInMovesNothing() throws Exception {
+        long now = System.currentTimeMillis();
+        seed(E2E.NCODE, E2E.TITLE, 3, 1, 2, 0, now - 1000);
+        seed(OTHER, "もう一つの作品", 3, 2, 1, 0, now - 2000);
+        Activity a = reader(E2E.NCODE, 1, 2);
+        E2E.tapMiddle();
+        E2E.waitFor(a, "document.getElementById('info').classList.contains('on')", "true");
+        SystemClock.sleep(600);
+        // Opened and measured in one go, before the text is put in.
+        String before = E2E.js(a, "(function(){document.getElementById('ysb').click();"
+                + "return [document.querySelector('#ys .ck').getBoundingClientRect().top,(document.querySelector('#ys .ex')||{}).textContent].join('|')})()");
+        E2E.waitFor(a, "!!document.querySelector('#ys .ex')&&document.querySelector('#ys .ex').textContent.length>0", "true");
+        String top = before.replace("\"", "").split("\\|", -1)[0];
+        assertEquals("the text was not in yet: " + before, "", before.replace("\"", "").split("\\|", -1)[1]);
+        assertEquals(Double.parseDouble(top), Double.parseDouble(E2E.js(a, "document.querySelector('#ys .ck').getBoundingClientRect().top")), 0.5);
     }
 
     Activity reader(String ncode, int episode, int page) throws Exception {
@@ -357,6 +378,48 @@ public class YomisashiTest {
         E2E.waitUntil(() -> "1".equals(E2E.js(w, "document.querySelectorAll('#ys .cd .nw').length")), "the card marked 新着");
         d.pressBack();
         assertNotNull("the shelf shows the news", d.wait(Until.findObject(By.text("新着 1")), 10_000));
+    }
+
+    /** W5d: in the large view, a tap on the dark ground around the cards closes it; the heading does not. */
+    @Test
+    public void aTapAroundTheLargeCardsCloses() throws Exception {
+        Activity a = largeView();
+        E2E.js(a, "document.querySelector('#ys .bg .hd .t').click()");
+        assertEquals("true", E2E.js(a, "Yomisashi.isOpen()"));
+        E2E.js(a, "document.querySelector('#ys .bg .row').click()");
+        E2E.waitFor(a, "Yomisashi.isOpen()", "false");
+        assertFalse(a.isFinishing());
+    }
+
+    /** W8: a card whose work has gone from the shelf meanwhile says so, and another card still opens. */
+    @Test
+    public void aCardThatCannotOpenLeavesTheOthersWorking() throws Exception {
+        long now = System.currentTimeMillis();
+        seed(E2E.NCODE, E2E.TITLE, 3, 1, 2, 0, now - 1000);
+        seed(OTHER, "もう一つの作品", 3, 2, 1, 0, now - 2000);
+        seed("n9996zz", "三つめの作品", 3, 1, 0, 0, now - 3000);
+        Activity a = reader(E2E.NCODE, 1, 2);
+        openFromBar(a);
+        Shelf.update(E2E.ctx(), s -> s.works.removeIf(w -> w.ncode.equals("n9996zz")));
+        E2E.js(a, "document.querySelector('#ys .cd[data-key=\"n9996zz\"] .ti').click()");
+        E2E.waitFor(a, "document.querySelector('#ys .said')&&document.querySelector('#ys .said').textContent", "\"開けませんでした\"");
+        assertFalse(a.isFinishing());
+        E2E.js(a, "document.querySelector('#ys .cd[data-key=\"" + OTHER + "\"] .ti').click()");
+        E2E.waitUntil(() -> a.isFinishing() || a.isDestroyed(), "the other card opened its work");
+    }
+
+    /** W1b: with many works, ✕ on a card far down leaves the sheet scrolled where it was. */
+    @Test
+    public void takingOneOutKeepsTheSheetScrolled() throws Exception {
+        long now = System.currentTimeMillis();
+        for (int i = 0; i < 16; i++) seed(String.format("n%04dzy", i), "作品" + i, 1, 1, 0, 0, now - 20_000 + i * 1000L);
+        Activity a = reader("n0015zy", 1, 0);
+        openFromBar(a);
+        int top = E2E.num(a, "(function(){var s=document.querySelector('#ys .sh');s.scrollTop=s.scrollHeight;return s.scrollTop;})()");
+        assertTrue("the sheet scrolls", top > 0);
+        E2E.js(a, "document.querySelector('#ys .cd[data-key=\"n0000zy\"] .x').click()");
+        E2E.waitFor(a, "document.querySelectorAll('#ys .cd[data-key=\"n0000zy\"]').length", "0");
+        assertTrue(E2E.js(a, "document.querySelector('#ys .sh').scrollTop"), E2E.num(a, "document.querySelector('#ys .sh').scrollTop") > top / 2);
     }
 
     /**

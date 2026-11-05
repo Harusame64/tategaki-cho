@@ -167,14 +167,45 @@ final class Yomisashi {
         return "";
     }
 
+    private static final java.util.regex.Pattern ENTITY = java.util.regex.Pattern.compile("&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z]{2,8});");
+
+    /** HTML's character references, each once (&amp;lt; is the text "&lt;"): numbers, and the names a page uses. */
+    static String unescape(String s) {
+        if (s.indexOf('&') < 0) return s;
+        java.util.regex.Matcher m = ENTITY.matcher(s);
+        StringBuilder out = new StringBuilder();
+        while (m.find()) {
+            String e = m.group(1), r = null;
+            try {
+                if (e.startsWith("#x") || e.startsWith("#X")) r = new String(Character.toChars(Integer.parseInt(e.substring(2), 16)));
+                else if (e.startsWith("#")) r = new String(Character.toChars(Integer.parseInt(e.substring(1))));
+            } catch (IllegalArgumentException ignored) {
+            }
+            if (r == null) switch (e) {
+                case "amp": r = "&"; break;
+                case "lt": r = "<"; break;
+                case "gt": r = ">"; break;
+                case "quot": r = "\""; break;
+                case "apos": r = "'"; break;
+                case "nbsp": r = " "; break;
+                case "hellip": r = "\u2026"; break;
+                case "mdash": r = "\u2014"; break;
+                case "ndash": r = "\u2013"; break;
+                default: r = m.group();                                    // not one it knows: as written
+            }
+            m.appendReplacement(out, java.util.regex.Matcher.quoteReplacement(r));
+        }
+        m.appendTail(out);
+        return out.toString();
+    }
+
     /** About ninety characters from the paragraph at the share read ({@code at}, 0 to 1), without ruby readings. */
     static String excerptAt(String html, double at) {
         List<String> ps = new ArrayList<>();
         java.util.regex.Matcher m = PARA.matcher(html);
         while (m.find()) {
-            String t = m.group(1).replaceAll("(?s)<r[tp]>.*?</r[tp]>", "").replaceAll("<[^>]+>", "")
-                    .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
-                    .replace("&#39;", "'").replace("&nbsp;", " ").trim().replaceAll("^[\u3000 ]+", "");
+            String t = unescape(m.group(1).replaceAll("(?s)<r[tp]>.*?</r[tp]>", "").replaceAll("<[^>]+>", ""))
+                    .trim().replaceAll("^[\u3000 ]+", "");
             if (!t.isEmpty()) ps.add(t);
         }
         if (ps.isEmpty()) return "";
@@ -190,15 +221,16 @@ final class Yomisashi {
      * Opens a work where a tap on its 読みさし card says (see {@link #start}); its new episodes count as seen.
      * On the caller's background thread; {@code then} runs on the UI thread after.
      */
-    static void open(android.app.Activity a, String key, Runnable then) {
-        open(a, key, true, then);
+    static boolean open(android.app.Activity a, String key, Runnable then) {
+        return open(a, key, true, then);
     }
 
     /**
      * Opens a work, its new episodes counted as seen: where 読みさし says ({@code next}: past the last page of an
      * older episode, the next one), or where it was left (the shelf). The one way both open a work.
+     * @return false when nothing was opened (the work is gone from the shelf, or the shelf could not be read)
      */
-    static void open(android.app.Activity a, String key, boolean next, Runnable then) {
+    static boolean open(android.app.Activity a, String key, boolean next, Runnable then) {
         try {
             Shelf s = Shelf.update(a, sh -> {
                 Shelf.Work cur = sh.find(key);
@@ -207,15 +239,17 @@ final class Yomisashi {
                 if (Shelf.isKakuyomu(cur.ncode)) KakuyomuSite.seeAll(a, cur);
             });
             Shelf.Work w = s.find(key);
-            if (w == null) return;
+            if (w == null) return false;
             Object[] at = next ? start(w) : new Object[]{w.startUrl(), w.lastPage, w.lastPages};
             a.runOnUiThread(() -> {
                 a.startActivity(new android.content.Intent(a, ReaderActivity.class)
                         .putExtra("url", (String) at[0]).putExtra("page", (Integer) at[1]).putExtra("pages", (Integer) at[2]));
                 if (then != null) then.run();
             });
+            return true;
         } catch (Exception e) {
             android.util.Log.e(Shelf.TAG, "open from 読みさし", e);
+            return false;
         }
     }
 
@@ -233,14 +267,15 @@ final class Yomisashi {
      * shelf as checked, which would be untrue for the works left out. {@code done} gets what to say, on the
      * checker's thread.
      */
-    static void check(Context c, java.util.function.Consumer<String> done) {
+    static void check(Context ctx, java.util.function.Consumer<String> done) {
+        Context c = ctx.getApplicationContext();                           // not the screen: a check may take minutes
         CHECKER.execute(() -> {
             String msg;
             try {
                 Shelf s = Shelf.load(c);
                 List<Shelf.Work> gone = s.refresh(new ArrayList<>(s.works), c);
                 msg = gone.isEmpty() ? "新着を確認しました（" + android.text.format.DateFormat.format("HH:mm", System.currentTimeMillis()) + "）"
-                        : gone.size() + " 作品が見つかりません（削除か非公開）";
+                        : Shelf.goneMessage(gone.size());
             } catch (Exception e) {
                 Log.w(Shelf.TAG, "読みさし: check", e);
                 msg = "通信できず、確認できませんでした";
@@ -251,6 +286,11 @@ final class Yomisashi {
 
     /** What the page draws: {view, max, items: [{key, title, author, sub, text, pct, fresh, current}]}. */
     static JSONObject json(Context c, String currentKey) {
+        return json(c, currentKey, true);
+    }
+
+    /** As {@link #json(Context, String)}; without the cards' text when {@code withText} is false (drawn first). */
+    static JSONObject json(Context c, String currentKey, boolean withText) {
         JSONObject o = new JSONObject();
         JSONArray items = new JSONArray();
         for (Shelf.Work w : list(c)) {
@@ -263,7 +303,7 @@ final class Yomisashi {
                         .put("title", w.title == null || w.title.isEmpty() ? w.ncode : w.title)
                         .put("author", w.author == null ? "" : w.author)
                         .put("sub", where(w))
-                        .put("text", excerpt(c, w))
+                        .put("text", withText ? excerpt(c, w) : "")
                         .put("pct", Math.max(0, Math.min(1, pct)))
                         .put("fresh", fresh(w))
                         .put("current", w.ncode.equals(currentKey)));

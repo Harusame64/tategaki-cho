@@ -70,7 +70,7 @@ final class YomisashiOverlay {
                 ready = true;
                 Object js = v.getTag();
                 if (js instanceof String) v.evaluateJavascript((String) js, null);
-                if (wanted) { wanted = false; open(); }
+                if (wanted) { wanted = false; show(); }
             }
         });
         web.addJavascriptInterface(new Bridge(), "Android");
@@ -90,14 +90,13 @@ final class YomisashiOverlay {
     /** Shows the sheet, drawn afresh, in the reader's theme as it is now. */
     void show() {
         if (shown()) return;
+        // Not before the page is loaded: a see-through overlay with nothing drawn would take the shelf's taps.
+        if (!ready) { wanted = true; return; }
         web.setVisibility(View.VISIBLE);
         web.bringToFront();
         a.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_OVERLAY, back);
-        if (ready) open(); else wanted = true;
-    }
-
-    private void open() {
-        web.evaluateJavascript("__look(" + JSONObject.quote(look()[0]) + "," + JSONObject.quote(look()[1]) + ");Yomisashi.open()", null);
+        String[] l = look();
+        web.evaluateJavascript("__look(" + JSONObject.quote(l[0]) + "," + JSONObject.quote(l[1]) + ");Yomisashi.open()", null);
     }
 
     /** Hides it; the page's own close (Yomisashi.close) comes back here through {@code closed}. */
@@ -139,11 +138,16 @@ final class YomisashiOverlay {
 
     final class Bridge {
         @JavascriptInterface
-        public String yomisashi() { return Yomisashi.json(a, null).toString(); }
+        public String yomisashi(boolean withText) { return Yomisashi.json(a, null, withText).toString(); }
 
         /** Opens the work; the overlay goes as the reader comes up (the shelf's onPause). */
         @JavascriptInterface
-        public void yomisashiOpen(String key) { bg.execute(() -> Yomisashi.open(a, key, null)); }
+        public void yomisashiOpen(String key) {
+            bg.execute(() -> {
+                if (!Yomisashi.open(a, key, null))
+                    a.runOnUiThread(() -> { if (!a.isDestroyed()) web.evaluateJavascript("window.Yomisashi&&Yomisashi.failed()", null); });
+            });
+        }
 
         @JavascriptInterface
         public void yomisashiDrop(String key) { Yomisashi.drop(a, key); }
@@ -153,14 +157,24 @@ final class YomisashiOverlay {
 
         @JavascriptInterface
         public void yomisashiCheck() {
-            Yomisashi.check(a, msg -> a.runOnUiThread(() -> {
-                if (a.isDestroyed()) return;
-                web.evaluateJavascript("window.Yomisashi&&Yomisashi.checked(" + JSONObject.quote(msg) + ")", null);
-                if (checked != null) checked.run();
-            }));
+            // Held weakly: the shelf may be gone before a check that waits for another one ends.
+            java.lang.ref.WeakReference<Activity> me = new java.lang.ref.WeakReference<>(a);
+            Yomisashi.check(a, msg -> {
+                Activity x = me.get();
+                if (x != null) x.runOnUiThread(() -> {
+                    if (x.isDestroyed()) return;
+                    web.evaluateJavascript("window.Yomisashi&&Yomisashi.checked(" + JSONObject.quote(msg) + ")", null);
+                    if (checked != null) checked.run();
+                });
+            });
         }
 
         @JavascriptInterface
-        public void closed() { a.runOnUiThread(YomisashiOverlay.this::hide); }
+        public void closed() {
+            // Only if it is still closed: Back hid it, the icon showed it again, and then this old close came in.
+            a.runOnUiThread(() -> {
+                if (!a.isDestroyed()) web.evaluateJavascript("Yomisashi.isOpen()", v -> { if ("false".equals(v)) hide(); });
+            });
+        }
     }
 }

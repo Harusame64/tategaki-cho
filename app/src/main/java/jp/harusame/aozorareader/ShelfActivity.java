@@ -195,6 +195,7 @@ public class ShelfActivity extends ThemedActivity {
         if (yomisashi == null && !isDestroyed())
             yomisashi = new YomisashiOverlay(this, BG, () -> ReaderActivity.run(work, () -> {
                 Shelf s = Shelf.load(this);
+                if (resumed) CheckWorker.clearNews(this);                  // as the shelf's own check: its news is seen
                 runOnUiThread(() -> { shelf = s; render(); });
             }));
         return yomisashi;
@@ -365,8 +366,7 @@ public class ShelfActivity extends ThemedActivity {
             String msg;
             try {
                 List<Shelf.Work> gone = s.refresh(new ArrayList<>(s.works), this);
-                msg = gone.isEmpty() ? null : gone.size() + " 作品が見つかりません（削除か非公開）"
-                        + (Shelf.DROP_GONE ? "。1日たっても見つからなければ、保存した話を消します" : "");
+                msg = gone.isEmpty() ? null : Shelf.goneMessage(gone.size());
                 // The shelf shows this check's news itself (also one a background round finished meanwhile),
                 // when it is in front to show it.
                 if (resumed) CheckWorker.clearNews(this);

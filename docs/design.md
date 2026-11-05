@@ -227,9 +227,11 @@ once, 2026-11-04). Named 読みさし by the user (2026-11-05, after trying よ�
   2026-11-04: 最終ページなら新着から), the shelf and its 続きを読む where the work was left (the user, 2026-11-05:
   まだ読んでる途中かもしれない).
 - **Two views,** the last used kept (`yomisashiView`): C, a sheet of two columns (empty places drawn up to
-  six); A, large cards in a row like the system's recent apps, the title upright. The sheet closes as Aa's
-  does: a tap outside, 閉じる, Back, or pulled down from its top past a third of its height (120 px at least);
-  not once scrolled.
+  six); A, large cards in a row like the system's recent apps, the title upright. It closes on a tap outside (in
+  A, the dark ground around the cards), 閉じる or Back; C also as Aa's sheet does, pulled down from its top past a
+  third of its height (120 px at least), not once scrolled. The cards are drawn first and their text put in after;
+  ✕, a sweep, ⟳ and the text draw them again where they were scrolled. A work that cannot be opened (gone from the
+  shelf meanwhile) says so and leaves the other cards working.
 - **One page for both screens:** `assets/yomisashi.js` and `yomisashi.css`, with the themes and fonts in
   `themes.js`. The reader's bar has its icon (Material Icons grid_view, as on the shelf's toolbar); over the
   shelf, `YomisashiOverlay` lays a see-through WebView over the window, loaded once the shelf is drawn and the

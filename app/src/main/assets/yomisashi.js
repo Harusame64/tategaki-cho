@@ -5,13 +5,15 @@
 //   A (view "a"): large cards in a row, like the system's recent apps.
 // The view last used is kept by the app. A card opens its work where it was left (the work being read only closes
 // this); ✕ (C) or a sweep up (A) takes it out of 読みさし, not off the shelf. The sheet closes as Aa's does: a tap
-// outside, 閉じる, Back, or pulled down from its top past a third of its height (at least 120 px).
+// outside (in A, the dark ground around the cards), 閉じる, Back, or (C) pulled down from its top past a third of its
+// height (at least 120 px).
 //
 // ⟳ asks the sites about the whole shelf, as the shelf's 新着を確認 does (only when pressed: opening the sheet or a
 // card asks nothing), and draws the cards again with what it found.
 //
-// Yomisashi.init(el, host): host = {list() -> JSON string, open(key), drop(key), view(v), check(), closed()};
-// the app answers check() with Yomisashi.checked(message).
+// Yomisashi.init(el, host): host = {list(withText) -> JSON string, open(key), drop(key), view(v), check(), closed()};
+// the app answers check() with Yomisashi.checked(message), and an open(key) it could not do with Yomisashi.failed().
+// The cards are drawn first and their text put in after (it is read from the kept episodes, up to twenty).
 var Yomisashi=(function(){
   var el=null, host=null, data=null, swiped=false, opening=false, checking=false, note='';
   var REFRESH='<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M17.65,6.35C16.2,4.9 14.21,4 12,4c-4.42,0 -7.99,3.58 -7.99,8s3.57,8 7.99,8c3.73,0 6.84,-2.55 7.73,-6h-2.08c-0.82,2.33 -3.04,4 -5.65,4 -3.31,0 -6,-2.69 -6,-6s2.69,-6 6,-6c1.66,0 3.14,0.69 4.22,1.78L13,11h7V4l-2.35,2.35z"/></svg>';
@@ -19,19 +21,31 @@ var Yomisashi=(function(){
   function said(){return note?'<div class="said" role="status">'+esc(note)+'</div>':'';}
   function esc(t){return String(t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function isOpen(){return !!el&&el.classList.contains('on');}
+  function list(withText){var d=null;try{d=JSON.parse(host.list(withText));}catch(e){}return d&&d.items?d:null;}
   function open(){
-    var d=null;
-    try{d=JSON.parse(host.list());}catch(e){}
-    data=d&&d.items?d:{view:'c',max:6,items:[]};
+    data=list(false)||{view:'c',max:6,items:[]};
     swiped=false;opening=false;if(!checking)note='';
     el.classList.add('on');draw();
+    setTimeout(texts,30);
   }
+  // Each card's few lines, once the cards are up, written into the place kept for them: nothing is drawn again or
+  // moves (a tap landing as the cards were replaced, or as the sheet grew taller, missed what it aimed at).
+  function texts(){if(!isOpen())return;var d=list(true);if(!d||!isOpen())return;var by={};
+    d.items.forEach(function(w){by[w.key]=w.text;});
+    data.items.forEach(function(w){if(!by[w.key]||w.text)return;w.text=by[w.key];
+      el.querySelectorAll('[data-key]').forEach(function(c){if(c.dataset.key!==w.key)return;
+        var ex=c.querySelector('.ex');if(ex)ex.textContent=w.text;});});}
+  // The work could not be opened (taken off the shelf meanwhile, say): its card comes back, and the others take taps.
+  function failed(){opening=false;note='開けませんでした';if(isOpen())draw(true);}
   function close(){if(!isOpen())return;el.classList.remove('on','big');el.innerHTML='';if(host.closed)host.closed();}
-  function drop(k){host.drop(k);data.items=data.items.filter(function(w){return w.key!==k;});draw();}
-  function info(w){return (w.text?'<div class="ex">'+esc(w.text)+'</div>':'')+'<div class="su">'+esc(w.sub)+'</div>'+
+  function drop(k){host.drop(k);data.items=data.items.filter(function(w){return w.key!==k;});draw(true);}
+  // The text's place is kept from the first draw (three lines), so the text coming in moves nothing under a finger.
+  function info(w){return '<div class="ex">'+esc(w.text||'')+'</div>'+'<div class="su">'+esc(w.sub)+'</div>'+
     (w.fresh?'<span class="nw">新着</span>':'')+'<div class="pr"><i style="width:'+Math.round(w.pct*100)+'%"></i></div>';}
   function card(cls,w,inner){return '<div class="'+cls+(w.current?' cur':'')+'" data-key="'+esc(w.key)+'" role="button" tabindex="0" aria-label="'+esc(w.title)+'">'+inner+'</div>';}
-  function draw(){
+  // keep: drawn again in place (after ✕, a sweep, ⟳ or the text): the sheet and the row stay where they were scrolled.
+  function draw(keep){
+    var sh0=el.querySelector('.sh'), row0=el.querySelector('.row'), top=sh0?sh0.scrollTop:0, left=row0?row0.scrollLeft:0;
     var d=data, big=d.view==='a', it=d.items, h='<div class="dim" data-ys="close"></div>', i;
     el.classList.toggle('big',big);
     if(!big){
@@ -50,7 +64,8 @@ var Yomisashi=(function(){
       h+='</div></div>';
     }
     el.innerHTML=h;
-    if(big){var c=el.querySelector('.bc.cur');if(c)c.scrollIntoView({inline:'center',block:'nearest'});el.querySelectorAll('.bc[data-key]').forEach(sweep);}
+    if(keep){var sh=el.querySelector('.sh'),row=el.querySelector('.row');if(sh)sh.scrollTop=top;if(row)row.scrollLeft=left;}
+    if(big){var c=el.querySelector('.bc.cur');if(c&&!keep)c.scrollIntoView({inline:'center',block:'nearest'});el.querySelectorAll('.bc[data-key]').forEach(sweep);}
   }
   // A: a card follows the finger up past 10 px of give (a tap's drift still opens it); let go past 90 px it goes
   // out of 読みさし. Not the work being read.
@@ -88,6 +103,8 @@ var Yomisashi=(function(){
     el.addEventListener('click',function(ev){
       if(swiped)return;
       var t=ev.target, a=t.closest&&t.closest('[data-ys]'), x=t.closest&&t.closest('[data-drop]'), k=t.closest&&t.closest('[data-key]');
+      // A (large cards): the dark ground around them is outside, as the dim is in C.
+      if(el.classList.contains('big')&&!a&&!x&&!k&&t.closest&&!t.closest('button,.hd')){close();return;}
       if(x){drop(x.dataset.drop);return;}
       if(a){var v=a.dataset.ys;if(v==='close'){close();return;}
         if(v==='check'){if(checking)return;checking=true;note='新着を確認しています…';draw();host.check();return;}
@@ -97,8 +114,7 @@ var Yomisashi=(function(){
     });
   }
   // The check is over: the cards drawn again from the shelf as it now is, in the view open, with what was found.
-  function checked(msg){checking=false;note=msg||'';if(!isOpen())return;var v=data.view,d=null;
-    try{d=JSON.parse(host.list());}catch(e){}
-    if(d&&d.items){d.view=v;data=d;}draw();}
-  return {init:init,open:open,close:close,isOpen:isOpen,checked:checked};
+  function checked(msg){checking=false;note=msg||'';if(!isOpen())return;var v=data.view,d=list(true);
+    if(d){d.view=v;data=d;}draw(true);}
+  return {init:init,open:open,close:close,isOpen:isOpen,checked:checked,failed:failed};
 })();
