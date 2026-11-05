@@ -998,7 +998,7 @@ span.sesame{text-emphasis-position:over right}
     +'</div></div>';
   // As in Kindle, a tap on a menu zone (the middle, as first set: prefs.zones, zoneAt) shows only the bars: the
   // work and its buttons on top, the page bar below. The settings (Aa) and the work's links each open from their button, never from that tap.
-  h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="ykb" class="ic" aria-label="机"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M3,3v8h8V3H3zM9,9H5V5h4V9zM3,13v8h8v-8H3zM9,19H5v-4h4V19zM13,3v8h8V3H13zM19,9h-4V5h4V9zM13,13v8h8v-8H13zM19,19h-4v-4h4V19z"/></svg></button><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
+  h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="ykb" class="ic" aria-label="読みさし"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M3,3v8h8V3H3zM9,9H5V5h4V9zM3,13v8h8v-8H3zM9,19H5v-4h4V19zM13,3v8h8V3H13zM19,9h-4V5h4V9zM13,13v8h8v-8H13zM19,19h-4v-4h4V19z"/></svg></button><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
     +'<div class="botbar"><div class="ephint">数字を長押しすると、話を選べます</div><div class="row bar"><input id="seek" type="range" min="1" value="1"><span id="seekv"></span></div></div>'
     +'<div class="sheet w"><div class="head"></div></div>'+h;
   info.innerHTML=h;
@@ -1190,16 +1190,16 @@ span.sesame{text-emphasis-position:over right}
   function drawYk(){var d=ykData,big=d.view==='a',it=d.items,h='<div class="dim" data-yk="close"></div>',i;
     yk.classList.toggle('big',big);
     if(!big){
-      h+='<div class="sh"><div class="hd"><span class="t">机</span><button data-yk="a">大きく</button><button data-yk="close">閉じる</button></div><div class="grid">';
+      h+='<div class="sh"><div class="hd"><span class="t">読みさし</span><button data-yk="a">大きく</button><button data-yk="close">閉じる</button></div><div class="grid">';
       var n=Math.max(d.max,it.length+it.length%2);
       for(i=0;i<n;i++){var w=it[i];
         if(!w){h+='<div class="empty">空き</div>';continue;}
-        h+='<div class="cd'+(w.current?' cur':'')+'" data-key="'+ykEsc(w.key)+'">'+(w.current?'':'<button class="x" data-drop="'+ykEsc(w.key)+'" aria-label="本棚に戻す">✕</button>')+
+        h+='<div class="cd'+(w.current?' cur':'')+'" data-key="'+ykEsc(w.key)+'">'+(w.current?'':'<button class="x" data-drop="'+ykEsc(w.key)+'" aria-label="読みさしから外す">✕</button>')+
           '<div class="ti">'+ykEsc(w.title)+'</div>'+ykInfo(w)+(w.current?'<div class="now">いま読んでいる</div>':'')+'</div>';}
-      h+='</div><div class="nt">✕ で机から本棚に戻します</div></div>';
+      h+='</div><div class="nt">✕ で読みさしから外します（本棚には残ります）</div></div>';
     }else{
-      h+='<div class="bg"><div class="hd"><span class="t">机</span><button data-yk="c">小さく</button><button data-yk="close">閉じる</button></div>'+
-        '<div class="nt">上に払うと本棚に戻します</div><div class="row">';
+      h+='<div class="bg"><div class="hd"><span class="t">読みさし</span><button data-yk="c">小さく</button><button data-yk="close">閉じる</button></div>'+
+        '<div class="nt">上に払うと読みさしから外します</div><div class="row">';
       if(!it.length)h+='<div class="bc"><div class="su">まだありません</div></div>';
       it.forEach(function(w){h+='<div class="bc'+(w.current?' cur':'')+'" data-key="'+ykEsc(w.key)+'"><div class="vt">'+ykEsc(w.title)+'</div>'+ykInfo(w)+'</div>';});
       h+='</div></div>';

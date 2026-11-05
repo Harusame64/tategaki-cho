@@ -67,7 +67,7 @@ public class ShelfActivity extends ThemedActivity {
         TextView h = text("本棚", 24, fg);
         h.setTypeface(Typeface.DEFAULT_BOLD);
         head.addView(h, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        android.widget.ImageView yk = icon(R.drawable.ic_yomikake, "机");
+        android.widget.ImageView yk = icon(R.drawable.ic_yomikake, "読みさし");
         yk.setOnClickListener(v -> openYomikakeSheet());
         head.addView(yk);
         android.widget.ImageView find = icon(R.drawable.ic_search, "本棚を検索");
@@ -792,7 +792,7 @@ public class ShelfActivity extends ThemedActivity {
         sh.removeAllViews();
         LinearLayout hd = new LinearLayout(this);
         hd.setGravity(Gravity.CENTER_VERTICAL);
-        TextView h = text("机", 17, fg);
+        TextView h = text("読みさし", 17, fg);
         h.setTypeface(Typeface.DEFAULT_BOLD);
         hd.addView(h, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
         TextView close = text("閉じる", 15, fg);
@@ -833,7 +833,7 @@ public class ShelfActivity extends ThemedActivity {
             if (row > 0) lp.topMargin = dp(10);
             grid.addView(line2, lp);
         }
-        TextView nt = text("✕ で机から本棚に戻します", 12, sub);
+        TextView nt = text("✕ で読みさしから外します（本棚には残ります）", 12, sub);
         nt.setPadding(0, dp(12), 0, 0);
         sh.addView(nt);
     }
@@ -881,7 +881,7 @@ public class ShelfActivity extends ThemedActivity {
         f.addView(c, new android.widget.FrameLayout.LayoutParams(-1, -1));
         TextView x = text("✕", 16, sub);
         x.setGravity(Gravity.CENTER);
-        x.setContentDescription("本棚に戻す");
+        x.setContentDescription("読みさしから外す");
         x.setOnClickListener(v -> { Yomikake.drop(this, w.ncode); fillYomikakeSheet(d, sh); });
         f.addView(x, new android.widget.FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP | Gravity.END));
         f.setOnClickListener(v -> { d.dismiss(); openYomikake(w); });
