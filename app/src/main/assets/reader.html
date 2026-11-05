@@ -739,6 +739,9 @@ span.sesame{text-emphasis-position:over right}
   background:transparent;color:var(--fg);font:15px sans-serif;text-align:center;text-decoration:none}
 #end .main{background:var(--link);border-color:var(--link);color:var(--card)}
 #info .topbar .home{font-weight:bold}
+#info .topbar .ic{padding:0;display:flex;align-items:center;justify-content:center}
+#info .topbar .ic svg{display:block}
+
 #toc{display:none;position:fixed;inset:0;background:var(--card);color:var(--fg);writing-mode:horizontal-tb;z-index:10;flex-direction:column;font:15px/1.5 sans-serif}
 #toc.on{display:flex}
 #toc .hd{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
@@ -765,8 +768,8 @@ span.sesame{text-emphasis-position:over right}
 <div id="info"></div>
 <div id="guide"></div>
 <div id="end"><div class="card"><div class="t"></div><div class="a"></div><div class="btns"></div></div></div>
-<div id="toc"><div class="hd"><span class="tt">目次</span><button id="tocx">閉じる</button></div><div class="st"></div><div class="ls"></div></div>
-<script>var INFO=%%INFO%%, START=%%START%%, SHARE=%%SHARE%%, PREFS=%%PREFS%%, AA=%%AA%%;</script><script>
+<div id="ys"></div><div id="toc"><div class="hd"><span class="tt">目次</span><button id="tocx">閉じる</button></div><div class="st"></div><div class="ls"></div></div>
+<link rel="stylesheet" href="yomisashi.css"><script src="themes.js"></script><script src="yomisashi.js"></script><script>var INFO=%%INFO%%, START=%%START%%, SHARE=%%SHARE%%, PREFS=%%PREFS%%, AA=%%AA%%;</script><script>
 (function(){
   var book=document.getElementById('book'), pg=document.getElementById('pg');
   // The page a turn slides in: a copy of the episode scrolled to that page, kept beside the book.
@@ -866,23 +869,13 @@ span.sesame{text-emphasis-position:over right}
     curId=i&&i.id?String(i.id):'';
     var m=!curId&&i&&i.url&&i.url.match(/\/(\d+)\/?$/); curNo=i&&i.no?Number(i.no):m?Number(m[1]):0;
   }
-  // Display settings: the theme and the text size, kept by the app across episodes.
-  // sub (secondary text) is 4.5:1 on bg and card; edge (a button's border) 3:1 on card; line is a quiet rule.
-  var THEMES={
-    kinari:{bg:'#fbf8f1',fg:'#222',sub:'#6b6b6b',card:'#faf8f3',line:'#e4e0d6',edge:'#8f8b81',link:'#1a5fb4'},
-    white:{bg:'#ffffff',fg:'#111',sub:'#6b6b6b',card:'#ffffff',line:'#e2e2e2',edge:'#8f8f8f',link:'#1a5fb4'},
-    sepia:{bg:'#f1e7d0',fg:'#4a3b2a',sub:'#6e5f48',card:'#efe4cb',line:'#d9cbaa',edge:'#8a7a5e',link:'#7a4b12'},
-    dark:{bg:'#1f1f1f',fg:'#d6d2c8',sub:'#9a978f',card:'#2a2a2a',line:'#3a3a3a',edge:'#7a776f',link:'#8ab4f8'},
-    black:{bg:'#000000',fg:'#a8a49a',sub:'#8a867c',card:'#121212',line:'#2a2a2a',edge:'#66635c',link:'#8ab4f8'}};
+  // Display settings: the theme and the text size, kept by the app across episodes. THEMES and FONTS are in themes.js.
   var THEME_ORDER=['kinari','white','sepia','dark','black'];
   var SIZES=[15,17,19,21,23,26,30];
   // 15 and 20: the user's choice (2026-10-26), in both builds; still one episode at a time, spaced out.
   var AHEAD=[1,3,5,15,20];
   var AA_TABS=[['look','見た目'],['touch','操作'],['other','その他']], aaTab='look';   // the tab last open, while this book is
   var LHS=[1.6,1.8,2,2.2];
-  // Two fonts the phone has, two bundled with the app.
-  var FONTS={serif:{n:'明朝',f:'"Noto Serif CJK JP","Noto Serif JP",serif'},sans:{n:'ゴシック',f:'"Noto Sans CJK JP","Noto Sans JP",sans-serif'},
-    bizud:{n:'BIZ UD明朝',f:'"BIZ UDMincho",serif'},shippori:{n:'しっぽり明朝',f:'"Shippori Mincho",serif'}};
   var FONT_ORDER=['serif','sans','bizud','shippori'];
   // The tap zones: the screen in 3 x 3, read row by row from the top left, each n (next page), p (previous page),
   // m (the menu: the bars) or 0 (nothing). The middle column's width and the middle row's height are a share of the
@@ -960,7 +953,7 @@ span.sesame{text-emphasis-position:over right}
     +'</div></div>';
   // As in Kindle, a tap on a menu zone (the middle, as first set: prefs.zones, zoneAt) shows only the bars: the
   // work and its buttons on top, the page bar below. The settings (Aa) and the work's links each open from their button, never from that tap.
-  h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
+  h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="ysb" class="ic" aria-label="読みさし"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M3,3v8h8V3H3zM9,9H5V5h4V9zM3,13v8h8v-8H3zM9,19H5v-4h4V19zM13,3v8h8V3H13zM19,9h-4V5h4V9zM13,13v8h8v-8H13zM19,19h-4v-4h4V19z"/></svg></button><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
     +'<div class="botbar"><div class="ephint">数字を長押しすると、話を選べます</div><div class="row bar"><input id="seek" type="range" min="1" value="1"><span id="seekv"></span></div></div>'
     +'<div class="sheet w"><div class="head"></div></div>'+h;
   info.innerHTML=h;
@@ -1028,6 +1021,7 @@ span.sesame{text-emphasis-position:over right}
       prefs.upright=b.dataset.upright==='1'; markDisp(); save();
       if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1),aaTab); return;
     }
+    if(b.id==='ysb'){toggleInfo(false);Yomisashi.open();return;}
     if(b.id==='tocb'){openToc();return;}
     if(b.id==='homeb'){if(window.Android)Android.shelf();return;}
     if(b.id==='workb'||b.id==='dispb'){var k=b.id==='workb'?'work':'disp';var o=info.classList.contains(k);
@@ -1137,6 +1131,10 @@ span.sesame{text-emphasis-position:over right}
   seekv.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientX-holdX)>10||Math.abs(e.touches[0].clientY-holdY)>10)unhold();},{passive:true});
   ['touchend','touchcancel'].forEach(function(t){seekv.addEventListener(t,unhold,{passive:true});});
   seekv.addEventListener('contextmenu',function(e){e.preventDefault();});
+
+  // 読みさし (yomisashi.js), from the bar's icon: a card opens another work where it was left, without the shelf.
+  var ys=document.getElementById('ys');
+  Yomisashi.init(ys,window.YS?YS:{list:function(){return '{}';},texts:function(){},open:function(){},drop:function(){},view:function(){},check:function(){},closed:function(){}});
   var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0, tocPast=true, tocSec=null;
   function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocPast=true;tocSec=null;tocLs.innerHTML='';tocSt.textContent='目次を読み込み中…';
     if(window.Android)Android.toc();}
@@ -1233,7 +1231,9 @@ span.sesame{text-emphasis-position:over right}
   }
   function owned(list){for(var i=0;i<list.length;i++)if(list[i].identifier===own)return list[i];return null;}
   document.addEventListener('touchstart',function(e){
-    if(busy||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on')){x0=null;own=null;return;}
+    // Not under anything open (anyOverlay, the one list): a tap on 読みさし's cards once turned the page beneath, as
+    // this list had been kept by hand in four places and one missed it.
+    if(busy||anyOverlay()){x0=null;own=null;return;}
     // Fingers down besides this one, on the same half of the screen, not taken for a base (see thumbBase).
     function others(t){var n=0,left=t.clientX<window.innerWidth/2;for(var j=0;j<e.touches.length;j++){var o=e.touches[j];
       if(o.identifier!==t.identifier&&!based[o.identifier]&&(o.clientX<window.innerWidth/2)===left)n++;}return n;}
@@ -1264,7 +1264,7 @@ span.sesame{text-emphasis-position:over right}
     for(var k=0;k<e.changedTouches.length;k++)delete based[e.changedTouches[k].identifier];
     if(x0===null)return;
     var t=owned(e.changedTouches); if(!t)return;                    // another finger let go: not the gesture's
-    if(info.classList.contains('on')||guide.classList.contains('on')){x0=null;own=null;return;}
+    if(anyOverlay()){x0=null;own=null;return;}
     var x=t.clientX;
     if(dir){
       var go2=Math.abs(drag)>window.innerWidth*0.2||(dir*vx>0.5&&Math.abs(drag)>20);
@@ -1367,8 +1367,10 @@ span.sesame{text-emphasis-position:over right}
   });
   // A key (the volume keys) turns only the page in view: not under the bars, the 目次 or the end card.
   // Back (from the app) closes what is open; the app is told when anything opens or closes.
-  function anyOverlay(){return guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on');}
+  // What is open over the page: the page takes no touch or key under any of these (the one list; review).
+  function anyOverlay(){return Yomisashi.isOpen()||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on');}
   function closeOverlays(){
+    Yomisashi.close();
     if(toc.classList.contains('on')){toc.classList.remove('on');delete toc.dataset.scrolled;if(window.Android)Android.tocClosed();}
     info.classList.remove('on','work','disp');endEl.classList.remove('on');closeGuide();tellOverlay();unpull();
   }
@@ -1377,7 +1379,7 @@ span.sesame{text-emphasis-position:over right}
   new MutationObserver(tellOverlay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
   // Not during a swipe: a key then turned the page under it, and the swipe turned past the page beside it, never
   // shown (review on 0.1.6).
-  function key(d){if((x0!==null&&dir)||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on'))return;turn(d);}
+  function key(d){if((x0!==null&&dir)||anyOverlay())return;turn(d);}
   window.__reader={swap:swap,end:end,key:key,closeOverlays:closeOverlays,go:go,cur:cur,pages:pages,turn:turn,ticks:function(){return ticks;},vol:function(){return prefs.vol&&!info.classList.contains('on')&&!guide.classList.contains('on');},toc:renderToc};
   function start(){if(window.Android)Android.overlay(false);layout();starting=false;if(!prefs.guided)showGuide();go(SHARE>=0?Math.round(SHARE*(pages()-1)):START<0?pages()-1:START);
     // Reloaded for 空行, 字下げ or 英字: Aa as it was, on its tab, to go on choosing.

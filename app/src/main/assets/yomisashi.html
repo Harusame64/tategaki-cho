@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<link rel="stylesheet" href="yomisashi.css">
+<style>
+@font-face{font-family:"BIZ UDMincho";src:url("fonts/BIZUDMincho-Regular.ttf")}
+@font-face{font-family:"Shippori Mincho";src:url("fonts/ShipporiMincho-Regular.ttf")}
+html,body{margin:0;background:transparent}
+</style>
+<script src="themes.js"></script><script src="yomisashi.js"></script>
+</head><body>
+<!-- 読みさし over the shelf (YomisashiOverlay): the same sheet as in the reader, in the reader's theme. -->
+<div id="ys"></div>
+<script>
+(function(){
+  var r=document.documentElement.style;
+  // The reader's theme and font, given by the app each time the sheet is shown (they may change while reading).
+  window.__look=function(theme,font){var t=THEMES[theme]||THEMES.kinari;for(var k in t)r.setProperty('--'+k,t[k]);
+    r.setProperty('--ff',(FONTS[font]||FONTS.serif).f);};
+  // Clear of the navigation and status bars: the app gives their heights (CSS px) as it learns them.
+  window.__nav=function(b,t){r.setProperty('--nb',b+'px');r.setProperty('--nt',t+'px');};
+  __look('kinari','serif');
+  Yomisashi.init(document.getElementById('ys'),YS);
+})();
+</script>
+</body></html>

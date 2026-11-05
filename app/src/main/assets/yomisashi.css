@@ -1,0 +1,43 @@
+/* 読みさし (yomisashi.js): the same in the reader and over the shelf. The colours are the theme's (themes.js). */
+#ys{display:none;position:fixed;inset:0;z-index:10;writing-mode:horizontal-tb;font:15px/1.5 sans-serif;color:var(--fg)}
+#ys.on{display:block}
+#ys .dim{position:absolute;inset:0;background:rgba(0,0,0,.32)}
+#ys.big .dim{background:#3b3832}
+#ys button{font:15px sans-serif;border:1px solid var(--edge);border-radius:6px;background:transparent;color:var(--fg);min-width:48px;min-height:48px;padding:4px 10px;white-space:nowrap}
+#ys .hd{display:flex;align-items:center;gap:8px;margin:4px 0 12px}
+#ys .hd .t{flex:1;font-size:17px;font-weight:bold}
+#ys .sh .hd{position:sticky;top:-10px;z-index:1;background:var(--card);margin:-10px 0 12px;padding:10px 0 0}
+#ys .nt{font-size:12px;color:var(--sub);margin-top:12px}
+#ys .sh{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:18px 18px 0 0;box-shadow:0 -2px 10px rgba(0,0,0,.25);padding:10px 16px calc(22px + var(--nb,0px));max-height:88%;overflow-y:auto;box-sizing:border-box}
+#ys .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#ys .cd{position:relative;border:1px solid var(--line);border-radius:12px;padding:12px 12px 10px;min-height:108px;background:var(--bg);box-sizing:border-box}
+#ys .cd.cur{border:2px solid var(--link)}
+#ys .cd .ti{font-weight:bold;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding-right:30px}
+#ys .cd .su{font-size:12px;color:var(--sub);margin-top:4px}
+#ys .ex{font-size:11px;line-height:1.45;height:4.35em;color:var(--sub);margin-top:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#ys .bc .ex{font-size:13px;height:5.8em;-webkit-line-clamp:4}
+#ys .nw{display:inline-block;margin-top:6px;font-size:11px;color:#fff;background:var(--link);border-radius:9px;padding:0 7px}
+#ys .pr{height:3px;background:var(--line);border-radius:2px;margin-top:8px}
+#ys .pr i{display:block;height:3px;background:var(--link);border-radius:2px}
+#ys .cd .x{position:absolute;top:0;right:0;border:0;min-width:44px;min-height:44px;color:var(--sub);font-size:16px;padding:0}
+#ys .cd .now{font-size:11px;color:var(--link);font-weight:bold;margin-top:6px}
+#ys .empty{border:1px dashed var(--line);border-radius:12px;min-height:108px;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:12px}
+#ys .bg{position:absolute;inset:0;display:flex;flex-direction:column;padding:calc(12px + var(--nt,0px)) 0 var(--nb,0px);box-sizing:border-box}
+#ys .bg .hd{padding:0 16px;color:#fbf8f1}
+#ys .bg button{color:#fbf8f1;border-color:#8f8b81}
+#ys .bg .nt{color:#e4e0d6;text-align:center;margin:0 0 18px}
+#ys .row{flex:1;display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;padding:8px 14% 18px;align-items:center;box-sizing:border-box}
+#ys .bc{flex:0 0 72%;height:86%;scroll-snap-align:center;background:var(--bg);color:var(--fg);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.45);
+  position:relative;display:flex;flex-direction:column;padding:22px 18px 18px;box-sizing:border-box;touch-action:pan-x;will-change:transform}
+#ys .bc.cur{outline:3px solid var(--link);outline-offset:3px}
+#ys .bc .vt{flex:1;writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;font-family:var(--ff);font-size:24px;font-weight:600;line-height:1.5;overflow:hidden;align-self:flex-end}
+#ys .bc .su{font-size:13px;color:var(--sub);margin-top:10px}
+#ys .ck{display:flex;align-items:center;justify-content:center;padding:0;border-color:transparent}
+#ys .ck[disabled]{opacity:.45}
+#ys .said{font-size:12px;color:var(--sub);margin:-4px 0 10px}
+#ys .bg .said{color:#e4e0d6;text-align:center;margin:0 0 6px}
+/* Not wider than the app's other screens (ThemedActivity.sidePad: 720dp) on a tablet, centred; the large cards at
+   most 420px (A25 matrix, 2026-11-05). The 新着 tag keeps its own width in a large card (it stretched across it). */
+#ys .sh{margin:0 auto;max-width:720px}
+#ys .bc{max-width:420px}
+#ys .bc .nw{align-self:flex-start}

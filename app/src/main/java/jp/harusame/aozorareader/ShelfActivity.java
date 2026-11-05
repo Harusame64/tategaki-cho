@@ -67,6 +67,9 @@ public class ShelfActivity extends ThemedActivity {
         TextView h = text("本棚", 24, fg);
         h.setTypeface(Typeface.DEFAULT_BOLD);
         head.addView(h, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        android.widget.ImageView ys = icon(R.drawable.ic_yomisashi, "読みさし");
+        ys.setOnClickListener(v -> yomisashi().show());
+        head.addView(ys);
         android.widget.ImageView find = icon(R.drawable.ic_search, "本棚を検索");
         find.setOnClickListener(v -> {
             boolean on = filter.getVisibility() != View.VISIBLE;
@@ -182,6 +185,19 @@ public class ShelfActivity extends ThemedActivity {
         handleShare(intent);
     }
 
+    /** 読みさし over the shelf, from the toolbar's icon; made by {@link #yomisashi()} */
+    YomisashiOverlay yomisashi;
+
+    YomisashiOverlay yomisashi() {
+        if (yomisashi == null && !isDestroyed())
+            yomisashi = new YomisashiOverlay(this, BG, () -> ReaderActivity.run(work, () -> {
+                Shelf s = Shelf.load(this);
+                if (resumed) CheckWorker.clearNews(this);                  // as the shelf's own check: its news is seen
+                runOnUiThread(() -> { shelf = s; render(); });
+            }));
+        return yomisashi;
+    }
+
     /** the shelf is in front (between onResume and onPause) */
     volatile boolean resumed;
 
@@ -189,6 +205,7 @@ public class ShelfActivity extends ThemedActivity {
     protected void onPause() {
         resumed = false;
         FullSave.listener = null;
+        if (yomisashi != null) yomisashi.close();                          // a card opened its work, or the app went
         super.onPause();
     }
 
@@ -196,6 +213,10 @@ public class ShelfActivity extends ThemedActivity {
     protected void onResume() {
         super.onResume();
         resumed = true;
+        opening.set(false);
+        // 読みさし's page is loaded once the shelf is drawn and the app is idle, so the icon shows it at once without
+        // the WebView's start-up delaying the shelf's first frame (review); dropped again in onStop.
+        android.os.Looper.myQueue().addIdleHandler(() -> { if (resumed) yomisashi(); return false; });
         FullSave.listener = this::showSaving;
         // Not while a shared page is being added, nor once right after: that add has just asked the site. Decided
         // here, when the shelf comes forward, not when the worker gets to it (the add may be over by then).
@@ -209,9 +230,17 @@ public class ShelfActivity extends ThemedActivity {
         });
     }
 
+    /** Out of sight (a reader in front, say): 読みさし's page is not kept in memory behind it (review). */
+    @Override
+    protected void onStop() {
+        if (yomisashi != null) { yomisashi.destroy(); yomisashi = null; }
+        super.onStop();
+    }
+
     @Override
     protected void onDestroy() {
         work.shutdown();                                                // no interrupt: a worker may be reading the shelf
+        if (yomisashi != null) yomisashi.destroy();
         super.onDestroy();
     }
 
@@ -345,13 +374,12 @@ public class ShelfActivity extends ThemedActivity {
             String msg;
             try {
                 List<Shelf.Work> gone = s.refresh(new ArrayList<>(s.works), this);
-                msg = gone.isEmpty() ? null : gone.size() + " 作品が見つかりません（削除か非公開）"
-                        + (Shelf.DROP_GONE ? "。1日たっても見つからなければ、保存した話を消します" : "");
+                msg = gone.isEmpty() ? null : Shelf.goneMessage(gone.size());
                 // The shelf shows this check's news itself (also one a background round finished meanwhile),
                 // when it is in front to show it.
                 if (resumed) CheckWorker.clearNews(this);
             } catch (Exception e) {
-                msg = asked ? "確認できませんでした（" + e.getMessage() + "）" : null;
+                msg = asked ? Shelf.checkFailedMessage(e) : null;
             }
             String m = msg;
             runOnUiThread(() -> {
@@ -786,24 +814,13 @@ public class ShelfActivity extends ThemedActivity {
         return box;
     }
 
+    /** a work is being opened: a second tap (a double tap on a row or on 続きを読む) does nothing; reset on resume */
+    final java.util.concurrent.atomic.AtomicBoolean opening = new java.util.concurrent.atomic.AtomicBoolean();
+
     /** Opens a work where it was left; its new episodes count as seen. Not queued behind a check. */
     void open(Shelf.Work w) {
-        BG.execute(() -> {
-            try {
-                Shelf s = Shelf.update(this, sh -> {
-                    Shelf.Work cur = sh.find(w.ncode);
-                    if (cur == null) return;
-                    cur.seen = cur.episodes;
-                    if (Shelf.isKakuyomu(cur.ncode)) KakuyomuSite.seeAll(this, cur);
-                });
-                Shelf.Work cur = s.find(w.ncode);
-                if (cur == null) return;
-                runOnUiThread(() -> startActivity(new Intent(this, ReaderActivity.class)
-                        .putExtra("url", cur.startUrl()).putExtra("page", cur.lastPage).putExtra("pages", cur.lastPages)));
-            } catch (Exception e) {
-                Log.e(Shelf.TAG, "open", e);
-            }
-        });
+        if (!opening.compareAndSet(false, true)) return;
+        BG.execute(() -> { if (!Yomisashi.open(this, w.ncode, false, null, null)) opening.set(false); });
     }
 
     /** Long press: share the work (LINE, X, …), open its page, or take it off the shelf. */
