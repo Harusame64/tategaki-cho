@@ -6,6 +6,7 @@ Tategaki-cho is a reader for Japanese web novels in vertical text (tategaki). Ep
 <li>Turn pages by tapping or swiping, or with the volume keys. What a tap does can be set for each of nine areas of the screen.</li>
 <li>A slider moves within an episode, or to another episode.</li>
 <li>Five background colours, four typefaces, and adjustable text size, line spacing and margins. Blank lines between paragraphs can be tightened, and paragraphs without an indent can be indented.</li>
+<li>読みさし (yomisashi): a list of up to twenty recently read works that you can switch between without going back to the shelf.</li>
 </ul>
 
 <b>Your shelf</b>

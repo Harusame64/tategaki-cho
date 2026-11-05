@@ -1,0 +1,1 @@
+Added 読みさし (yomisashi), a list of up to twenty recently read works that you can switch between without going back to the shelf. Open it from the icon on the reader's top bar or at the top right of the shelf.
