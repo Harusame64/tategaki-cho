@@ -38,6 +38,11 @@ final class YomisashiBridge {
     private final Runnable checked, closed;
     /** A work is being opened: a second open (another tap, a sheet shown again meanwhile) does nothing. */
     private final AtomicBoolean opening = new AtomicBoolean();
+    /**
+     * Which open is the one wanted: each open takes the next number, and a close moves it on, so an open called off
+     * stays off even when the sheet is shown again and another card tapped before it got its turn (codex).
+     */
+    private final java.util.concurrent.atomic.AtomicInteger generation = new java.util.concurrent.atomic.AtomicInteger();
 
     /**
      * @param current the work being read (its card only closes the sheet), or null
@@ -54,7 +59,7 @@ final class YomisashiBridge {
     }
 
     /** The sheet is gone (hidden, or the screen left): a work may be opened again. */
-    void reset() { opening.set(false); }
+    void reset() { generation.incrementAndGet(); opening.set(false); }
 
     /** Runs a script in the page on the UI thread, if the screen is still there. */
     private void js(String script, Runnable after) {
@@ -99,10 +104,11 @@ final class YomisashiBridge {
     @JavascriptInterface
     public void open(String key) {
         if (!opening.compareAndSet(false, true)) return;
+        int mine = generation.incrementAndGet();
         WeakReference<YomisashiBridge> me = new WeakReference<>(this);
-        opener.open(key, opening::get, () -> {
+        opener.open(key, () -> generation.get() == mine, () -> {
             YomisashiBridge b = me.get();
-            if (b == null) return;
+            if (b == null || b.generation.get() != mine) return;
             b.opening.set(false);
             b.js("window.Yomisashi&&Yomisashi.failed()", null);
         });

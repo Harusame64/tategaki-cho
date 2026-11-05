@@ -142,6 +142,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | W3b | Two clicks on a card before the switch is done open one reader, not two stacked | twoQuickTapsOpenOneReader |
 | W3c | A card tapped, then the sheet closed before the work came up: nothing opens | aSheetClosedAfterATapOpensNothing |
 | W3d | An open called off leaves the work's 新着 as it was; an open that happens counts them as seen | onlyAnOpenThatHappensCountsTheNewAsSeen |
+| W3e | A card tapped, the sheet closed, shown again and another card tapped before the first open had its turn: only the second work opens | anOpenCalledOffStaysOffWhenAnotherIsTapped |
 | W4 | A tap on the work being read, 閉じる and Back only close it; none turns the page or closes the reader | theCurrentCardCloseAndBackOnlyClose |
 | W5 | Pulled down from its top past a third of its height the sheet closes; a short pull slides back | aPullDownClosesTheSheet |
 | W5e | A pull on the sheet that a second finger ends leaves taps working | aPullEndedByASecondFingerLeavesTapsWorking |

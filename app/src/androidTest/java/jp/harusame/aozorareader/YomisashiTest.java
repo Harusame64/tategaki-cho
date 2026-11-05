@@ -282,6 +282,38 @@ public class YomisashiTest {
         assertTrue(E2E.js(a, "INFO.url"), E2E.js(a, "INFO.url").contains(E2E.NCODE + "/1/"));
     }
 
+    /**
+     * W3e: a card tapped, the sheet closed, shown again and another card tapped, all before the first open had its
+     * turn: only the second work opens.
+     */
+    @Test
+    public void anOpenCalledOffStaysOffWhenAnotherIsTapped() throws Exception {
+        long now = System.currentTimeMillis();
+        seed(E2E.NCODE, E2E.TITLE, 3, 1, 2, 0, now - 1000);
+        seed(OTHER, "もう一つの作品", 3, 2, 1, 0, now - 2000);
+        seed("n9996zz", "三つめの作品", 3, 1, 0, 0, now - 3000);
+        Activity a = reader(E2E.NCODE, 1, 2);
+        java.util.concurrent.CountDownLatch hold = new java.util.concurrent.CountDownLatch(1);
+        ((ReaderActivity) a).saver.execute(() -> { try { hold.await(); } catch (InterruptedException ignored) { } });
+        openFromBar(a);
+        E2E.js(a, "document.querySelector('#ys .cd[data-key=\"" + OTHER + "\"] .ti').click()");
+        E2E.js(a, "Yomisashi.close()");
+        SystemClock.sleep(300);
+        E2E.js(a, "Yomisashi.open()");
+        E2E.waitFor(a, "document.querySelectorAll('#ys .cd').length>0", "true");
+        E2E.js(a, "document.querySelector('#ys .cd[data-key=\"n9996zz\"] .ti').click()");
+        SystemClock.sleep(300);
+        hold.countDown();
+        Activity b = ShelfFlowTest.resumed(ReaderActivity.class);
+        E2E.waitUntil(() -> b != a || a.isFinishing(), "a reader opens");
+        Activity c = ShelfFlowTest.resumed(ReaderActivity.class);
+        E2E.waitReady(c);
+        assertTrue(E2E.js(c, "INFO.url"), E2E.js(c, "INFO.url").contains("n9996zz/1/"));
+        SystemClock.sleep(1500);
+        assertTrue(E2E.js(ShelfFlowTest.resumed(ReaderActivity.class), "INFO.url"),
+                E2E.js(ShelfFlowTest.resumed(ReaderActivity.class), "INFO.url").contains("n9996zz/1/"));
+    }
+
     /** W3d: an open called off leaves the work's 新着 as it was; an open that happens counts them as seen. */
     @Test
     public void onlyAnOpenThatHappensCountsTheNewAsSeen() throws Exception {
