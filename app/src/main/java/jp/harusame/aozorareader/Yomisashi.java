@@ -101,7 +101,7 @@ final class Yomisashi {
 
     private static final java.util.regex.Pattern PARA = java.util.regex.Pattern.compile("<p[^>]*>(.*?)</p>", java.util.regex.Pattern.DOTALL);
     /** Where a site's page has its text: なろう's js-novel-text, カクヨム's widget-episodeBody. */
-    private static final java.util.regex.Pattern BODY = java.util.regex.Pattern.compile("class=\"[^\"]*\\b(js-novel-text|widget-episodeBody)\\b");
+    private static final java.util.regex.Pattern BODY = java.util.regex.Pattern.compile("class=\"(?:[^\"]* )?(?:js-novel-text|widget-episodeBody)[ \"]");
 
     /**
      * A few lines of the text where the work was left, to tell the cards apart at a glance (the user: the cards'
