@@ -118,7 +118,13 @@ final class YomisashiOverlay {
         a.getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(back);
     }
 
-    void destroy() { web.destroy(); }
+    /** Gone with the shelf out of sight: its page is not kept behind the reader (made again on return). */
+    void destroy() {
+        hide();
+        android.view.ViewParent p = web.getParent();
+        if (p instanceof ViewGroup) ((ViewGroup) p).removeView(web);
+        web.destroy();
+    }
 
     /** {theme, font} of the reader. */
     private String[] look() {

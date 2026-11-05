@@ -166,9 +166,6 @@ public class ShelfActivity extends ThemedActivity {
         root.addView(status, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         sv.addView(root);
         setContentWithTabs(sv, TAB_SHELF);
-        // 読みさし's page is loaded once the shelf is drawn and the app is idle, so the icon shows it at once without
-        // the WebView's start-up delaying the shelf's first frame (review).
-        android.os.Looper.myQueue().addIdleHandler(() -> { yomisashi(); return false; });
         shelf = Shelf.load(this);
         // The background check as the settings say (they may have come back with a backup, without the schedule).
         CheckWorker.apply(this);
@@ -217,6 +214,9 @@ public class ShelfActivity extends ThemedActivity {
         super.onResume();
         resumed = true;
         opening.set(false);
+        // 読みさし's page is loaded once the shelf is drawn and the app is idle, so the icon shows it at once without
+        // the WebView's start-up delaying the shelf's first frame (review); dropped again in onStop.
+        android.os.Looper.myQueue().addIdleHandler(() -> { if (resumed) yomisashi(); return false; });
         FullSave.listener = this::showSaving;
         // Not while a shared page is being added, nor once right after: that add has just asked the site. Decided
         // here, when the shelf comes forward, not when the worker gets to it (the add may be over by then).
@@ -228,6 +228,13 @@ public class ShelfActivity extends ThemedActivity {
             runOnUiThread(() -> { shelf = s; render(); });
             if (System.currentTimeMillis() - s.checked > CHECK_EVERY_MS && !skip) refresh(false);
         });
+    }
+
+    /** Out of sight (a reader in front, say): 読みさし's page is not kept in memory behind it (review). */
+    @Override
+    protected void onStop() {
+        if (yomisashi != null) { yomisashi.destroy(); yomisashi = null; }
+        super.onStop();
     }
 
     @Override

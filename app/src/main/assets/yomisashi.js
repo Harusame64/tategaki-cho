@@ -33,7 +33,8 @@ var Yomisashi=(function(){
   // moves (a tap landing as the cards were replaced, or as the sheet grew taller, missed what it aimed at).
   function gotTexts(json){if(!isOpen())return;var d=null;try{d=JSON.parse(json);}catch(e){}if(!d||!d.items)return;var by={};
     d.items.forEach(function(w){by[w.key]=w.text;});
-    data.items.forEach(function(w){if(!by[w.key]||w.text)return;w.text=by[w.key];
+    // The latest answer wins (they come in order, one reading thread): after ⟳ a card may open somewhere new.
+    data.items.forEach(function(w){if(by[w.key]===undefined)return;w.text=by[w.key];
       el.querySelectorAll('[data-key]').forEach(function(c){if(c.dataset.key!==w.key)return;
         var ex=c.querySelector('.ex');if(ex)ex.textContent=w.text;});});}
   // The work could not be opened (taken off the shelf meanwhile, say): its card comes back, and the others take taps.
@@ -85,6 +86,8 @@ var Yomisashi=(function(){
   // C: the sheet pulled down from its top. Not once scrolled, so a scroll never ends in a close.
   function pull(){var sh=null,y0=null,dy=0;
     function back(){if(!sh)return;sh.style.transition='transform 150ms ease-out';sh.style.transform='';}
+    // Every way a gesture ends lets taps through again (a second finger, or a scroll, ended a pull with swiped set).
+    el.addEventListener('touchend',function(e){if(!e.touches.length)setTimeout(function(){swiped=false;},50);},{passive:true});
     el.addEventListener('touchstart',function(e){
       if(e.touches.length!==1){if(y0!==null)back();y0=null;dy=0;return;}
       sh=e.target.closest&&e.target.closest('.sh');y0=sh&&sh.scrollTop<=0?e.touches[0].clientY:null;dy=0;if(sh)sh.style.transition='';},{passive:true});

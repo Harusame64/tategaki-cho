@@ -157,6 +157,10 @@ public class YomisashiTest {
         assertEquals("本文の20段落。", text);
         // Character references once each, numbers too.
         assertEquals("&lt;\u3000\u2015\u2026", Yomisashi.unescape("&amp;lt;&#12288;&#x2015;&hellip;"));
+        // Cut at about ninety, never through a character outside the BMP (𠮟, an emoji).
+        String long89 = new String(new char[89]).replace('\0', 'あ') + "\uD842\uDF9F" + "いいい";
+        String cut = Yomisashi.excerptAt("<p>" + long89 + "</p>", 0);
+        assertFalse(cut, Character.isHighSurrogate(cut.charAt(cut.length() - 1)));
         Shelf.update(E2E.ctx(), s -> s.find(E2E.NCODE).lastPage = 0);
         assertTrue(item(E2E.NCODE).getString("text"), item(E2E.NCODE).getString("text").startsWith("本文の1段落。"));
     }
@@ -316,6 +320,24 @@ public class YomisashiTest {
         Activity b = ShelfFlowTest.resumed(ReaderActivity.class);
         E2E.waitReady(b);
         assertTrue(E2E.js(b, "INFO.url"), E2E.js(b, "INFO.url").contains(OTHER + "/2/"));
+    }
+
+    /** W5e: a pull on the sheet that a second finger ends leaves taps working (it left them all ignored). */
+    @Test
+    public void aPullEndedByASecondFingerLeavesTapsWorking() throws Exception {
+        long now = System.currentTimeMillis();
+        seed(E2E.NCODE, E2E.TITLE, 3, 1, 2, 0, now - 1000);
+        seed(OTHER, "もう一つの作品", 3, 2, 1, 0, now - 2000);
+        Activity a = reader(E2E.NCODE, 1, 2);
+        openFromBar(a);
+        E2E.js(a, "(function(){var c=document.querySelector('#ys .sh .hd .t');"
+                + "function t(id,y){return new Touch({identifier:id,target:c,clientX:100,clientY:y});}"
+                + "function E(type,touches,changed){c.dispatchEvent(new TouchEvent(type,{touches:touches,changedTouches:changed,bubbles:true}));}"
+                + "var a=t(1,300),a2=t(1,340),b=t(2,500);"
+                + "E('touchstart',[a],[a]);E('touchmove',[a2],[a2]);E('touchstart',[a2,b],[b]);E('touchend',[a2],[b]);E('touchend',[],[a2]);})()");
+        SystemClock.sleep(300);
+        E2E.js(a, "document.querySelector('#ys .cd[data-key=\"" + OTHER + "\"] .ti').click()");
+        E2E.waitUntil(() -> a.isFinishing() || a.isDestroyed(), "the card took the tap and opened its work");
     }
 
     /** W5b: on a large card, a tap whose finger drifts a few px up still opens the work (it is not a sweep). */
@@ -503,8 +525,15 @@ public class YomisashiTest {
         E2E.waitReady(b);
         assertTrue(E2E.js(b, "INFO.url"), E2E.js(b, "INFO.url").contains(OTHER + "/2/"));
         assertEquals(1, E2E.num(b, "__reader.cur()"));
-        AtomicReference<Boolean> shown = new AtomicReference<>();
-        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> shown.set(s.yomisashi.shown()));
-        assertFalse("gone from over the shelf", shown.get());
+        AtomicReference<Boolean> gone = new AtomicReference<>();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> gone.set(s.yomisashi == null || !s.yomisashi.shown()));
+        assertTrue("gone from over the shelf", gone.get());
+        // Back to the shelf: its page was dropped behind the reader and is made again; the icon shows it.
+        b.finish();
+        ShelfFlowTest.resumed(ShelfActivity.class);
+        UiObject2 again = d.wait(Until.findObject(By.desc("読みさし")), 10_000);
+        E2E.waitUntil(() -> { YomisashiOverlay o = s.yomisashi; return o != null && "true".equals(E2E.js(o.web(), "typeof Yomisashi==='object'")); }, "made again");
+        again.click();
+        E2E.waitUntil(() -> "2".equals(E2E.js(s.yomisashi.web(), "document.querySelectorAll('#ys .cd').length")), "shown again");
     }
 }

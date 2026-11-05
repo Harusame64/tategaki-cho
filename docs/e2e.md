@@ -136,16 +136,17 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | W1b | With many works, ✕ on a card far down, and ⟳, leave the sheet scrolled where it was; a failed check says what the shelf's says | takingOneOutKeepsTheSheetScrolled |
 | W1c | The time a work was taken out is forgotten once it is read again or gone from the shelf | theTimesTakenOutAreForgottenWhenNoLongerNeeded |
 | W2 | A card shows a few lines where it opens, from the kept text without ruby readings (なろう, カクヨム by episode id); past the last page of an older episode it opens the next one, says so and marks 新着; nothing is fetched | aCardShowsTheTextWhereItOpens |
-| W2b | A card's text is the episode's own: not the 前書き before it, nor the 後書き, the site's footer or an icon's `<path>` after it; character references are read once each, numbers too | aCardsTextIsTheEpisodesOwn |
+| W2b | A card's text is the episode's own: not the 前書き before it, nor the 後書き, the site's footer or an icon's `<path>` after it; character references are read once each, numbers too; the cut never splits a character outside the BMP | aCardsTextIsTheEpisodesOwn |
 | W2c | The cards' text comes in after they are drawn and moves nothing: ⟳ in the heading stays where it was | theTextComingInMovesNothing |
 | W3 | From the reader, a real tap on another work's card (on the right, under the page-back zone) opens it where it was left, and the place in the work left does not move | aCardSwitchesWorksAndLeavesThePlaceAlone |
 | W3b | Two clicks on a card before the switch is done open one reader, not two stacked | twoQuickTapsOpenOneReader |
 | W4 | A tap on the work being read, 閉じる and Back only close it; none turns the page or closes the reader | theCurrentCardCloseAndBackOnlyClose |
 | W5 | Pulled down from its top past a third of its height the sheet closes; a short pull slides back | aPullDownClosesTheSheet |
+| W5e | A pull on the sheet that a second finger ends leaves taps working | aPullEndedByASecondFingerLeavesTapsWorking |
 | W5b | On a large card, a tap whose finger drifts a few px up still opens the work | aTapThatDriftsStillOpensALargeCard |
 | W5c | A sweep the system takes away (touchcancel) puts the card back and the next tap is taken | aCancelledSweepLeavesTapsWorking |
 | W5d | In the large view, a tap on the dark ground around the cards closes it; the heading does not | aTapAroundTheLargeCardsCloses |
-| W6 | Over the shelf, the toolbar's icon shows it (no work marked as being read); Back hides it and leaves the shelf; a card opens the work where it was left and the overlay goes | overTheShelfTheIconShowsItAndACardOpensTheWork |
+| W6 | Over the shelf, the toolbar's icon shows it (no work marked as being read); Back hides it and leaves the shelf; a card opens the work where it was left and the overlay goes; back on the shelf it is made again and shows | overTheShelfTheIconShowsItAndACardOpensTheWork |
 | W7 | ⟳ runs the shelf's check: the card then says a newer episode is out, 新着 is marked and the result is said; opening the sheet asked nothing | theRefreshButtonFindsANewEpisode |
 | W7b | ⟳ over the shelf does the same, and the shelf behind it shows the news | theRefreshButtonOverTheShelfUpdatesTheShelf |
 | W8 | A card whose work has gone from the shelf meanwhile says 開けませんでした, and another card still opens | aCardThatCannotOpenLeavesTheOthersWorking |

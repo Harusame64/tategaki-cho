@@ -167,11 +167,14 @@ final class Yomisashi {
         }
     }
 
-    /** A 青空文庫 book's sections, read once while the file is unchanged: a whole book, for one section (review). */
+    /**
+     * The last 青空文庫 book's sections, read once while the file is unchanged: a whole book for one section, each
+     * time the place moved (review). One book only, as it is kept in memory until another comes.
+     */
     private static final java.util.Map<String, JSONArray> SECTIONS = java.util.Collections.synchronizedMap(
             new java.util.LinkedHashMap<String, JSONArray>(4, 0.75f, true) {
                 @Override
-                protected boolean removeEldestEntry(java.util.Map.Entry<String, JSONArray> e) { return size() > 3; }
+                protected boolean removeEldestEntry(java.util.Map.Entry<String, JSONArray> e) { return size() > 1; }
             });
 
     private static JSONArray sections(java.io.File f) throws Exception {
@@ -254,7 +257,10 @@ final class Yomisashi {
             if (b.length() > 0) b.append('\u3000');
             b.append(ps.get(i));
         }
-        return b.length() > 90 ? b.substring(0, 90) : b.toString();
+        if (b.length() <= 90) return b.toString();
+        int cut = 90;
+        if (Character.isHighSurrogate(b.charAt(cut - 1))) cut--;              // not half of 𠮟 or an emoji (review)
+        return b.substring(0, cut);
     }
 
     /**
