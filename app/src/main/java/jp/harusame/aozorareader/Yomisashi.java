@@ -299,14 +299,17 @@ final class Yomisashi {
                 if (then != null) then.run();
                 // Its new episodes count as seen once it is opened, not before: an open called off (the sheet closed
                 // on its way) left its 新着 cleared (review).
+                // Only the episodes there were when it was opened: a check landing in between may have found more,
+                // and those stay new (codex).
                 android.content.Context c = a.getApplicationContext();
+                int known = w.episodes;
                 SEEN.execute(() -> {
                     try {
                         Shelf.update(c, sh -> {
                             Shelf.Work cur = sh.find(key);
                             if (cur == null) return;
-                            cur.seen = cur.episodes;
-                            if (Shelf.isKakuyomu(cur.ncode)) KakuyomuSite.seeAll(c, cur);
+                            cur.seen = Math.max(cur.seen, Math.min(cur.episodes, known));
+                            if (Shelf.isKakuyomu(cur.ncode) && cur.episodes == known) KakuyomuSite.seeAll(c, cur);
                         });
                     } catch (Exception e) {
                         android.util.Log.w(Shelf.TAG, "seen", e);
@@ -320,8 +323,8 @@ final class Yomisashi {
         }
     }
 
-    /** Marks a work opened as seen, off the UI thread, one at a time. */
-    private static final java.util.concurrent.ExecutorService SEEN = java.util.concurrent.Executors.newSingleThreadExecutor();
+    /** Marks a work opened as seen, off the UI thread, one at a time (package-private for the tests to hold). */
+    static final java.util.concurrent.ExecutorService SEEN = java.util.concurrent.Executors.newSingleThreadExecutor();
 
     /** {url, page, pages} to open the work at. */
     static Object[] start(Shelf.Work w) {

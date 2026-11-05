@@ -58,16 +58,21 @@ final class YomisashiBridge {
         this.closed = closed;
     }
 
+    /** The page is destroyed (the overlay dropped with the shelf out of sight): nothing is sent to it any more. */
+    private volatile boolean dead;
+
+    void kill() { dead = true; reset(); }
+
     /** The sheet is gone (hidden, or the screen left): a work may be opened again. */
     void reset() { generation.incrementAndGet(); opening.set(false); }
 
     /** Runs a script in the page on the UI thread, if the screen is still there. */
     private void js(String script, Runnable after) {
         Activity a = activity.get();
-        if (a == null) return;
+        if (a == null || dead) return;
         a.runOnUiThread(() -> {
             WebView w = web.get();
-            if (a.isDestroyed() || w == null) return;
+            if (a.isDestroyed() || w == null || dead) return;
             w.evaluateJavascript(script, null);
             if (after != null) after.run();
         });

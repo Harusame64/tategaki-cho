@@ -326,8 +326,16 @@ public class YomisashiTest {
         calledOff(a);
         assertEquals("called off: still new", 2, Shelf.load(E2E.ctx()).find(OTHER).newEpisodes());
         openFromBar(a);
+        // A check finds two more episodes after the reader is started, before the work is marked seen: those two stay new.
+        java.util.concurrent.CountDownLatch hold = new java.util.concurrent.CountDownLatch(1);
+        Yomisashi.SEEN.execute(() -> { try { hold.await(); } catch (InterruptedException ignored) { } });
         E2E.js(a, "document.querySelector('#ys .cd[data-key=\"" + OTHER + "\"] .ti').click()");
-        E2E.waitUntil(() -> Shelf.load(E2E.ctx()).find(OTHER).newEpisodes() == 0, "opened: seen");
+        E2E.waitUntil(() -> a.isFinishing() || a.isDestroyed(), "opened");
+        Shelf.update(E2E.ctx(), s -> s.find(OTHER).episodes = 5);
+        hold.countDown();
+        E2E.waitUntil(() -> Shelf.load(E2E.ctx()).find(OTHER).seen == 3, "opened: the three there were are seen");
+        SystemClock.sleep(500);
+        assertEquals("found after: still new", 2, Shelf.load(E2E.ctx()).find(OTHER).newEpisodes());
     }
 
     /** W4: a tap on the work being read only closes 読みさし; so do 閉じる and Back, and none turns the page. */
