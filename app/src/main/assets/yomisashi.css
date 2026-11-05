@@ -36,3 +36,8 @@
 #ys .ck[disabled]{opacity:.45}
 #ys .said{font-size:12px;color:var(--sub);margin:-4px 0 10px}
 #ys .bg .said{color:#e4e0d6;text-align:center;margin:0 0 6px}
+/* Not wider than the app's other screens (ThemedActivity.sidePad: 720dp) on a tablet, centred; the large cards at
+   most 420px (A25 matrix, 2026-11-05). The 新着 tag keeps its own width in a large card (it stretched across it). */
+#ys .sh{margin:0 auto;max-width:720px}
+#ys .bc{max-width:420px}
+#ys .bc .nw{align-self:flex-start}
