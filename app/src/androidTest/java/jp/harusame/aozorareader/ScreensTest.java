@@ -43,9 +43,23 @@ public class ScreensTest {
             E2E.seedNarou(3, 30);
             Guide.add(E2E.ctx());
             Shelf.update(E2E.ctx(), s -> { Shelf.Work w = s.find(E2E.NCODE); w.episodes = 5; w.seen = 3; w.lastEpisode = 2; w.lastRead = System.currentTimeMillis(); w.tags.add("読んでる"); });
+            // 読みさし: three more works read, one with a long title (no text kept for them: their cards have none)
+            Shelf.update(E2E.ctx(), s -> {
+                String[][] more = {{"n9990zz", "辺境の薬師は眠らない"}, {"n9991zz", "転生したら灯台守だったので、のんびり海を眺めて暮らすことにしました"}, {"n9992zz", "星を数える猫"}};
+                for (int i = 0; i < more.length; i++) {
+                    Shelf.Work w = new Shelf.Work();
+                    w.ncode = more[i][0]; w.title = more[i][1]; w.author = E2E.AUTHOR; w.episodes = 12 + i; w.seen = w.episodes;
+                    w.lastEpisode = 3 + i; w.lastRead = System.currentTimeMillis() - 60_000L * (i + 1); w.added = w.lastRead;
+                    s.works.add(w);
+                }
+            });
             E2E.net.put("https://ncode.syosetu.com/" + E2E.NCODE + "/", tocPage(true).getBytes(StandardCharsets.UTF_8));
             ActivityScenario<ShelfActivity> sh = ActivityScenario.launch(new Intent(E2E.ctx(), ShelfActivity.class));
             mark(t + "_shelf");
+            // 読みさし over the shelf, from its toolbar's icon
+            sh.onActivity(s -> s.yomisashi().show());
+            SystemClock.sleep(1500);
+            mark(t + "_ysshelf");
             sh.close();
             ActivityScenario<SearchActivity> se = ActivityScenario.launch(new Intent(E2E.ctx(), SearchActivity.class));
             mark(t + "_search");
@@ -65,6 +79,15 @@ public class ScreensTest {
             E2E.waitReady(a.get());
             E2E.tapMiddle(); SystemClock.sleep(600);
             mark(t + "_bars");
+            // 読みさし from the bar: the sheet (C), then the large cards (A), then back to C as the default
+            E2E.js(a.get(), "document.getElementById('ysb').click()");
+            SystemClock.sleep(1000);
+            mark(t + "_ys");
+            E2E.js(a.get(), "document.querySelector('#ys [data-ys=\\'a\\']').click()");
+            SystemClock.sleep(600);
+            mark(t + "_ysa");
+            E2E.js(a.get(), "document.querySelector('#ys [data-ys=\\'c\\']').click();Yomisashi.close()");
+            E2E.tapMiddle(); SystemClock.sleep(600);
             E2E.js(a.get(), "document.getElementById('workb').click()");
             mark(t + "_work");
             E2E.js(a.get(), "document.getElementById('dispb').click()");
