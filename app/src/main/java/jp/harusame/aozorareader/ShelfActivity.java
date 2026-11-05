@@ -68,7 +68,7 @@ public class ShelfActivity extends ThemedActivity {
         h.setTypeface(Typeface.DEFAULT_BOLD);
         head.addView(h, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
         android.widget.ImageView ys = icon(R.drawable.ic_yomisashi, "読みさし");
-        ys.setOnClickListener(v -> { if (yomisashi != null) yomisashi.show(); });
+        ys.setOnClickListener(v -> yomisashi().show());
         head.addView(ys);
         android.widget.ImageView find = icon(R.drawable.ic_search, "本棚を検索");
         find.setOnClickListener(v -> {
@@ -166,7 +166,9 @@ public class ShelfActivity extends ThemedActivity {
         root.addView(status, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         sv.addView(root);
         setContentWithTabs(sv, TAB_SHELF);
-        yomisashi = new YomisashiOverlay(this, BG);                          // loaded now, so the icon shows it at once
+        // 読みさし's page is loaded once the shelf is drawn and the app is idle, so the icon shows it at once without
+        // the WebView's start-up delaying the shelf's first frame (review).
+        android.os.Looper.myQueue().addIdleHandler(() -> { yomisashi(); return false; });
         shelf = Shelf.load(this);
         // The background check as the settings say (they may have come back with a backup, without the schedule).
         CheckWorker.apply(this);
@@ -186,8 +188,13 @@ public class ShelfActivity extends ThemedActivity {
         handleShare(intent);
     }
 
-    /** 読みさし over the shelf, from the toolbar's icon */
+    /** 読みさし over the shelf, from the toolbar's icon; made by {@link #yomisashi()} */
     YomisashiOverlay yomisashi;
+
+    YomisashiOverlay yomisashi() {
+        if (yomisashi == null && !isDestroyed()) yomisashi = new YomisashiOverlay(this, BG);
+        return yomisashi;
+    }
 
     /** the shelf is in front (between onResume and onPause) */
     volatile boolean resumed;
@@ -797,22 +804,7 @@ public class ShelfActivity extends ThemedActivity {
 
     /** Opens a work where it was left; its new episodes count as seen. Not queued behind a check. */
     void open(Shelf.Work w) {
-        BG.execute(() -> {
-            try {
-                Shelf s = Shelf.update(this, sh -> {
-                    Shelf.Work cur = sh.find(w.ncode);
-                    if (cur == null) return;
-                    cur.seen = cur.episodes;
-                    if (Shelf.isKakuyomu(cur.ncode)) KakuyomuSite.seeAll(this, cur);
-                });
-                Shelf.Work cur = s.find(w.ncode);
-                if (cur == null) return;
-                runOnUiThread(() -> startActivity(new Intent(this, ReaderActivity.class)
-                        .putExtra("url", cur.startUrl()).putExtra("page", cur.lastPage).putExtra("pages", cur.lastPages)));
-            } catch (Exception e) {
-                Log.e(Shelf.TAG, "open", e);
-            }
-        });
+        BG.execute(() -> Yomisashi.open(this, w.ncode, false, null));
     }
 
     /** Long press: share the work (LINE, X, …), open its page, or take it off the shelf. */

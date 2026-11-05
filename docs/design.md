@@ -213,15 +213,19 @@ once, 2026-11-04). Named 読みさし by the user (2026-11-05, after trying よ�
   episodes count as seen, as when opened from the shelf. A work with news shows 新着; 青空文庫 and the guide
   never do (their next section is not news).
 - **A card:** the title, a few lines of the text where a tap opens it (`Yomisashi.excerpt`, from what is kept
-  on the phone only — nothing is fetched for it), where it was left, how far in.
+  on the phone only — nothing is fetched for it; on a site's page only the episode's own text, not its 前書き,
+  後書き or the site around it; kept by file and place, so the sheet does not read twenty files each time), where
+  it was left, how far in.
+- **One way to open a work:** the shelf and 読みさし both call `Yomisashi.open` (読みさし with the next episode
+  past a finished one, the shelf where the work was left); a second click while one opens does nothing.
 - **Two views,** the last used kept (`yomisashiView`): C, a sheet of two columns (empty places drawn up to
   six); A, large cards in a row like the system's recent apps, the title upright. The sheet closes as Aa's
   does: a tap outside, 閉じる, Back, or pulled down from its top past a third of its height (120 px at least);
   not once scrolled.
 - **One page for both screens:** `assets/yomisashi.js` and `yomisashi.css`, with the themes and fonts in
   `themes.js`. The reader's bar has its icon (Material Icons grid_view, as on the shelf's toolbar); over the
-  shelf, `YomisashiOverlay` lays a see-through WebView over the window, loaded with the shelf and only shown
-  and hidden after — a screen of its own drew nothing for about a second on the Galaxy A25. While the sheet is
+  shelf, `YomisashiOverlay` lays a see-through WebView over the window, loaded once the shelf is drawn and the
+  app idle (not in the way of its first frame), and only shown and hidden after — a screen of its own drew nothing for about a second on the Galaxy A25. While the sheet is
   open the reader's page turns take no touch (a tap on a card on the right once turned the page back, and each
   switch lost a page).
 - **The shelf's head** keeps its one 続きを読む card: a row of 読みさし there repeated the list sorted by

@@ -32,7 +32,7 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** docs/e2e.md W1–W6: 読みさし, from the reader's bar and over the shelf. */
+/** docs/e2e.md W1–W6 (and W2b): 読みさし, from the reader's bar and over the shelf. */
 @RunWith(AndroidJUnit4.class)
 public class YomisashiTest {
     static final String OTHER = "n9998zz";
@@ -138,6 +138,27 @@ public class YomisashiTest {
         assertEquals(Net.asked.toString(), 0, Net.asked.size());
     }
 
+    /**
+     * W2b: only the episode's own text, as なろう lays it out: not the 前書き before it, nor the 後書き, the site's
+     * footer or an icon's {@code <path>} after it — at the last page, the text's last paragraph.
+     */
+    @Test
+    public void aCardsTextIsTheEpisodesOwn() throws Exception {
+        seed(E2E.NCODE, E2E.TITLE, 1, 1, 9, 10, System.currentTimeMillis());
+        StringBuilder body = new StringBuilder();
+        for (int i = 1; i <= 20; i++) body.append("<p id=\"L").append(i).append("\">本文の").append(i).append("段落。</p>\n");
+        String page = "<html><body><div class=\"p-novel\">"
+                + "<div class=\"js-novel-text p-novel__text p-novel__text--preface\"><p id=\"Lp1\">前書きです。</p></div>"
+                + "<div class=\"js-novel-text p-novel__text\">" + body + "</div>"
+                + "<div class=\"js-novel-text p-novel__text p-novel__text--afterword\"><p id=\"La1\">後書きです。</p></div>"
+                + "</div><footer><p>フッターの文。</p><svg><path d=\"M0 0\"/></svg><p>サイトの文。</p></footer></body></html>";
+        Files.write(new File(E2E.ctx().getFilesDir(), "episodes/" + E2E.NCODE + "/1.html").toPath(), page.getBytes(StandardCharsets.UTF_8));
+        String text = item(E2E.NCODE).getString("text");
+        assertEquals("本文の20段落。", text);
+        Shelf.update(E2E.ctx(), s -> s.find(E2E.NCODE).lastPage = 0);
+        assertTrue(item(E2E.NCODE).getString("text"), item(E2E.NCODE).getString("text").startsWith("本文の1段落。"));
+    }
+
     Activity reader(String ncode, int episode, int page) throws Exception {
         scenario = ActivityScenario.launch(new Intent(E2E.ctx(), ReaderActivity.class)
                 .putExtra("url", Shelf.episodeUrl(ncode, episode)).putExtra("page", page));
@@ -179,6 +200,30 @@ public class YomisashiTest {
         assertEquals("the place in the work left", 2, Shelf.load(E2E.ctx()).find(E2E.NCODE).lastPage);
     }
 
+    /** W3b: two clicks on a card before the switch is done open one reader, not two stacked. */
+    @Test
+    public void twoQuickTapsOpenOneReader() throws Exception {
+        long now = System.currentTimeMillis();
+        seed(E2E.NCODE, E2E.TITLE, 3, 1, 2, 0, now - 1000);
+        seed(OTHER, "もう一つの作品", 3, 2, 1, 0, now - 2000);
+        Activity a = reader(E2E.NCODE, 1, 2);
+        openFromBar(a);
+        // Two clicks before the first switch is done (a real double tap is not quick enough on every phone to show it).
+        E2E.js(a, "(function(){var c=document.querySelector('#ys .cd[data-key=\"" + OTHER + "\"] .ti');c.click();c.click();})()");
+        E2E.waitUntil(() -> a.isFinishing() || a.isDestroyed(), "the reader of the work left closes");
+        SystemClock.sleep(2000);
+        AtomicReference<Integer> readers = new AtomicReference<>(0);
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            int n = 0;
+            for (androidx.test.runner.lifecycle.Stage st : androidx.test.runner.lifecycle.Stage.values())
+                if (st != androidx.test.runner.lifecycle.Stage.DESTROYED)
+                    for (Activity x : androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(st))
+                        if (x instanceof ReaderActivity && !x.isFinishing()) n++;
+            readers.set(n);
+        });
+        assertEquals("one reader open", 1, (int) readers.get());
+    }
+
     /** W4: a tap on the work being read only closes 読みさし; so do 閉じる and Back, and none turns the page. */
     @Test
     public void theCurrentCardCloseAndBackOnlyClose() throws Exception {
@@ -216,6 +261,57 @@ public class YomisashiTest {
         d.swipe(top[0], top[1], top[0], top[1] + d.getDisplayHeight() / 2, 30);
         E2E.waitFor(a, "Yomisashi.isOpen()", "false");
         assertEquals(2, E2E.num(a, "__reader.cur()"));
+    }
+
+    /** Touches made in the page on a large card (A): start, then each move or the end, at a height. */
+    static String touches(String key, String... steps) {
+        StringBuilder b = new StringBuilder("(function(){var c=document.querySelector('#ys .bc[data-key=\"" + key + "\"]');"
+                + "function T(type,y){var t=new Touch({identifier:7,target:c,clientX:100,clientY:y});"
+                + "var on=type==='touchstart'||type==='touchmove';"
+                + "c.dispatchEvent(new TouchEvent(type,{touches:on?[t]:[],changedTouches:[t],bubbles:true,cancelable:true}));}");
+        for (String st : steps) { String[] v = st.split(":"); b.append("T('").append(v[0]).append("',").append(v[1]).append(");"); }
+        return b.append("c.querySelector('.vt').click();})()").toString();
+    }
+
+    /** The same touches, without the click after: the card's transform as they leave it. */
+    static String touchesOnly(String key, String... steps) {
+        String js = touches(key, steps);
+        return js.replace("c.querySelector('.vt').click();})()", "return c.style.transform;})()");
+    }
+
+    Activity largeView() throws Exception {
+        long now = System.currentTimeMillis();
+        seed(E2E.NCODE, E2E.TITLE, 3, 1, 2, 0, now - 1000);
+        seed(OTHER, "もう一つの作品", 3, 2, 1, 0, now - 2000);
+        Activity a = reader(E2E.NCODE, 1, 2);
+        openFromBar(a);
+        E2E.js(a, "document.querySelector('#ys [data-ys=\"a\"]').click()");
+        E2E.waitFor(a, "document.querySelectorAll('#ys .bc[data-key]').length", "2");
+        return a;
+    }
+
+    void opens(Activity a) throws Exception {
+        E2E.waitUntil(() -> a.isFinishing() || a.isDestroyed(), "the card opened its work");
+        Activity b = ShelfFlowTest.resumed(ReaderActivity.class);
+        E2E.waitReady(b);
+        assertTrue(E2E.js(b, "INFO.url"), E2E.js(b, "INFO.url").contains(OTHER + "/2/"));
+    }
+
+    /** W5b: on a large card, a tap whose finger drifts a few px up still opens the work (it is not a sweep). */
+    @Test
+    public void aTapThatDriftsStillOpensALargeCard() throws Exception {
+        Activity a = largeView();
+        E2E.js(a, touches(OTHER, "touchstart:300", "touchmove:296", "touchend:296"));
+        opens(a);
+    }
+
+    /** W5c: a sweep the system takes away (touchcancel) puts the card back, and the next tap is taken. */
+    @Test
+    public void aCancelledSweepLeavesTapsWorking() throws Exception {
+        Activity a = largeView();
+        assertEquals("the card goes back", "\"\"", E2E.js(a, touchesOnly(OTHER, "touchstart:300", "touchmove:240", "touchcancel:240")));
+        E2E.js(a, touches(OTHER, "touchstart:300", "touchmove:240", "touchcancel:240"));
+        opens(a);
     }
 
     /**

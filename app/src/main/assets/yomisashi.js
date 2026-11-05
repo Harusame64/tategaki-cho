@@ -9,13 +9,14 @@
 //
 // Yomisashi.init(el, host): host = {list() -> JSON string, open(key), drop(key), view(v), closed()}.
 var Yomisashi=(function(){
-  var el=null, host=null, data=null, swiped=false;
+  var el=null, host=null, data=null, swiped=false, opening=false;
   function esc(t){return String(t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function isOpen(){return !!el&&el.classList.contains('on');}
   function open(){
     var d=null;
     try{d=JSON.parse(host.list());}catch(e){}
     data=d&&d.items?d:{view:'c',max:6,items:[]};
+    swiped=false;opening=false;
     el.classList.add('on');draw();
   }
   function close(){if(!isOpen())return;el.classList.remove('on','big');el.innerHTML='';if(host.closed)host.closed();}
@@ -44,12 +45,16 @@ var Yomisashi=(function(){
     el.innerHTML=h;
     if(big){var c=el.querySelector('.bc.cur');if(c)c.scrollIntoView({inline:'center',block:'nearest'});el.querySelectorAll('.bc[data-key]').forEach(sweep);}
   }
-  // A: a card follows the finger up; let go past 90 px it goes out of 読みさし. Not the work being read.
+  // A: a card follows the finger up past 10 px of give (a tap's drift still opens it); let go past 90 px it goes
+  // out of 読みさし. Not the work being read.
   function sweep(c){var y0=null,x0=null,dy=0;
+    function back(){c.style.transition='transform 180ms ease-out,opacity 180ms';c.style.transform='';c.style.opacity='';}
     c.addEventListener('touchstart',function(e){y0=e.touches[0].clientY;x0=e.touches[0].clientX;dy=0;c.style.transition='none';},{passive:true});
     c.addEventListener('touchmove',function(e){if(y0===null)return;var my=e.touches[0].clientY-y0,mx=e.touches[0].clientX-x0;
-      if(Math.abs(mx)>Math.abs(my)&&dy===0)return;dy=Math.min(0,my);
+      if(Math.abs(mx)>Math.abs(my)&&dy===0)return;dy=Math.min(0,my+10);
       if(dy<0){swiped=true;c.style.transform='translateY('+dy+'px)';c.style.opacity=String(1+dy/400);}},{passive:true});
+    // Taken by the system (a back gesture, say): the card goes back, and taps are taken again.
+    c.addEventListener('touchcancel',function(){y0=null;dy=0;back();swiped=false;},{passive:true});
     c.addEventListener('touchend',function(){if(y0===null)return;y0=null;c.style.transition='transform 180ms ease-out,opacity 180ms';
       if(dy<-90&&!c.classList.contains('cur')){c.style.transform='translateY(-120%)';c.style.opacity='0';var k=c.dataset.key;setTimeout(function(){drop(k);},180);}
       else{c.style.transform='';c.style.opacity='';}
@@ -69,7 +74,7 @@ var Yomisashi=(function(){
       if(y0===null)return;y0=null;
       if(dy>Math.max(120,sh.offsetHeight/3))close();else back();
       dy=0;setTimeout(function(){swiped=false;},50);},{passive:true});
-    el.addEventListener('touchcancel',function(){y0=null;dy=0;back();},{passive:true});
+    el.addEventListener('touchcancel',function(){y0=null;dy=0;back();swiped=false;},{passive:true});
   }
   function init(e,h){
     el=e;host=h;pull();
@@ -78,7 +83,8 @@ var Yomisashi=(function(){
       var t=ev.target, a=t.closest&&t.closest('[data-ys]'), x=t.closest&&t.closest('[data-drop]'), k=t.closest&&t.closest('[data-key]');
       if(x){drop(x.dataset.drop);return;}
       if(a){var v=a.dataset.ys;if(v==='close'){close();return;}data.view=v;host.view(v);draw();return;}
-      if(k){if(k.classList.contains('cur')){close();return;}k.style.opacity='.6';host.open(k.dataset.key);}
+      // One work opens: a second tap (or another card) while it does would start a second reader.
+      if(k){if(k.classList.contains('cur')){close();return;}if(opening)return;opening=true;k.style.opacity='.6';host.open(k.dataset.key);}
     });
   }
   return {init:init,open:open,close:close,isOpen:isOpen};
