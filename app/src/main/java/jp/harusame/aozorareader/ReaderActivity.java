@@ -267,50 +267,35 @@ public class ReaderActivity extends Activity {
         @JavascriptInterface
         public void overlay(boolean open) { ReaderActivity.this.overlay(open); }
 
-        /** よみかけ (SPIKE): the row of works being read, as JSON (Yomikake.json). */
+        /** 読みさし: the works being read, as JSON (Yomisashi.json). */
         @JavascriptInterface
-        public String yomikake() {
+        public String yomisashi() {
             Prepared p = shown;
-            return Yomikake.json(ReaderActivity.this, workKeyOf(p == null ? null : p.url)).toString();
+            return Yomisashi.json(ReaderActivity.this, workKeyOf(p == null ? null : p.url)).toString();
         }
 
         /**
-         * Switches to another work of the row, where it was left, without going through the shelf. The place in the
+         * Switches to another work of 読みさし, where it was left, without going through the shelf. The place in the
          * work being read is written first, on the saver, so the switch sees it.
          */
         @JavascriptInterface
-        public void yomikakeOpen(String key) {
+        public void yomisashiOpen(String key) {
             run(saver, () -> {
                 savePlace();
-                try {
-                    Shelf s = Shelf.update(ReaderActivity.this, sh -> {
-                        Shelf.Work cur = sh.find(key);
-                        if (cur == null) return;
-                        cur.seen = cur.episodes;
-                        if (Shelf.isKakuyomu(cur.ncode)) KakuyomuSite.seeAll(ReaderActivity.this, cur);
-                    });
-                    Shelf.Work w = s.find(key);
-                    if (w == null) return;
-                    Object[] at = Yomikake.start(w);
-                    runOnUiThread(() -> {
-                        startActivity(new Intent(ReaderActivity.this, ReaderActivity.class)
-                                .putExtra("url", (String) at[0]).putExtra("page", (Integer) at[1]).putExtra("pages", (Integer) at[2]));
-                        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                        finish();
-                    });
-                } catch (Exception e) {
-                    Log.e(TAG, "yomikake open", e);
-                }
+                Yomisashi.open(ReaderActivity.this, key, () -> {
+                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+                    finish();
+                });
             });
         }
 
-        /** Sweeps a work out of the row (it stays on the shelf, and comes back when read again). */
+        /** Takes a work out of 読みさし (it stays on the shelf, and comes back when read again). */
         @JavascriptInterface
-        public void yomikakeDrop(String key) { Yomikake.drop(ReaderActivity.this, key); }
+        public void yomisashiDrop(String key) { Yomisashi.drop(ReaderActivity.this, key); }
 
         /** The view last used: "c" (sheet) or "a" (large cards). */
         @JavascriptInterface
-        public void yomikakeView(String v) { Yomikake.setView(ReaderActivity.this, v); }
+        public void yomisashiView(String v) { Yomisashi.setView(ReaderActivity.this, v); }
 
         /** The display settings as the page keeps them (theme, text size), as JSON. */
         @JavascriptInterface
@@ -414,7 +399,7 @@ public class ReaderActivity extends Activity {
     }
 
     /**
-     * {background, text, secondary text, rule} of a theme, the same values as reader.html's THEMES. The
+     * {background, text, secondary text, rule} of a theme, the same values as themes.js's THEMES. The
      * secondary text is at least 4.5:1 on the background and on the shelf's cards (WCAG AA).
      */
     static int[] themeColors(String theme) {

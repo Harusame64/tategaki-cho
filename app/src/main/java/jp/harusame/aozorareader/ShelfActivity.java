@@ -67,9 +67,9 @@ public class ShelfActivity extends ThemedActivity {
         TextView h = text("本棚", 24, fg);
         h.setTypeface(Typeface.DEFAULT_BOLD);
         head.addView(h, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        android.widget.ImageView yk = icon(R.drawable.ic_yomikake, "読みさし");
-        yk.setOnClickListener(v -> openYomikakeSheet());
-        head.addView(yk);
+        android.widget.ImageView ys = icon(R.drawable.ic_yomisashi, "読みさし");
+        ys.setOnClickListener(v -> { if (yomisashi != null) yomisashi.show(); });
+        head.addView(ys);
         android.widget.ImageView find = icon(R.drawable.ic_search, "本棚を検索");
         find.setOnClickListener(v -> {
             boolean on = filter.getVisibility() != View.VISIBLE;
@@ -166,6 +166,7 @@ public class ShelfActivity extends ThemedActivity {
         root.addView(status, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         sv.addView(root);
         setContentWithTabs(sv, TAB_SHELF);
+        yomisashi = new YomisashiOverlay(this, BG);                          // loaded now, so the icon shows it at once
         shelf = Shelf.load(this);
         // The background check as the settings say (they may have come back with a backup, without the schedule).
         CheckWorker.apply(this);
@@ -185,6 +186,9 @@ public class ShelfActivity extends ThemedActivity {
         handleShare(intent);
     }
 
+    /** 読みさし over the shelf, from the toolbar's icon */
+    YomisashiOverlay yomisashi;
+
     /** the shelf is in front (between onResume and onPause) */
     volatile boolean resumed;
 
@@ -192,6 +196,7 @@ public class ShelfActivity extends ThemedActivity {
     protected void onPause() {
         resumed = false;
         FullSave.listener = null;
+        if (yomisashi != null) yomisashi.close();                          // a card opened its work, or the app went
         super.onPause();
     }
 
@@ -215,6 +220,7 @@ public class ShelfActivity extends ThemedActivity {
     @Override
     protected void onDestroy() {
         work.shutdown();                                                // no interrupt: a worker may be reading the shelf
+        if (yomisashi != null) yomisashi.destroy();
         super.onDestroy();
     }
 
@@ -716,197 +722,6 @@ public class ShelfActivity extends ThemedActivity {
         lp.topMargin = dp(16);
         c.setLayoutParams(lp);
         return c;
-    }
-
-    /**
-     * よみかけ (SPIKE, design C) from the shelf's toolbar: the works being read in two columns of up to six places,
-     * the empty ones shown too. A tap reads on where the work was left; ✕ takes it out of the row, not off the shelf.
-     */
-    void openYomikakeSheet() {
-        android.app.Dialog d = new android.app.Dialog(this, android.R.style.Theme_DeviceDefault_NoActionBar);
-        d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
-        d.setCanceledOnTouchOutside(true);
-        // As Aa's sheet in the reader: pulled down from its top past a third of its height (at least 120 dp) it
-        // closes, short of that it slides back; not while its places are scrolled down.
-        LinearLayout sh = new LinearLayout(this) {
-            float y0 = -1, dy;
-            boolean pulling;
-
-            boolean atTop() {
-                Object sc = getTag();
-                return !(sc instanceof ScrollView) || ((ScrollView) sc).getScrollY() == 0;
-            }
-
-            @Override
-            public boolean onInterceptTouchEvent(android.view.MotionEvent ev) {
-                int a = ev.getActionMasked();
-                if (a == android.view.MotionEvent.ACTION_DOWN) { y0 = atTop() ? ev.getRawY() : -1; dy = 0; pulling = false; }
-                else if (a == android.view.MotionEvent.ACTION_MOVE && y0 >= 0 && ev.getRawY() - y0 > dp(10)) pulling = true;
-                return pulling;
-            }
-
-            @Override
-            public boolean onTouchEvent(android.view.MotionEvent ev) {
-                int a = ev.getActionMasked();
-                if (a == android.view.MotionEvent.ACTION_DOWN) { y0 = atTop() ? ev.getRawY() : -1; dy = 0; return true; }
-                if (y0 < 0) return true;
-                if (a == android.view.MotionEvent.ACTION_MOVE) {
-                    dy = Math.max(0, ev.getRawY() - y0 - dp(10));
-                    setTranslationY(dy);
-                } else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) {
-                    if (a == android.view.MotionEvent.ACTION_UP && dy > Math.max(dp(120), getHeight() / 3f)) d.dismiss();
-                    else animate().translationY(0).setDuration(150).start();
-                    y0 = -1; dy = 0; pulling = false;
-                }
-                return true;
-            }
-        };
-        sh.setOrientation(LinearLayout.VERTICAL);
-        int pad = sidePad(16);
-        sh.setPadding(pad, dp(12), pad, dp(22));
-        // Above the navigation bar (the window is drawn edge to edge on Android 15 and later).
-        sh.setOnApplyWindowInsetsListener((v, in) -> {
-            int b = in.getInsets(android.view.WindowInsets.Type.systemBars()).bottom;
-            v.setPadding(pad, dp(12), pad, dp(22) + b);
-            return in;
-        });
-        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
-        g.setColor(bg);
-        float r = dp(18);
-        g.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
-        sh.setBackground(g);
-        d.setContentView(sh);
-        android.view.Window win = d.getWindow();
-        if (win != null) {
-            win.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
-            win.setLayout(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            win.setGravity(Gravity.BOTTOM);
-            win.setDimAmount(0.32f);
-            win.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-        }
-        fillYomikakeSheet(d, sh);
-        d.show();
-    }
-
-    void fillYomikakeSheet(android.app.Dialog d, LinearLayout sh) {
-        sh.removeAllViews();
-        LinearLayout hd = new LinearLayout(this);
-        hd.setGravity(Gravity.CENTER_VERTICAL);
-        TextView h = text("読みさし", 17, fg);
-        h.setTypeface(Typeface.DEFAULT_BOLD);
-        hd.addView(h, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        TextView close = text("閉じる", 15, fg);
-        close.setGravity(Gravity.CENTER);
-        close.setMinWidth(dp(TOUCH_DP));
-        close.setMinHeight(dp(TOUCH_DP));
-        close.setPadding(dp(10), 0, dp(10), 0);
-        close.setOnClickListener(v -> d.dismiss());
-        hd.addView(close);
-        LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        hp.bottomMargin = dp(8);
-        sh.addView(hd, hp);
-        List<Shelf.Work> ws = Yomikake.list(this);
-        // Up to twenty works: the places scroll under the heading, no taller than most of the screen.
-        int maxH = Math.round(getResources().getDisplayMetrics().heightPixels * 0.62f);
-        ScrollView sc = new ScrollView(this) {
-            @Override
-            protected void onMeasure(int w, int h) {
-                super.onMeasure(w, View.MeasureSpec.makeMeasureSpec(maxH, View.MeasureSpec.AT_MOST));
-            }
-        };
-        LinearLayout grid = new LinearLayout(this);
-        grid.setOrientation(LinearLayout.VERTICAL);
-        sc.addView(grid);
-        sh.addView(sc);
-        sh.setTag(sc);
-        int places = Math.max(Yomikake.PLACES, ws.size() + ws.size() % 2);
-        for (int row = 0; row < places / 2; row++) {
-            LinearLayout line2 = new LinearLayout(this);
-            for (int col = 0; col < 2; col++) {
-                int i = row * 2 + col;
-                View c = i < ws.size() ? yomikakeCard(d, sh, ws.get(i)) : emptyPlace();
-                LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, dp(136), 1);
-                if (col > 0) cp.leftMargin = dp(10);
-                line2.addView(c, cp);
-            }
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            if (row > 0) lp.topMargin = dp(10);
-            grid.addView(line2, lp);
-        }
-        TextView nt = text("✕ で読みさしから外します（本棚には残ります）", 12, sub);
-        nt.setPadding(0, dp(12), 0, 0);
-        sh.addView(nt);
-    }
-
-    View emptyPlace() {
-        TextView t = text("空き", 12, sub);
-        t.setGravity(Gravity.CENTER);
-        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
-        g.setCornerRadius(dp(12));
-        g.setStroke(dp(1), line, dp(4), dp(3));
-        t.setBackground(g);
-        return t;
-    }
-
-    View yomikakeCard(android.app.Dialog d, LinearLayout sh, Shelf.Work w) {
-        android.widget.FrameLayout f = new android.widget.FrameLayout(this);
-        f.setBackground(round(card, dp(12)));
-        LinearLayout c = new LinearLayout(this);
-        c.setOrientation(LinearLayout.VERTICAL);
-        c.setPadding(dp(12), dp(10), dp(12), dp(10));
-        TextView t = text(w.title == null || w.title.isEmpty() ? w.ncode : w.title, 14, fg);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
-        t.setMaxLines(2);
-        t.setEllipsize(TextUtils.TruncateAt.END);
-        t.setPadding(0, 0, dp(30), 0);
-        c.addView(t);
-        // A few lines where it was left, in the space under the title.
-        TextView ex = text(Yomikake.excerpt(this, w), 11, sub);
-        ex.setLineSpacing(0, 1.15f);
-        ex.setEllipsize(TextUtils.TruncateAt.END);
-        ex.setPadding(0, dp(4), 0, 0);
-        ex.setMaxLines(3);
-        c.addView(ex, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
-        LinearLayout bot = new LinearLayout(this);
-        bot.setGravity(Gravity.CENTER_VERTICAL);
-        bot.addView(text(Yomikake.where(w), 12, sub), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        if (Yomikake.fresh(w)) {
-            TextView n = text("新着", 11, 0xFFFFFFFF);
-            n.setTypeface(Typeface.DEFAULT_BOLD);
-            n.setPadding(dp(7), dp(1), dp(7), dp(1));
-            n.setBackground(round(0xFFD0453A, dp(9)));
-            bot.addView(n);
-        }
-        c.addView(bot);
-        f.addView(c, new android.widget.FrameLayout.LayoutParams(-1, -1));
-        TextView x = text("✕", 16, sub);
-        x.setGravity(Gravity.CENTER);
-        x.setContentDescription("読みさしから外す");
-        x.setOnClickListener(v -> { Yomikake.drop(this, w.ncode); fillYomikakeSheet(d, sh); });
-        f.addView(x, new android.widget.FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP | Gravity.END));
-        f.setOnClickListener(v -> { d.dismiss(); openYomikake(w); });
-        return f;
-    }
-
-    /** As {@link #open}, but where よみかけ opens it: past the last page of an older episode, the next one. */
-    void openYomikake(Shelf.Work w) {
-        BG.execute(() -> {
-            try {
-                Shelf s = Shelf.update(this, sh -> {
-                    Shelf.Work cur = sh.find(w.ncode);
-                    if (cur == null) return;
-                    cur.seen = cur.episodes;
-                    if (Shelf.isKakuyomu(cur.ncode)) KakuyomuSite.seeAll(this, cur);
-                });
-                Shelf.Work cur = s.find(w.ncode);
-                if (cur == null) return;
-                Object[] at = Yomikake.start(cur);
-                runOnUiThread(() -> startActivity(new Intent(this, ReaderActivity.class)
-                        .putExtra("url", (String) at[0]).putExtra("page", (Integer) at[1]).putExtra("pages", (Integer) at[2])));
-            } catch (Exception e) {
-                Log.e(Shelf.TAG, "open yomikake", e);
-            }
-        });
     }
 
     View row(Shelf.Work w) {

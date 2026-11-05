@@ -1,0 +1,148 @@
+package jp.harusame.aozorareader;
+
+import android.app.Activity;
+import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.util.Log;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowInsets;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
+
+import org.json.JSONObject;
+
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+
+/**
+ * 読みさし over the shelf, from its toolbar: the same sheet as the reader's (assets/yomisashi.js), in a see-through
+ * WebView laid over the whole screen. The page is loaded once, as the shelf opens, and only shown and hidden after:
+ * a screen of its own took a second on the Galaxy A25 before anything was drawn (2026-11-05). A card opens its work;
+ * a tap outside, 閉じる, a pull down or Back hides it.
+ */
+final class YomisashiOverlay {
+    private final Activity a;
+    private final ExecutorService bg;
+    private final WebView web;
+    private boolean ready, wanted;
+    private final OnBackInvokedCallback back = this::close;
+
+    YomisashiOverlay(Activity a, ExecutorService bg) {
+        this.a = a;
+        this.bg = bg;
+        web = new WebView(a);
+        web.setBackgroundColor(Color.TRANSPARENT);
+        web.setVisibility(View.GONE);
+        WebSettings s = web.getSettings();
+        s.setJavaScriptEnabled(true);
+        s.setAllowFileAccess(false);
+        s.setAllowContentAccess(false);
+        s.setBlockNetworkLoads(true);
+        web.setVerticalScrollBarEnabled(false);
+        float density = a.getResources().getDisplayMetrics().density;
+        // The system bars' heights, for the page to keep clear of (the overlay covers the whole window).
+        web.setOnApplyWindowInsetsListener((v, in) -> {
+            android.graphics.Insets i = in.getInsets(WindowInsets.Type.systemBars());
+            String js = "__nav(" + Math.round(i.bottom / density) + "," + Math.round(i.top / density) + ")";
+            v.setTag(js);
+            if (ready) web.evaluateJavascript(js, null);
+            return in;
+        });
+        web.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) { return true; }  // it opens nothing
+
+            @Override
+            public void onPageFinished(WebView v, String url) {
+                ready = true;
+                Object js = v.getTag();
+                if (js instanceof String) v.evaluateJavascript((String) js, null);
+                if (wanted) { wanted = false; open(); }
+            }
+        });
+        web.addJavascriptInterface(new Bridge(), "Android");
+        a.addContentView(web, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        try {
+            web.loadDataWithBaseURL("file:///android_asset/", asset("yomisashi.html"), "text/html", "UTF-8", null);
+        } catch (Exception e) {
+            Log.e(Shelf.TAG, "yomisashi.html", e);
+        }
+    }
+
+    boolean shown() { return web.getVisibility() == View.VISIBLE; }
+
+    /** Shows the sheet, drawn afresh, in the reader's theme as it is now. */
+    void show() {
+        if (shown()) return;
+        web.setVisibility(View.VISIBLE);
+        web.bringToFront();
+        a.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_OVERLAY, back);
+        if (ready) open(); else wanted = true;
+    }
+
+    private void open() {
+        web.evaluateJavascript("__look(" + JSONObject.quote(look()[0]) + "," + JSONObject.quote(look()[1]) + ");Yomisashi.open()", null);
+    }
+
+    /** Hides it; the page's own close (Yomisashi.close) comes back here through {@code closed}. */
+    void close() {
+        if (ready) web.evaluateJavascript("Yomisashi.close()", null);
+        hide();
+    }
+
+    private void hide() {
+        wanted = false;
+        if (!shown()) return;
+        web.setVisibility(View.GONE);
+        a.getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(back);
+    }
+
+    void destroy() { web.destroy(); }
+
+    /** {theme, font} of the reader. */
+    private String[] look() {
+        SharedPreferences p = a.getSharedPreferences("reader", Activity.MODE_PRIVATE);
+        String theme = "kinari", font = "serif";
+        try {
+            String d = p.getString("display", null);
+            if (d != null) {
+                JSONObject o = new JSONObject(d);
+                theme = o.optString("theme", theme);
+                font = o.optString("font", font);
+            }
+        } catch (Exception ignored) {
+        }
+        return new String[]{theme, font};
+    }
+
+    private String asset(String name) throws Exception {
+        try (InputStream in = a.getAssets().open(name)) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    final class Bridge {
+        @JavascriptInterface
+        public String yomisashi() { return Yomisashi.json(a, null).toString(); }
+
+        /** Opens the work; the overlay goes as the reader comes up (the shelf's onPause). */
+        @JavascriptInterface
+        public void yomisashiOpen(String key) { bg.execute(() -> Yomisashi.open(a, key, null)); }
+
+        @JavascriptInterface
+        public void yomisashiDrop(String key) { Yomisashi.drop(a, key); }
+
+        @JavascriptInterface
+        public void yomisashiView(String v) { Yomisashi.setView(a, v); }
+
+        @JavascriptInterface
+        public void closed() { a.runOnUiThread(YomisashiOverlay.this::hide); }
+    }
+}

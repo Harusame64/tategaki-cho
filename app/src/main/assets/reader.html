@@ -742,41 +742,6 @@ span.sesame{text-emphasis-position:over right}
 #info .topbar .ic{padding:0;display:flex;align-items:center;justify-content:center}
 #info .topbar .ic svg{display:block}
 
-/* よみかけ (SPIKE, 2026-11-04): the works being read, from the bars. C = a sheet of two columns (six places),
-   A = large cards in a row like the system's recent apps; the view last used is kept. */
-#yk{display:none;position:fixed;inset:0;z-index:10;writing-mode:horizontal-tb;font:15px/1.5 sans-serif;color:var(--fg)}
-#yk.on{display:block}
-#yk .dim{position:absolute;inset:0;background:rgba(0,0,0,.32)}
-#yk.big .dim{background:#3b3832}
-#yk button{font:15px sans-serif;border:1px solid var(--edge);border-radius:6px;background:transparent;color:var(--fg);min-width:48px;min-height:48px;padding:4px 10px;white-space:nowrap}
-#yk .hd{display:flex;align-items:center;gap:8px;margin:4px 0 12px}
-#yk .hd .t{flex:1;font-size:17px;font-weight:bold}
-#yk .sh .hd{position:sticky;top:-10px;z-index:1;background:var(--card);margin:-10px 0 12px;padding:10px 0 0}
-#yk .nt{font-size:12px;color:var(--sub);margin-top:12px}
-#yk .sh{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:18px 18px 0 0;box-shadow:0 -2px 10px rgba(0,0,0,.25);padding:10px 16px 22px;max-height:88%;overflow-y:auto;box-sizing:border-box}
-#yk .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-#yk .cd{position:relative;border:1px solid var(--line);border-radius:12px;padding:12px 12px 10px;min-height:108px;background:var(--bg);box-sizing:border-box}
-#yk .cd.cur{border:2px solid var(--link)}
-#yk .cd .ti{font-weight:bold;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding-right:30px}
-#yk .cd .su{font-size:12px;color:var(--sub);margin-top:4px}
-#yk .ex{font-size:11px;line-height:1.45;color:var(--sub);margin-top:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-#yk .bc .ex{font-size:13px;-webkit-line-clamp:4}
-#yk .nw{display:inline-block;margin-top:6px;font-size:11px;color:#fff;background:var(--link);border-radius:9px;padding:0 7px}
-#yk .pr{height:3px;background:var(--line);border-radius:2px;margin-top:8px}
-#yk .pr i{display:block;height:3px;background:var(--link);border-radius:2px}
-#yk .cd .x{position:absolute;top:0;right:0;border:0;min-width:44px;min-height:44px;color:var(--sub);font-size:16px;padding:0}
-#yk .cd .now{font-size:11px;color:var(--link);font-weight:bold;margin-top:6px}
-#yk .empty{border:1px dashed var(--line);border-radius:12px;min-height:108px;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:12px}
-#yk .bg{position:absolute;inset:0;display:flex;flex-direction:column;padding-top:12px}
-#yk .bg .hd{padding:0 16px;color:#fbf8f1}
-#yk .bg button{color:#fbf8f1;border-color:#8f8b81}
-#yk .bg .nt{color:#e4e0d6;text-align:center;margin:0 0 18px}
-#yk .row{flex:1;display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;padding:8px 14% 18px;align-items:center;box-sizing:border-box}
-#yk .bc{flex:0 0 72%;height:86%;scroll-snap-align:center;background:var(--bg);color:var(--fg);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.45);
-  position:relative;display:flex;flex-direction:column;padding:22px 18px 18px;box-sizing:border-box;touch-action:pan-x;will-change:transform}
-#yk .bc.cur{outline:3px solid var(--link);outline-offset:3px}
-#yk .bc .vt{flex:1;writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;font-family:var(--ff);font-size:24px;font-weight:600;line-height:1.5;overflow:hidden;align-self:flex-end}
-#yk .bc .su{font-size:13px;color:var(--sub);margin-top:10px}
 #toc{display:none;position:fixed;inset:0;background:var(--card);color:var(--fg);writing-mode:horizontal-tb;z-index:10;flex-direction:column;font:15px/1.5 sans-serif}
 #toc.on{display:flex}
 #toc .hd{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
@@ -803,8 +768,8 @@ span.sesame{text-emphasis-position:over right}
 <div id="info"></div>
 <div id="guide"></div>
 <div id="end"><div class="card"><div class="t"></div><div class="a"></div><div class="btns"></div></div></div>
-<div id="yk"></div><div id="toc"><div class="hd"><span class="tt">目次</span><button id="tocx">閉じる</button></div><div class="st"></div><div class="ls"></div></div>
-<script>var INFO=%%INFO%%, START=%%START%%, SHARE=%%SHARE%%, PREFS=%%PREFS%%, AA=%%AA%%;</script><script>
+<div id="ys"></div><div id="toc"><div class="hd"><span class="tt">目次</span><button id="tocx">閉じる</button></div><div class="st"></div><div class="ls"></div></div>
+<link rel="stylesheet" href="yomisashi.css"><script src="themes.js"></script><script src="yomisashi.js"></script><script>var INFO=%%INFO%%, START=%%START%%, SHARE=%%SHARE%%, PREFS=%%PREFS%%, AA=%%AA%%;</script><script>
 (function(){
   var book=document.getElementById('book'), pg=document.getElementById('pg');
   // The page a turn slides in: a copy of the episode scrolled to that page, kept beside the book.
@@ -904,23 +869,13 @@ span.sesame{text-emphasis-position:over right}
     curId=i&&i.id?String(i.id):'';
     var m=!curId&&i&&i.url&&i.url.match(/\/(\d+)\/?$/); curNo=i&&i.no?Number(i.no):m?Number(m[1]):0;
   }
-  // Display settings: the theme and the text size, kept by the app across episodes.
-  // sub (secondary text) is 4.5:1 on bg and card; edge (a button's border) 3:1 on card; line is a quiet rule.
-  var THEMES={
-    kinari:{bg:'#fbf8f1',fg:'#222',sub:'#6b6b6b',card:'#faf8f3',line:'#e4e0d6',edge:'#8f8b81',link:'#1a5fb4'},
-    white:{bg:'#ffffff',fg:'#111',sub:'#6b6b6b',card:'#ffffff',line:'#e2e2e2',edge:'#8f8f8f',link:'#1a5fb4'},
-    sepia:{bg:'#f1e7d0',fg:'#4a3b2a',sub:'#6e5f48',card:'#efe4cb',line:'#d9cbaa',edge:'#8a7a5e',link:'#7a4b12'},
-    dark:{bg:'#1f1f1f',fg:'#d6d2c8',sub:'#9a978f',card:'#2a2a2a',line:'#3a3a3a',edge:'#7a776f',link:'#8ab4f8'},
-    black:{bg:'#000000',fg:'#a8a49a',sub:'#8a867c',card:'#121212',line:'#2a2a2a',edge:'#66635c',link:'#8ab4f8'}};
+  // Display settings: the theme and the text size, kept by the app across episodes. THEMES and FONTS are in themes.js.
   var THEME_ORDER=['kinari','white','sepia','dark','black'];
   var SIZES=[15,17,19,21,23,26,30];
   // 15 and 20: the user's choice (2026-10-26), in both builds; still one episode at a time, spaced out.
   var AHEAD=[1,3,5,15,20];
   var AA_TABS=[['look','見た目'],['touch','操作'],['other','その他']], aaTab='look';   // the tab last open, while this book is
   var LHS=[1.6,1.8,2,2.2];
-  // Two fonts the phone has, two bundled with the app.
-  var FONTS={serif:{n:'明朝',f:'"Noto Serif CJK JP","Noto Serif JP",serif'},sans:{n:'ゴシック',f:'"Noto Sans CJK JP","Noto Sans JP",sans-serif'},
-    bizud:{n:'BIZ UD明朝',f:'"BIZ UDMincho",serif'},shippori:{n:'しっぽり明朝',f:'"Shippori Mincho",serif'}};
   var FONT_ORDER=['serif','sans','bizud','shippori'];
   // The tap zones: the screen in 3 x 3, read row by row from the top left, each n (next page), p (previous page),
   // m (the menu: the bars) or 0 (nothing). The middle column's width and the middle row's height are a share of the
@@ -998,7 +953,7 @@ span.sesame{text-emphasis-position:over right}
     +'</div></div>';
   // As in Kindle, a tap on a menu zone (the middle, as first set: prefs.zones, zoneAt) shows only the bars: the
   // work and its buttons on top, the page bar below. The settings (Aa) and the work's links each open from their button, never from that tap.
-  h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="ykb" class="ic" aria-label="読みさし"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M3,3v8h8V3H3zM9,9H5V5h4V9zM3,13v8h8v-8H3zM9,19H5v-4h4V19zM13,3v8h8V3H13zM19,9h-4V5h4V9zM13,13v8h8v-8H13zM19,19h-4v-4h4V19z"/></svg></button><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
+  h='<div class="epp"><div class="no"></div><div class="tt"></div><div class="st"></div></div><div class="topbar"><button id="homeb" class="home">← 本棚</button><span class="wt"></span><button id="ysb" class="ic" aria-label="読みさし"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M3,3v8h8V3H3zM9,9H5V5h4V9zM3,13v8h8v-8H3zM9,19H5v-4h4V19zM13,3v8h8V3H13zM19,9h-4V5h4V9zM13,13v8h8v-8H13zM19,19h-4v-4h4V19z"/></svg></button><button id="tocb">目次</button><button id="workb">作品</button><button id="dispb">Aa</button></div>'
     +'<div class="botbar"><div class="ephint">数字を長押しすると、話を選べます</div><div class="row bar"><input id="seek" type="range" min="1" value="1"><span id="seekv"></span></div></div>'
     +'<div class="sheet w"><div class="head"></div></div>'+h;
   info.innerHTML=h;
@@ -1066,7 +1021,7 @@ span.sesame{text-emphasis-position:over right}
       prefs.upright=b.dataset.upright==='1'; markDisp(); save();
       if(window.Android)Android.reformat(cur()/Math.max(1,pages()-1),aaTab); return;
     }
-    if(b.id==='ykb'){openYk();return;}
+    if(b.id==='ysb'){toggleInfo(false);Yomisashi.open();return;}
     if(b.id==='tocb'){openToc();return;}
     if(b.id==='homeb'){if(window.Android)Android.shelf();return;}
     if(b.id==='workb'||b.id==='dispb'){var k=b.id==='workb'?'work':'disp';var o=info.classList.contains(k);
@@ -1177,72 +1132,11 @@ span.sesame{text-emphasis-position:over right}
   ['touchend','touchcancel'].forEach(function(t){seekv.addEventListener(t,unhold,{passive:true});});
   seekv.addEventListener('contextmenu',function(e){e.preventDefault();});
 
-  // よみかけ (SPIKE): drawn from Android.yomikake(); a card opens its work where it was left, ✕ (C) or a sweep up (A)
-  // takes it out of the row (not off the shelf). The work being read has no ✕ and does not sweep.
-  var yk=document.getElementById('yk'), ykData=null, ykSwiped=false;
-  function ykEsc(t){return String(t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-  function openYk(){toggleInfo(false);var d=null;
-    try{d=JSON.parse(window.Android?Android.yomikake():'{}');}catch(e){}
-    ykData=d&&d.items?d:{view:'c',max:6,items:[]};yk.classList.add('on');drawYk();}
-  function closeYk(){if(!yk.classList.contains('on'))return;yk.classList.remove('on','big');yk.innerHTML='';}
-  function ykInfo(w){return (w.text?'<div class="ex">'+ykEsc(w.text)+'</div>':'')+'<div class="su">'+ykEsc(w.sub)+'</div>'+(w.fresh?'<span class="nw">新着</span>':'')+
-    '<div class="pr"><i style="width:'+Math.round(w.pct*100)+'%"></i></div>';}
-  function drawYk(){var d=ykData,big=d.view==='a',it=d.items,h='<div class="dim" data-yk="close"></div>',i;
-    yk.classList.toggle('big',big);
-    if(!big){
-      h+='<div class="sh"><div class="hd"><span class="t">読みさし</span><button data-yk="a">大きく</button><button data-yk="close">閉じる</button></div><div class="grid">';
-      var n=Math.max(d.max,it.length+it.length%2);
-      for(i=0;i<n;i++){var w=it[i];
-        if(!w){h+='<div class="empty">空き</div>';continue;}
-        h+='<div class="cd'+(w.current?' cur':'')+'" data-key="'+ykEsc(w.key)+'">'+(w.current?'':'<button class="x" data-drop="'+ykEsc(w.key)+'" aria-label="読みさしから外す">✕</button>')+
-          '<div class="ti">'+ykEsc(w.title)+'</div>'+ykInfo(w)+(w.current?'<div class="now">いま読んでいる</div>':'')+'</div>';}
-      h+='</div><div class="nt">✕ で読みさしから外します（本棚には残ります）</div></div>';
-    }else{
-      h+='<div class="bg"><div class="hd"><span class="t">読みさし</span><button data-yk="c">小さく</button><button data-yk="close">閉じる</button></div>'+
-        '<div class="nt">上に払うと読みさしから外します</div><div class="row">';
-      if(!it.length)h+='<div class="bc"><div class="su">まだありません</div></div>';
-      it.forEach(function(w){h+='<div class="bc'+(w.current?' cur':'')+'" data-key="'+ykEsc(w.key)+'"><div class="vt">'+ykEsc(w.title)+'</div>'+ykInfo(w)+'</div>';});
-      h+='</div></div>';
-    }
-    yk.innerHTML=h;
-    if(big){var c=yk.querySelector('.bc.cur');if(c)c.scrollIntoView({inline:'center',block:'nearest'});yk.querySelectorAll('.bc[data-key]').forEach(ykSweep);}
-  }
-  // A: a card follows the finger up; past 90 px it goes out of the row.
-  function ykSweep(c){var y0=null,x0y=null,dy=0;
-    c.addEventListener('touchstart',function(e){y0=e.touches[0].clientY;x0y=e.touches[0].clientX;dy=0;c.style.transition='none';},{passive:true});
-    c.addEventListener('touchmove',function(e){if(y0===null)return;var my=e.touches[0].clientY-y0,mx=e.touches[0].clientX-x0y;
-      if(Math.abs(mx)>Math.abs(my)&&dy===0)return;dy=Math.min(0,my);if(dy<0){ykSwiped=true;c.style.transform='translateY('+dy+'px)';c.style.opacity=String(1+dy/400);}},{passive:true});
-    c.addEventListener('touchend',function(){if(y0===null)return;y0=null;c.style.transition='transform 180ms ease-out,opacity 180ms';
-      var cur=c.classList.contains('cur');
-      if(dy<-90&&!cur){c.style.transform='translateY(-120%)';c.style.opacity='0';var k=c.dataset.key;
-        setTimeout(function(){if(window.Android)Android.yomikakeDrop(k);ykData.items=ykData.items.filter(function(w){return w.key!==k;});drawYk();},180);}
-      else{c.style.transform='';c.style.opacity='';}
-      setTimeout(function(){ykSwiped=false;},50);});}
-  // The desk's sheet (C) closes as Aa's does: pulled down from its top past a third of its height (at least 120 px);
-  // short of that it slides back. Not once scrolled, so a scroll never ends in a close.
-  (function(){var sh=null,y0=null,dy=0;
-    function back(){if(!sh)return;sh.style.transition='transform 150ms ease-out';sh.style.transform='';}
-    yk.addEventListener('touchstart',function(e){
-      if(e.touches.length!==1){if(y0!==null)back();y0=null;dy=0;return;}
-      sh=e.target.closest&&e.target.closest('.sh');y0=sh&&sh.scrollTop<=0?e.touches[0].clientY:null;dy=0;if(sh)sh.style.transition='';},{passive:true});
-    yk.addEventListener('touchmove',function(e){
-      if(y0===null)return;
-      if(sh.scrollTop>0){y0=null;dy=0;sh.style.transform='';return;}
-      dy=Math.max(0,e.touches[0].clientY-y0-10);if(dy>0)ykSwiped=true;
-      sh.style.transform=dy>0?'translateY('+dy+'px)':'';},{passive:true});
-    yk.addEventListener('touchend',function(){
-      if(y0===null)return;y0=null;
-      if(dy>Math.max(120,sh.offsetHeight/3))closeYk();else back();
-      dy=0;setTimeout(function(){ykSwiped=false;},50);},{passive:true});
-    yk.addEventListener('touchcancel',function(){y0=null;dy=0;back();},{passive:true});
-  })();
-  yk.addEventListener('click',function(e){
-    if(ykSwiped)return;
-    var t=e.target, a=t.closest&&t.closest('[data-yk]'), x=t.closest&&t.closest('[data-drop]'), k=t.closest&&t.closest('[data-key]');
-    if(x){var dk=x.dataset.drop;if(window.Android)Android.yomikakeDrop(dk);ykData.items=ykData.items.filter(function(w){return w.key!==dk;});drawYk();return;}
-    if(a){var v=a.dataset.yk;if(v==='close'){closeYk();return;}ykData.view=v;if(window.Android)Android.yomikakeView(v);drawYk();return;}
-    if(k){if(k.classList.contains('cur')){closeYk();return;}k.style.opacity='.6';if(window.Android)Android.yomikakeOpen(k.dataset.key);}
-  });
+  // 読みさし (yomisashi.js), from the bar's icon: a card opens another work where it was left, without the shelf.
+  var ys=document.getElementById('ys');
+  Yomisashi.init(ys,{list:function(){return window.Android?Android.yomisashi():'{}';},
+    open:function(k){if(window.Android)Android.yomisashiOpen(k);},drop:function(k){if(window.Android)Android.yomisashiDrop(k);},
+    view:function(v){if(window.Android)Android.yomisashiView(v);},closed:function(){}});
   var toc=document.getElementById('toc'), tocLs=toc.querySelector('.ls'), tocSt=toc.querySelector('.st'), tocShown=0, tocPast=true, tocSec=null;
   function openToc(){toggleInfo(false);toc.classList.add('on');tocShown=0;tocPast=true;tocSec=null;tocLs.innerHTML='';tocSt.textContent='目次を読み込み中…';
     if(window.Android)Android.toc();}
@@ -1339,7 +1233,8 @@ span.sesame{text-emphasis-position:over right}
   }
   function owned(list){for(var i=0;i<list.length;i++)if(list[i].identifier===own)return list[i];return null;}
   document.addEventListener('touchstart',function(e){
-    if(busy||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on')){x0=null;own=null;return;}
+    // Not under 読みさし either: a tap on its cards turned the page beneath (the place went back a page with each switch).
+    if(busy||Yomisashi.isOpen()||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on')){x0=null;own=null;return;}
     // Fingers down besides this one, on the same half of the screen, not taken for a base (see thumbBase).
     function others(t){var n=0,left=t.clientX<window.innerWidth/2;for(var j=0;j<e.touches.length;j++){var o=e.touches[j];
       if(o.identifier!==t.identifier&&!based[o.identifier]&&(o.clientX<window.innerWidth/2)===left)n++;}return n;}
@@ -1370,7 +1265,7 @@ span.sesame{text-emphasis-position:over right}
     for(var k=0;k<e.changedTouches.length;k++)delete based[e.changedTouches[k].identifier];
     if(x0===null)return;
     var t=owned(e.changedTouches); if(!t)return;                    // another finger let go: not the gesture's
-    if(info.classList.contains('on')||guide.classList.contains('on')){x0=null;own=null;return;}
+    if(Yomisashi.isOpen()||info.classList.contains('on')||guide.classList.contains('on')){x0=null;own=null;return;}
     var x=t.clientX;
     if(dir){
       var go2=Math.abs(drag)>window.innerWidth*0.2||(dir*vx>0.5&&Math.abs(drag)>20);
@@ -1473,9 +1368,9 @@ span.sesame{text-emphasis-position:over right}
   });
   // A key (the volume keys) turns only the page in view: not under the bars, the 目次 or the end card.
   // Back (from the app) closes what is open; the app is told when anything opens or closes.
-  function anyOverlay(){return yk.classList.contains('on')||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on');}
+  function anyOverlay(){return Yomisashi.isOpen()||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on');}
   function closeOverlays(){
-    closeYk();
+    Yomisashi.close();
     if(toc.classList.contains('on')){toc.classList.remove('on');delete toc.dataset.scrolled;if(window.Android)Android.tocClosed();}
     info.classList.remove('on','work','disp');endEl.classList.remove('on');closeGuide();tellOverlay();unpull();
   }
@@ -1484,7 +1379,7 @@ span.sesame{text-emphasis-position:over right}
   new MutationObserver(tellOverlay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
   // Not during a swipe: a key then turned the page under it, and the swipe turned past the page beside it, never
   // shown (review on 0.1.6).
-  function key(d){if((x0!==null&&dir)||yk.classList.contains('on')||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on'))return;turn(d);}
+  function key(d){if((x0!==null&&dir)||Yomisashi.isOpen()||guide.classList.contains('on')||info.classList.contains('on')||toc.classList.contains('on')||endEl.classList.contains('on'))return;turn(d);}
   window.__reader={swap:swap,end:end,key:key,closeOverlays:closeOverlays,go:go,cur:cur,pages:pages,turn:turn,ticks:function(){return ticks;},vol:function(){return prefs.vol&&!info.classList.contains('on')&&!guide.classList.contains('on');},toc:renderToc};
   function start(){if(window.Android)Android.overlay(false);layout();starting=false;if(!prefs.guided)showGuide();go(SHARE>=0?Math.round(SHARE*(pages()-1)):START<0?pages()-1:START);
     // Reloaded for 空行, 字下げ or 英字: Aa as it was, on its tab, to go on choosing.

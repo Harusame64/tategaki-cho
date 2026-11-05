@@ -10,22 +10,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * よみかけ: the works being read, most recently read first, at most {@link #MAX}. Like the recent apps of the
+ * 読みさし: the works being read, most recently read first, at most {@link #MAX}. Like the recent apps of the
  * system: a work comes in when it is read (its {@code lastRead}), and goes out when swept away; sweeping only takes it
- * out of this row, never off the shelf, and reading it again brings it back (2026-11-04, the user).
+ * out of 読みさし, never off the shelf, and reading it again brings it back (2026-11-04/05, the user). Drawn by
+ * assets/yomisashi.js, from the reader's bars and over the shelf ({@link YomisashiActivity}).
  *
- * <p>SPIKE: tried on the phone before it is settled. What is kept: the time each work was swept away, in the
- * reader's preferences ({@code yomikakeOut}); a work counts as out while that time is not older than its lastRead.
+ * <p>What is kept: the time each work was swept away, in the reader's preferences ({@code yomisashiOut}); a work
+ * counts as out while that time is not older than its lastRead.
  */
-final class Yomikake {
+final class Yomisashi {
     /** At most this many works on the desk (2026-11-05, the user: "机ならスクロールで20個"); the sheet scrolls. */
     static final int MAX = 20;
     /** Places drawn at the least: the empty ones are shown up to this many, never twenty. */
     static final int PLACES = 6;
-    private static final String OUT = "yomikakeOut";
-    private static final String VIEW = "yomikakeView";
+    private static final String OUT = "yomisashiOut";
+    private static final String VIEW = "yomisashiView";
 
-    private Yomikake() {}
+    private Yomisashi() {}
 
     private static SharedPreferences prefs(Context c) {
         return c.getSharedPreferences("reader", Context.MODE_PRIVATE);
@@ -139,6 +140,31 @@ final class Yomikake {
             return b.length() > 90 ? b.substring(0, 90) : b.toString();
         } catch (Exception e) {
             return "";
+        }
+    }
+
+    /**
+     * Opens a work of 読みさし where a tap on its card says (see {@link #start}); its new episodes count as seen, as
+     * when opened from the shelf. On the caller's background thread; {@code then} runs on the UI thread after.
+     */
+    static void open(android.app.Activity a, String key, Runnable then) {
+        try {
+            Shelf s = Shelf.update(a, sh -> {
+                Shelf.Work cur = sh.find(key);
+                if (cur == null) return;
+                cur.seen = cur.episodes;
+                if (Shelf.isKakuyomu(cur.ncode)) KakuyomuSite.seeAll(a, cur);
+            });
+            Shelf.Work w = s.find(key);
+            if (w == null) return;
+            Object[] at = start(w);
+            a.runOnUiThread(() -> {
+                a.startActivity(new android.content.Intent(a, ReaderActivity.class)
+                        .putExtra("url", (String) at[0]).putExtra("page", (Integer) at[1]).putExtra("pages", (Integer) at[2]));
+                if (then != null) then.run();
+            });
+        } catch (Exception e) {
+            android.util.Log.e(Shelf.TAG, "open from 読みさし", e);
         }
     }
 
