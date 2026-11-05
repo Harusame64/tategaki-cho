@@ -112,7 +112,7 @@ public class YomisashiTest {
         Shelf.update(E2E.ctx(), s -> s.find(E2E.NCODE).lastPage = 9);
         it = item(E2E.NCODE);
         assertTrue(it.getString("text"), it.getString("text").startsWith("第3話の1段落。"));
-        assertEquals("2話を読み終え", it.getString("sub"));
+        assertEquals("2 話まで読み終えた", it.getString("sub"));
         assertTrue(it.getBoolean("fresh"));
         Object[] at = Yomisashi.start(Shelf.load(E2E.ctx()).find(E2E.NCODE));
         assertEquals(Shelf.episodeUrl(E2E.NCODE, 3), at[0]);
@@ -332,7 +332,7 @@ public class YomisashiTest {
         assertEquals("\"2 / 2 話\"", E2E.js(a, "document.querySelector('#ys .cd .su').textContent"));
         assertFalse("opening the sheet asks nothing", Net.asked.contains(ShelfFlowTest.API));
         E2E.tapIn(((ReaderActivity) a).web, "#ys [data-ys=\"check\"]");
-        E2E.waitFor(a, "document.querySelector('#ys .cd .su').textContent", "\"2話を読み終え\"");
+        E2E.waitFor(a, "document.querySelector('#ys .cd .su').textContent", "\"2 話まで読み終えた\"");
         assertTrue(Net.asked.toString(), Net.asked.contains(ShelfFlowTest.API));
         assertEquals("1", E2E.js(a, "document.querySelectorAll('#ys .cd .nw').length"));
         assertTrue(E2E.js(a, "document.querySelector('#ys .said').textContent"), E2E.js(a, "document.querySelector('#ys .said').textContent").contains("新着を確認しました"));

@@ -96,7 +96,7 @@ final class Yomisashi {
     static String where(Shelf.Work w) {
         if (w.shortStory) return "短編";
         if (Shelf.isAozora(w.ncode) || Guide.is(w.ncode)) return Math.max(1, w.lastEpisode) + " / " + Math.max(1, w.episodes);
-        if (finishedWithMore(w)) return w.lastEpisode + "話を読み終え";
+        if (finishedWithMore(w)) return w.lastEpisode + " 話まで読み終えた";
         return Math.max(1, w.lastEpisode) + " / " + Math.max(1, w.episodes) + " 話";
     }
 
@@ -243,7 +243,7 @@ final class Yomisashi {
                         : gone.size() + " 作品が見つかりません（削除か非公開）";
             } catch (Exception e) {
                 Log.w(Shelf.TAG, "読みさし: check", e);
-                msg = "確認できませんでした。電波の届く所で、もう一度お試しください";
+                msg = "通信できず、確認できませんでした";
             }
             done.accept(msg);
         });

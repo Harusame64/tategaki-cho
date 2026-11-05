@@ -41,10 +41,10 @@ var Yomisashi=(function(){
         if(!w){h+='<div class="empty">空き</div>';continue;}
         h+=card('cd',w,(w.current?'':'<button class="x" data-drop="'+esc(w.key)+'" aria-label="読みさしから外す">✕</button>')+
           '<div class="ti">'+esc(w.title)+'</div>'+info(w)+(w.current?'<div class="now">いま読んでいる</div>':''));}
-      h+='</div><div class="nt">✕ で読みさしから外します（本棚には残ります）</div></div>';
+      h+='</div><div class="nt">✕ で読みさしから外れます（本棚には残ります）</div></div>';
     }else{
       h+='<div class="bg"><div class="hd"><span class="t">読みさし</span>'+check()+'<button data-ys="c">小さく</button><button data-ys="close">閉じる</button></div>'+
-        said()+'<div class="nt">上に払うと読みさしから外します（本棚には残ります）</div><div class="row">';
+        said()+'<div class="nt">上へ払うと読みさしから外れます（本棚には残ります）</div><div class="row">';
       if(!it.length)h+='<div class="bc"><div class="su">まだありません</div></div>';
       it.forEach(function(w){h+=card('bc',w,'<div class="vt">'+esc(w.title)+'</div>'+info(w));});
       h+='</div></div>';
