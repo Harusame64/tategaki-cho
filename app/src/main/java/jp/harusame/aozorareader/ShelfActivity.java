@@ -820,7 +820,7 @@ public class ShelfActivity extends ThemedActivity {
     /** Opens a work where it was left; its new episodes count as seen. Not queued behind a check. */
     void open(Shelf.Work w) {
         if (!opening.compareAndSet(false, true)) return;
-        BG.execute(() -> { if (!Yomisashi.open(this, w.ncode, false, null)) opening.set(false); });
+        BG.execute(() -> { if (!Yomisashi.open(this, w.ncode, false, null, null)) opening.set(false); });
     }
 
     /** Long press: share the work (LINE, X, …), open its page, or take it off the shelf. */

@@ -132,7 +132,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 
 | | Scenario | Test |
 |---|---|---|
-| W1 | Newest first, twenty at most, never-read works left out; a work taken out stays on the shelf and comes back when read again | newestFirstTwentyAtMostAndTakenOutUntilReadAgain |
+| W1 | Newest first, twenty at most, never-read works left out; a work taken out stays on the shelf and comes back when read again, a clock set back or not | newestFirstTwentyAtMostAndTakenOutUntilReadAgain |
 | W1b | With many works, ✕ on a card far down, and ⟳, leave the sheet scrolled where it was; a failed check says what the shelf's says | takingOneOutKeepsTheSheetScrolled |
 | W1c | The time a work was taken out is forgotten once it is read again or gone from the shelf | theTimesTakenOutAreForgottenWhenNoLongerNeeded |
 | W2 | A card shows a few lines where it opens, from the kept text without ruby readings (なろう, カクヨム by episode id); past the last page of an older episode it opens the next one, says so and marks 新着; nothing is fetched | aCardShowsTheTextWhereItOpens |
@@ -140,6 +140,7 @@ first episode is the bundled sample) with its episodes kept on the shelf.
 | W2c | The cards' text comes in after they are drawn and moves nothing: ⟳ in the heading stays where it was | theTextComingInMovesNothing |
 | W3 | From the reader, a real tap on another work's card (on the right, under the page-back zone) opens it where it was left, and the place in the work left does not move | aCardSwitchesWorksAndLeavesThePlaceAlone |
 | W3b | Two clicks on a card before the switch is done open one reader, not two stacked | twoQuickTapsOpenOneReader |
+| W3c | A card tapped, then the sheet closed before the work came up: nothing opens | aSheetClosedAfterATapOpensNothing |
 | W4 | A tap on the work being read, 閉じる and Back only close it; none turns the page or closes the reader | theCurrentCardCloseAndBackOnlyClose |
 | W5 | Pulled down from its top past a third of its height the sheet closes; a short pull slides back | aPullDownClosesTheSheet |
 | W5e | A pull on the sheet that a second finger ends leaves taps working | aPullEndedByASecondFingerLeavesTapsWorking |

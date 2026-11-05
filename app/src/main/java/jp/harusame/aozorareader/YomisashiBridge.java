@@ -24,7 +24,8 @@ import java.util.function.Supplier;
 final class YomisashiBridge {
     /** How a screen opens a work: {@code failed} runs (on any thread) when nothing was opened. */
     interface Opener {
-        void open(String key, Runnable failed);
+        /** {@code wanted}: still wanted when the reader is to start (see Yomisashi.open). */
+        void open(String key, java.util.function.BooleanSupplier wanted, Runnable failed);
     }
 
     /** The cards' text, read off the page's thread: up to twenty kept episodes. */
@@ -99,7 +100,7 @@ final class YomisashiBridge {
     public void open(String key) {
         if (!opening.compareAndSet(false, true)) return;
         WeakReference<YomisashiBridge> me = new WeakReference<>(this);
-        opener.open(key, () -> {
+        opener.open(key, opening::get, () -> {
             YomisashiBridge b = me.get();
             if (b == null) return;
             b.opening.set(false);
@@ -132,8 +133,11 @@ final class YomisashiBridge {
         });
     }
 
+    /** The page closed the sheet: a tapped work on its way is no longer wanted, and the book kept is let go. */
     @JavascriptInterface
     public void closed() {
+        reset();
+        Yomisashi.forget();
         Activity a = activity.get();
         if (a != null && closed != null) a.runOnUiThread(closed);
     }

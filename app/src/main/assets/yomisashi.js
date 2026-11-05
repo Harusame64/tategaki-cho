@@ -40,7 +40,7 @@ var Yomisashi=(function(){
   // The work could not be opened (taken off the shelf meanwhile, say): its card comes back, and the others take taps.
   function failed(){opening=false;note='開けませんでした';if(isOpen())draw(true);}
   function close(){if(!isOpen())return;el.classList.remove('on','big');el.innerHTML='';if(host.closed)host.closed();}
-  function drop(k){host.drop(k);data.items=data.items.filter(function(w){return w.key!==k;});draw(true);}
+  function drop(k){host.drop(k);data.items=data.items.filter(function(w){return w.key!==k;});if(isOpen())draw(true);}   // a sweep's drop may come after a close
   // The text's place is kept from the first draw (three lines), so the text coming in moves nothing under a finger.
   function info(w){return '<div class="ex">'+esc(w.text||'')+'</div>'+'<div class="su">'+esc(w.sub)+'</div>'+
     (w.fresh?'<span class="nw">新着</span>':'')+'<div class="pr"><i style="width:'+Math.round(w.pct*100)+'%"></i></div>';}
@@ -108,7 +108,7 @@ var Yomisashi=(function(){
       if(swiped)return;
       var t=ev.target, a=t.closest&&t.closest('[data-ys]'), x=t.closest&&t.closest('[data-drop]'), k=t.closest&&t.closest('[data-key]');
       // A (large cards): the dark ground around them is outside, as the dim is in C.
-      if(el.classList.contains('big')&&!a&&!x&&!k&&t.closest&&!t.closest('button,.hd')){close();return;}
+      if(el.classList.contains('big')&&!a&&!x&&!k&&t.closest&&!t.closest('button,.hd,.said,.nt,.bc')){close();return;}
       if(x){drop(x.dataset.drop);return;}
       if(a){var v=a.dataset.ys;if(v==='close'){close();return;}
         if(v==='check'){if(checking)return;checking=true;note='新着を確認しています…';draw(true);host.check();return;}

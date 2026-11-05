@@ -95,6 +95,12 @@ public class YomisashiTest {
         assertNotNull("taken out of 読みさし only", Shelf.load(E2E.ctx()).find("n0021zy"));
         Shelf.update(E2E.ctx(), s -> s.find("n0021zy").lastRead = System.currentTimeMillis() + 1000);
         assertEquals("read again, it is back", "n0021zy", Yomisashi.list(E2E.ctx()).get(0).ncode);
+        // A clock set back: read again at a time before the one it was taken out at, it is back all the same.
+        Yomisashi.drop(E2E.ctx(), "n0021zy");
+        assertFalse(Yomisashi.list(E2E.ctx()).get(0).ncode.equals("n0021zy"));
+        // (1 ms before, so it stays among the twenty newest; any time before the one it was taken out at will do.)
+        Shelf.update(E2E.ctx(), s -> s.find("n0021zy").lastRead -= 1);
+        assertTrue("read again with the clock set back", Yomisashi.list(E2E.ctx()).stream().anyMatch(w -> w.ncode.equals("n0021zy")));
     }
 
     /**
@@ -247,6 +253,20 @@ public class YomisashiTest {
             readers.set(n);
         });
         assertEquals("one reader open", 1, (int) readers.get());
+    }
+
+    /** W3c: a card tapped, then the sheet closed (Back) before the work came up: nothing opens. */
+    @Test
+    public void aSheetClosedAfterATapOpensNothing() throws Exception {
+        long now = System.currentTimeMillis();
+        seed(E2E.NCODE, E2E.TITLE, 3, 1, 2, 0, now - 1000);
+        seed(OTHER, "もう一つの作品", 3, 2, 1, 0, now - 2000);
+        Activity a = reader(E2E.NCODE, 1, 2);
+        openFromBar(a);
+        E2E.js(a, "(function(){document.querySelector('#ys .cd[data-key=\"" + OTHER + "\"] .ti').click();Yomisashi.close();})()");
+        SystemClock.sleep(2500);
+        assertFalse("the reader stays", a.isFinishing());
+        assertTrue(E2E.js(a, "INFO.url"), E2E.js(a, "INFO.url").contains(E2E.NCODE + "/1/"));
     }
 
     /** W4: a tap on the work being read only closes 読みさし; so do 閉じる and Back, and none turns the page. */

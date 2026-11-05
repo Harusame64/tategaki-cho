@@ -106,10 +106,11 @@ public class ReaderActivity extends Activity {
         web.addJavascriptInterface(new Bridge(), "Android");
         // 読みさし: a card switches to another work where it was left, without the shelf. The place in the work being
         // read is written first, on the saver, so the switch sees it.
-        web.addJavascriptInterface(new YomisashiBridge(this, web, () -> { Prepared p = shown; return workKeyOf(p == null ? null : p.url); },
-                (key, failed) -> run(saver, () -> {
+        // The work being read: by the episode last shown, as shown is null while one is formatted again (Aa's 空行).
+        web.addJavascriptInterface(new YomisashiBridge(this, web, () -> workKeyOf(readingUrl),
+                (key, wanted, failed) -> run(saver, () -> {
                     savePlace();
-                    if (!Yomisashi.open(this, key, () -> {
+                    if (!Yomisashi.open(this, key, wanted, () -> {
                         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
                         finish();
                     })) failed.run();
@@ -625,6 +626,8 @@ public class ReaderActivity extends Activity {
      * the page. The one just left is kept as is; the others are formatted only from the cache.
      */
     volatile Prepared shown, nextReady, prevReady;
+    /** the URL of the episode last shown; not cleared while one is formatted again (for 読みさし's current work) */
+    volatile String readingUrl;
     /** The page shown when なろう episodes were renumbered, and old number to new (see tocPage, savePlace). */
     volatile Object[] renumbered;
     /** The page last reported: the Prepared it came from, the page, the page count. */
@@ -709,6 +712,7 @@ public class ReaderActivity extends Activity {
         Prepared left = shown;
         if (p.ep != null) current = p.ep;
         shown = p;
+        if (p.url != null) readingUrl = p.url;
         synchronized (ready) { nextReady = prevReady = null; readAheadGen++; }
         if (left != null && !left.failed && left.ep != null && p.ep != null && !p.failed) {
             if (left.url != null && p.ep.prevUrl != null && sameEpisode(left.url, p.ep.prevUrl)) prevReady = left;

@@ -16,8 +16,9 @@ import java.util.List;
  * out of 読みさし, never off the shelf, and reading it again brings it back (2026-11-04/05, the user). Drawn by
  * assets/yomisashi.js, from the reader's bars and over the shelf ({@link YomisashiOverlay}).
  *
- * <p>What is kept: the time each work was swept away, in the reader's preferences ({@code yomisashiOut}); a work
- * counts as out while that time is not older than its lastRead.
+ * <p>What is kept: for each work swept away, its lastRead then, in the reader's preferences ({@code yomisashiOut});
+ * it is out while its lastRead is still that one. Not a time compared with lastRead: a clock set back kept a work
+ * read again out (review).
  */
 final class Yomisashi {
     /** At most this many works on the desk (2026-11-05, the user: "机ならスクロールで20個"); the sheet scrolls. */
@@ -48,7 +49,7 @@ final class Yomisashi {
         Shelf shelf = Shelf.load(c);
         for (Shelf.Work w : shelf.works) {
             if (w.lastRead <= 0) continue;
-            if (out.optLong(w.ncode, 0) >= w.lastRead) continue;
+            if (out.has(w.ncode) && out.optLong(w.ncode, -1) == w.lastRead) continue;
             all.add(w);
         }
         if (!shelf.unread) prune(c, shelf, out);
@@ -65,21 +66,23 @@ final class Yomisashi {
         for (java.util.Iterator<String> i = out.keys(); i.hasNext(); ) {
             String k = i.next();
             Shelf.Work w = shelf.find(k);
-            if (w == null || w.lastRead > out.optLong(k, 0)) stale.add(k);
+            if (w == null || w.lastRead != out.optLong(k, -1)) stale.add(k);
         }
         if (stale.isEmpty()) return;
         JSONObject now = out(c);                                            // as written now, not as read before
         for (String k : stale) {
             Shelf.Work w = shelf.find(k);
-            if (w == null || w.lastRead > now.optLong(k, 0)) now.remove(k);
+            if (w == null || w.lastRead != now.optLong(k, -1)) now.remove(k);
         }
         prefs(c).edit().putString(OUT, now.toString()).apply();
     }
 
     static synchronized void drop(Context c, String key) {
+        Shelf.Work w = Shelf.load(c).find(key);
+        if (w == null) return;
         JSONObject out = out(c);
         try {
-            out.put(key, System.currentTimeMillis());
+            out.put(key, w.lastRead);
         } catch (Exception ignored) {
             return;
         }
@@ -110,14 +113,14 @@ final class Yomisashi {
      * their sections are a fixed book, and the next one is not news.
      */
     static boolean fresh(Shelf.Work w) {
-        if (Shelf.isAozora(w.ncode) || Guide.is(w.ncode)) return false;
+        if (Shelf.isAozora(w.ncode)) return false;
         return finishedWithMore(w) || w.newEpisodes() > 0;
     }
 
     /** Where the work was left, as a card says it. */
     static String where(Shelf.Work w) {
         if (w.shortStory) return "短編";
-        if (Shelf.isAozora(w.ncode) || Guide.is(w.ncode)) return Math.max(1, w.lastEpisode) + " / " + Math.max(1, w.episodes);
+        if (Shelf.isAozora(w.ncode)) return Math.max(1, w.lastEpisode) + " / " + Math.max(1, w.episodes);
         if (finishedWithMore(w)) return w.lastEpisode + " 話まで読み終えた";
         return Math.max(1, w.lastEpisode) + " / " + Math.max(1, w.episodes) + " 話";
     }
@@ -145,8 +148,8 @@ final class Yomisashi {
         int ep = next ? w.lastEpisode + 1 : w.lastEpisode;
         try {
             java.io.File f = Episodes.cacheFile(c, next ? Shelf.episodeUrl(w.ncode, ep) : w.startUrl());
-            boolean book = Shelf.isAozora(w.ncode) || Guide.is(w.ncode);
-            if (!f.isFile() || f.length() > (book ? 32_000_000 : 4_000_000)) return "";
+            boolean book = Shelf.isAozora(w.ncode);
+            if (!f.isFile() || f.length() > (book ? 8_000_000 : 4_000_000)) return "";
             double at = !next && w.lastPages > 1 ? (double) w.lastPage / (w.lastPages - 1) : 0;
             String key = f.getPath() + "|" + f.lastModified() + "|" + f.length() + "|" + ep + "|" + at;
             String kept = EXCERPTS.get(key);
@@ -161,7 +164,9 @@ final class Yomisashi {
             String out = excerptAt(html, at);
             EXCERPTS.put(key, out);
             return out;
-        } catch (Exception e) {
+        } catch (Exception | OutOfMemoryError e) {
+            // A book too big for the phone's memory has no excerpt, and the app goes on (an Error passed this by).
+            if (e instanceof OutOfMemoryError) SECTIONS.clear();
             Log.w(Shelf.TAG, "読みさし: no excerpt for " + w.ncode, e);
             return "";
         }
@@ -176,6 +181,9 @@ final class Yomisashi {
                 @Override
                 protected boolean removeEldestEntry(java.util.Map.Entry<String, JSONArray> e) { return size() > 1; }
             });
+
+    /** The sheet is closed: the book kept for it is let go. */
+    static void forget() { SECTIONS.clear(); }
 
     private static JSONArray sections(java.io.File f) throws Exception {
         String key = f.getPath() + "|" + f.lastModified() + "|" + f.length();
@@ -267,16 +275,18 @@ final class Yomisashi {
      * Opens a work where a tap on its 読みさし card says (see {@link #start}); its new episodes count as seen.
      * On the caller's background thread; {@code then} runs on the UI thread after.
      */
-    static boolean open(android.app.Activity a, String key, Runnable then) {
-        return open(a, key, true, then);
+    static boolean open(android.app.Activity a, String key, java.util.function.BooleanSupplier wanted, Runnable then) {
+        return open(a, key, true, wanted, then);
     }
 
     /**
      * Opens a work, its new episodes counted as seen: where 読みさし says ({@code next}: past the last page of an
      * older episode, the next one), or where it was left (the shelf). The one way both open a work.
+     * @param wanted still wanted when the reader is to start: not once the sheet was closed, or the screen left,
+     *        after the tap (Back pressed while it was on its way); null for always
      * @return false when nothing was opened (the work is gone from the shelf, or the shelf could not be read)
      */
-    static boolean open(android.app.Activity a, String key, boolean next, Runnable then) {
+    static boolean open(android.app.Activity a, String key, boolean next, java.util.function.BooleanSupplier wanted, Runnable then) {
         try {
             Shelf s = Shelf.update(a, sh -> {
                 Shelf.Work cur = sh.find(key);
@@ -288,6 +298,7 @@ final class Yomisashi {
             if (w == null) return false;
             Object[] at = next ? start(w) : new Object[]{w.startUrl(), w.lastPage, w.lastPages};
             a.runOnUiThread(() -> {
+                if (a.isFinishing() || a.isDestroyed() || (wanted != null && !wanted.getAsBoolean())) return;
                 a.startActivity(new android.content.Intent(a, ReaderActivity.class)
                         .putExtra("url", (String) at[0]).putExtra("page", (Integer) at[1]).putExtra("pages", (Integer) at[2]));
                 if (then != null) then.run();

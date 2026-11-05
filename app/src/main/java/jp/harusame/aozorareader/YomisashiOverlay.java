@@ -28,19 +28,14 @@ import java.util.concurrent.ExecutorService;
  */
 final class YomisashiOverlay {
     private final Activity a;
-    private final ExecutorService bg;
     private final WebView web;
     private boolean ready, wanted;
     private final OnBackInvokedCallback back = this::close;
     private final YomisashiBridge bridge;
 
-    /** run on the UI thread after ⟳'s check, so the shelf behind shows what it found */
-    private final Runnable checked;
 
     YomisashiOverlay(Activity a, ExecutorService bg, Runnable checked) {
         this.a = a;
-        this.bg = bg;
-        this.checked = checked;
         web = new WebView(a);
         web.setBackgroundColor(Color.TRANSPARENT);
         web.setVisibility(View.GONE);
@@ -74,7 +69,7 @@ final class YomisashiOverlay {
             }
         });
         bridge = new YomisashiBridge(a, web, () -> null,
-                (key, failed) -> bg.execute(() -> { if (!Yomisashi.open(a, key, null)) failed.run(); }),   // the overlay goes as the reader comes up (the shelf's onPause)
+                (key, wanted, failed) -> bg.execute(() -> { if (!Yomisashi.open(a, key, wanted, null)) failed.run(); }),   // the overlay goes as the reader comes up (the shelf's onPause)
                 checked,
                 // Only if it is still closed: Back hid it, the icon showed it again, and then this old close came in.
                 () -> { if (!a.isDestroyed()) web.evaluateJavascript("Yomisashi.isOpen()", v -> { if ("false".equals(v)) hide(); }); });
